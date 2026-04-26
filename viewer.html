@@ -279,6 +279,8 @@ const tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE, 시행규칙: wind
 const tblPdfData = window._DATA_TBL_PDF;
 
 let opts=[];
+// currentTab은 init() 안에서 호출되는 updateUrlForArticle()이 참조하므로 미리 선언 (TDZ 회피)
+let currentTab='compare';
 (function init(){
   // 조문 목록 + 장 정보
   for(const e of mapData.매핑){
@@ -816,8 +818,6 @@ function openTable(lawType,ref){
   }
   overlay.classList.add('open');
 }
-
-let currentTab='compare';
 
 function switchTab(tab){
   currentTab=tab;
