@@ -1,0 +1,28 @@
+# 빌드 중간 산출물 — 모두 update_all.py로 재생성 가능 (push 제외, 저장소 가벼움 유지)
+# 뷰어 작동에는 web_data/*.js (가공본)만 필요. data/*.json은 빌드 입력/중간 산출물.
+data/*.json
+!data/.gitkeep
+
+# 시점별 별표 PDF는 별도 처리 — push 포함 (뷰어가 직접 참조). 폴더는 유지.
+!data/table_pdfs/
+
+# 옛 임베드 뷰어 (현재는 viewer.html + web_data/ 분리 빌드 사용)
+three_tier_viewer.html
+
+# 백업 폴더
+backup_before_*/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.vscode/
+.idea/
