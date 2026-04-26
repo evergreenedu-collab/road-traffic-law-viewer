@@ -788,33 +788,45 @@ function openTable(lawType,ref){
     const safeTitle=(found.val.제목||'').replace(/[\\/:*?"<>|]/g,'').slice(0,40);
     const fileName=`도로교통법 ${lawType} [${found.key}] ${safeTitle}`;
 
+    // PDF 소스 결정:
+    //   - 별지(서식): PDF_BASE64 (작아서 임베드 OK)
+    //   - 별표: 로컬 PDF 파일 경로 (큰 파일 대응)
+    let pdfSrc = '';
+    let isLocalFile = false;
+    if(found.val.PDF_BASE64){
+      // base64 → Blob URL (다운로드 + 미리보기 둘 다 가능)
+      const bin=atob(found.val.PDF_BASE64);
+      const arr=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+      const blob=new Blob([arr],{type:'application/pdf'});
+      pdfSrc=URL.createObjectURL(blob);
+    } else if(found.val.구분==='별표'){
+      // 별표는 로컬 PDF 파일 (data/table_pdfs/) 사용
+      const latestPub=(tblPdfData[lawType]||{})[found.key];
+      if(latestPub){
+        pdfSrc=localPdfPath(lawType, found.key, latestPub);
+        isLocalFile=true;
+      }
+    }
+
     // 상단 다운로드 버튼
     html+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">`;
-    if(found.val.PDF_BASE64){
-      html+=`<a class="pdf-link" id="pdfDownload" href="#" download="${fileName}.pdf" style="background:#c0392b">PDF 다운로드</a>`;
+    if(pdfSrc){
+      const dlAttr = isLocalFile ? `download="${fileName}.pdf"` : `download="${fileName}.pdf"`;
+      html+=`<a class="pdf-link" href="${pdfSrc}" ${dlAttr} style="background:#c0392b">PDF 다운로드</a>`;
     }
     if(found.val.HWP){
       html+=`<a class="pdf-link" href="https://www.law.go.kr${found.val.HWP}" target="_blank" style="background:var(--decree)">HWP 다운로드</a>`;
     }
     html+=`</div>`;
 
-    // PDF 미리보기 (Blob URL 사용 — 대용량 PDF 대응)
-    if(found.val.PDF_BASE64){
-      html+=`<iframe id="pdfPreview" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:6px"></iframe>`;
+    // PDF 미리보기
+    if(pdfSrc){
+      html+=`<iframe src="${pdfSrc}" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:6px"></iframe>`;
     }else{
-      html+=`<p style="color:var(--sub)">PDF 미리보기 없음</p>`;
+      html+=`<p style="color:var(--sub)">PDF 미리보기를 사용할 수 없습니다.</p>`;
     }
     bodyEl.innerHTML=html;
-    if(found.val.PDF_BASE64){
-      const bin=atob(found.val.PDF_BASE64);
-      const arr=new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
-      const blob=new Blob([arr],{type:'application/pdf'});
-      const blobUrl=URL.createObjectURL(blob);
-      document.getElementById('pdfPreview').src=blobUrl;
-      const dlBtn=document.getElementById('pdfDownload');
-      if(dlBtn)dlBtn.href=blobUrl;
-    }
   }
   overlay.classList.add('open');
 }
