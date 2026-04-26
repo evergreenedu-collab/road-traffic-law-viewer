@@ -525,7 +525,9 @@ function render(){
   html+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
   html+=`<button onclick="copyArticleLink('${jo}')" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" title="이 조문 URL 복사">🔗 링크 복사</button>`;
   html+=`<button onclick="window.print()" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" title="현재 화면 인쇄">🖨️ 인쇄</button>`;
-  html+=`<a href="https://www.law.go.kr/법령/도로교통법/제${encodeURIComponent(jo)}조" target="_blank" rel="noopener" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);text-decoration:none">📖 원문</a>`;
+  // 한글 path 전체 인코딩 — 모바일 브라우저는 한글 URL을 자동 인코딩하지 않아 law.go.kr 오류 발생
+  const lawSrcUrl = encodeURI(`https://www.law.go.kr/법령/도로교통법/제${jo}조`);
+  html+=`<a href="${lawSrcUrl}" target="_blank" rel="noopener" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);text-decoration:none">📖 원문</a>`;
   html+=`</div>`;
   html+=`</div>`;
 
