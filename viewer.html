@@ -882,13 +882,13 @@ function renderHistory(){
       html+=`<div style="margin:6px 0;padding:8px 10px;background:${colorBg};border-radius:5px">`;
       html+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:11px;padding:1px 6px;border-radius:3px;background:${colorMark};color:#fff;font-weight:600">${t.법령유형}</span><span style="font-size:13px;font-weight:600">${t.별표명}</span></div>`;
       html+=`<div style="font-size:12px;color:#451a03;margin-top:3px">${t.제목}</div>`;
-      // 최신 별표 PDF 보기 (PDF_BASE64 임베드, 클릭 시에만 로드 — 페이지 무거움 방지)
-      const pdfB64=(tblPdfData[t.법령유형]||{})[t.별표명];
-      if(pdfB64){
-        const pdfId=`pdf_${t.법령유형}_${t.별표명.replace(/\s/g,'_')}`;
-        html+=`<details style="margin-top:6px" ontoggle="if(this.open){const c=this.querySelector('.pdf-mount'); if(c&&!c.dataset.loaded){c.innerHTML='<iframe src=\\'data:application/pdf;base64,'+c.dataset.b64+'\\' style=\\'width:100%;height:600px;border:1px solid #d4d4d8;border-radius:4px\\'></iframe>'; c.dataset.loaded='1';}}">`;
+      // 최신 별표 PDF 보기 — 로컬 파일 경로 (큰 PDF도 안정적으로 표시)
+      const latestPub=(tblPdfData[t.법령유형]||{})[t.별표명];
+      if(latestPub){
+        const pdfPath=localPdfPath(t.법령유형, t.별표명, latestPub);
+        html+=`<details style="margin-top:6px" ontoggle="if(this.open){const c=this.querySelector('.pdf-mount'); if(c&&!c.dataset.loaded){c.innerHTML='<iframe src=\\''+c.dataset.path+'\\' style=\\'width:100%;height:600px;border:1px solid #d4d4d8;border-radius:4px\\'></iframe>'; c.dataset.loaded='1';}}">`;
         html+=`<summary style="font-size:11px;color:#854d0e;cursor:pointer;font-weight:600">📄 최신 별표 PDF 보기 (정확한 표 구조)</summary>`;
-        html+=`<div class="pdf-mount" data-b64="${pdfB64}" style="margin-top:6px;min-height:40px"><div style="font-size:11px;color:var(--sub)">로딩 중...</div></div>`;
+        html+=`<div class="pdf-mount" data-path="${pdfPath}" style="margin-top:6px;min-height:40px"><div style="font-size:11px;color:var(--sub)">로딩 중...</div></div>`;
         html+=`</details>`;
       }
       // 텍스트 본문 (참고용, 표 구조는 깨짐)
