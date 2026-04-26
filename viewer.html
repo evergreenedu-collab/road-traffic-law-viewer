@@ -222,7 +222,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="toolbar">
   <label>조문</label>
-  <select id="sel" onchange="onArticleChange()"></select>
+  <select id="sel" onchange="onArticleChange()" autocomplete="off"></select>
   <input type="text" id="q" placeholder="🔍 조문/키워드 검색 (예: 안전띠)" oninput="filter()" onkeydown="if(event.key==='Escape'){this.value='';filter();}">
   <div class="tab-switch" id="tabSwitch">
     <button class="tab-btn active" data-tab="compare" onclick="switchTab('compare')">3단 비교</button>
@@ -303,9 +303,21 @@ let currentTab='compare';
     const tabParam = url.searchParams.get('tab');
     let initJo = opts[0].jo;
     if(joParam && opts.some(o=>o.jo===joParam)) initJo = joParam;
-    document.getElementById('sel').value = initJo;
-    if(tabParam==='history') switchTab('history');
-    else render();
+    // 새로고침 시 브라우저 form 캐시가 select 값을 덮어쓸 수 있어
+    // requestAnimationFrame으로 DOM 갱신 후 다시 한 번 강제 설정 + 렌더
+    const doInit = () => {
+      const sel = document.getElementById('sel');
+      sel.value = initJo;
+      try {
+        if(tabParam==='history') switchTab('history');
+        else render();
+      } catch(e) {
+        console.error('초기 렌더 오류:', e);
+        document.getElementById('content').innerHTML = '<div style="padding:20px;color:#991b1b">화면을 그리는 중 오류가 발생했습니다. 브라우저 새로고침(Ctrl+F5)을 한번 더 해보세요. 문제가 지속되면 개발자 콘솔(F12)의 오류를 확인해주세요.</div>';
+      }
+    };
+    if(window.requestAnimationFrame) requestAnimationFrame(doInit);
+    else doInit();
   }
   // 첫 방문 온보딩 (조문 직접 링크로 들어온 경우엔 표시 안 함)
   const url2 = new URL(window.location.href);
