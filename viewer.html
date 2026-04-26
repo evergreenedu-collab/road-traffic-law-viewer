@@ -1061,7 +1061,7 @@ function renderHistory(){
             const afterPath=t.이후PDF_URL?localPdfPath('시행령', t.별표명, dec.공포일자):'';
             const ext=t.이전PDF_URL?`https://www.law.go.kr${t.이전PDF_URL}`:'';
             const ext2=t.이후PDF_URL?`https://www.law.go.kr${t.이후PDF_URL}`:'';
-            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.innerHTML=pdfPreviewHtml(c.dataset.path,'700px'); c.dataset.loaded='1';}});}">`;
+            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.style.display='block'; c.style.padding='0'; c.style.background='transparent'; c.style.border='none'; c.style.height='auto'; c.innerHTML=pdfPreviewHtml(c.dataset.path,'min(70vh,500px)'); c.dataset.loaded='1';}});}">`;
             html+=`<summary style="font-size:12px;color:#854d0e;cursor:pointer;font-weight:700">📄 ${t.별표명} 개정 직전·직후 PDF 좌우 비교</summary>`;
             html+=`<div class="pdf-compare-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">`;
             html+=`<div><div style="font-size:11px;font-weight:600;color:#991b1b;margin-bottom:4px">개정 직전 (${t.이전공포일?fmtD(t.이전공포일):'없음'}) ${ext?'<a href="'+ext+'" target="_blank" rel="noopener" style="font-size:10px;color:var(--sub);margin-left:6px">[원본 새 탭]</a>':''}</div>`;
@@ -1142,7 +1142,7 @@ function renderHistory(){
             const afterPath=t.이후PDF_URL?localPdfPath('시행규칙', t.별표명, rule.공포일자):'';
             const ext=t.이전PDF_URL?`https://www.law.go.kr${t.이전PDF_URL}`:'';
             const ext2=t.이후PDF_URL?`https://www.law.go.kr${t.이후PDF_URL}`:'';
-            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.innerHTML=pdfPreviewHtml(c.dataset.path,'700px'); c.dataset.loaded='1';}});}">`;
+            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.style.display='block'; c.style.padding='0'; c.style.background='transparent'; c.style.border='none'; c.style.height='auto'; c.innerHTML=pdfPreviewHtml(c.dataset.path,'min(70vh,500px)'); c.dataset.loaded='1';}});}">`;
             html+=`<summary style="font-size:12px;color:#854d0e;cursor:pointer;font-weight:700">📄 ${t.별표명} 개정 직전·직후 PDF 좌우 비교</summary>`;
             html+=`<div class="pdf-compare-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">`;
             html+=`<div><div style="font-size:11px;font-weight:600;color:#991b1b;margin-bottom:4px">개정 직전 (${t.이전공포일?fmtD(t.이전공포일):'없음'}) ${ext?'<a href="'+ext+'" target="_blank" rel="noopener" style="font-size:10px;color:var(--sub);margin-left:6px">[원본 새 탭]</a>':''}</div>`;
