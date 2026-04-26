@@ -1527,6 +1527,34 @@ function lcsLines(a,b){
 function escPlain(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
 function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
+
+// 내부 조문 인용 클릭 시 — 모달로 미리보기 (원래 화면 유지). 더 깊이 보려면 "이 조문 화면으로 이동" 버튼.
+function popupArticle(joKey){
+  const art = artData.법률.조문[joKey];
+  if(!art){
+    alert('제'+joKey+'조를 찾을 수 없습니다.');
+    return;
+  }
+  document.getElementById('modalTitle').textContent = `제${joKey}조 ${art.조문제목||''}`;
+  let body = `<div style="font-size:13px;line-height:1.9;color:var(--text)">`;
+  if(art.조문내용) body += escHtml(art.조문내용).replace(/\n/g,'<br>');
+  for(const h of (art.항||[])){
+    body += `<div style="margin-top:10px;padding-left:14px">`;
+    if(h.항번호) body += `<span style="font-weight:600;color:var(--law);margin-right:6px">${escHtml(h.항번호)}</span>`;
+    body += escHtml(h.항내용||'').replace(/\n/g,'<br>');
+    for(const ho of (h.호||[])){
+      body += `<div style="margin-top:5px;padding-left:18px;color:var(--sub);font-size:12.5px">${escHtml(ho.호내용||'').replace(/\n/g,'<br>')}</div>`;
+    }
+    body += `</div>`;
+  }
+  body += `</div>`;
+  body += `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);text-align:center">`;
+  body += `<button onclick="closeModal();goArticle('${joKey}')" style="padding:9px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">📂 이 조문 화면으로 이동</button>`;
+  body += `<div style="font-size:11px;color:var(--sub);margin-top:8px">참고용 미리보기 — 시행령·시행규칙·연혁까지 보려면 위 버튼 클릭</div>`;
+  body += `</div>`;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modalOverlay').classList.add('open');
+}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 
 // 호내용에서 앞의 중복 번호 제거: "1.  말ㆍ소..." → "말ㆍ소..."
@@ -1603,7 +1631,7 @@ function esc(s){
     const joKey=joBranch?joNum+'의'+joBranch:joNum;
     const display=match.trim();
     // 뷰어 내 해당 조문으로 이동 (드롭다운 변경 + 렌더)
-    placeholders.push('<a href="javascript:void(0)" onclick="goArticle(\''+joKey+'\')" style="color:var(--law);text-decoration:underline;cursor:pointer" title="제'+joKey+'조로 이동">'+display+'</a>');
+    placeholders.push('<a href="javascript:void(0)" onclick="popupArticle(\''+joKey+'\')" style="color:var(--law);text-decoration:underline;cursor:pointer" title="제'+joKey+'조 미리보기 (팝업)">'+display+'</a>');
     return '___PH'+idx+'___';
   });
   t=t.replace(/영\s*제(\d+)조(?:의(\d+))?(?:\s*제(\d+)항)?/g, function(match,joNum,joBranch,hangNum){
@@ -1627,7 +1655,7 @@ function esc(s){
     const idx=placeholders.length;
     const joKey=joBranch?joNum+'의'+joBranch:joNum;
     const display=match.trim();
-    placeholders.push('<a href="javascript:void(0)" onclick="goArticle(\''+joKey+'\')" style="color:var(--law);text-decoration:underline;cursor:pointer" title="제'+joKey+'조로 이동">'+display+'</a>');
+    placeholders.push('<a href="javascript:void(0)" onclick="popupArticle(\''+joKey+'\')" style="color:var(--law);text-decoration:underline;cursor:pointer" title="제'+joKey+'조 미리보기 (팝업)">'+display+'</a>');
     return '___PH'+idx+'___';
   });
 
