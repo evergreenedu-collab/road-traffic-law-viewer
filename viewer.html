@@ -1229,18 +1229,18 @@ function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 // 모바일 감지 — 모바일 브라우저는 iframe 안 PDF 렌더링 미지원 (특히 iOS Safari)
 const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobi|webOS/i.test(navigator.userAgent);
 
-// PDF 미리보기 HTML 생성 — 모바일은 PDF.js viewer로 인라인 렌더링 (모바일 브라우저 PDF iframe 미지원 우회)
+// PDF 미리보기 HTML 생성 — 모바일은 Google Docs Viewer로 PDF 인라인 렌더링 (모바일 브라우저 PDF iframe 미지원 우회)
 function pdfPreviewHtml(src, height){
   height = height || '70vh';
   if(!src) return '<p style="color:var(--sub);text-align:center;padding:20px">PDF 미리보기 없음</p>';
   if(IS_MOBILE){
-    // 모바일: PDF.js 공식 viewer로 인라인 표시 (CORS는 GitHub Pages가 Allow-Origin:* 보내므로 OK)
     let fullUrl;
     if(src.startsWith('blob:') || src.startsWith('data:')) fullUrl = src;
     else fullUrl = new URL(src, window.location.href).href;
-    const viewerUrl = 'https://mozilla.github.io/pdf.js/web/viewer.html?file=' + encodeURIComponent(fullUrl);
-    return `<iframe src="${viewerUrl}" style="width:100%;height:${height};border:1px solid var(--border);border-radius:6px;background:#525659"></iframe>
-            <div style="margin-top:8px;font-size:11px;color:var(--sub);text-align:center">PDF가 안 뜨면 <a href="${src}" target="_blank" rel="noopener" style="color:var(--law);text-decoration:underline">새 탭에서 직접 열기</a></div>`;
+    // Google Docs Viewer (gview) — PDF를 이미지처럼 렌더링, 모바일 호환성 좋음
+    const viewerUrl = 'https://docs.google.com/gview?url=' + encodeURIComponent(fullUrl) + '&embedded=true';
+    return `<iframe src="${viewerUrl}" style="width:100%;height:${height};border:1px solid var(--border);border-radius:6px;background:#fff"></iframe>
+            <div style="margin-top:8px;font-size:11px;color:var(--sub);text-align:center;word-break:keep-all;line-height:1.6">PDF가 안 뜨면 <a href="${src}" target="_blank" rel="noopener" style="color:var(--law);text-decoration:underline;white-space:nowrap">[새 탭에서 직접 열기]</a></div>`;
   }
   return `<iframe src="${src}" style="width:100%;height:${height};border:1px solid var(--border);border-radius:6px"></iframe>`;
 }
