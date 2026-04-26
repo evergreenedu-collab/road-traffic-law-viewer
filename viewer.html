@@ -249,6 +249,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="main" id="content"></div>
 <div class="main" id="historyContent" style="display:none"></div>
+<script>
+// 깜빡임 방지 — URL의 ?tab=history면 첫 페인트 전에 탭 즉시 전환
+(function(){
+  try {
+    if(new URLSearchParams(location.search).get('tab')==='history'){
+      document.getElementById('content').style.display='none';
+      document.getElementById('historyContent').style.display='block';
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab==='history'));
+    }
+  } catch(e){}
+})();
+</script>
 
 <!-- 별표 모달 -->
 <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
@@ -832,12 +844,8 @@ function openTable(lawType,ref){
     }
     html+=`</div>`;
 
-    // PDF 미리보기
-    if(pdfSrc){
-      html+=`<iframe src="${pdfSrc}" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:6px"></iframe>`;
-    }else{
-      html+=`<p style="color:var(--sub)">PDF 미리보기를 사용할 수 없습니다.</p>`;
-    }
+    // PDF 미리보기 (모바일은 iframe 대신 새 탭 열기 버튼)
+    html += pdfPreviewHtml(pdfSrc);
     bodyEl.innerHTML=html;
   }
   overlay.classList.add('open');
@@ -912,7 +920,7 @@ function renderHistory(){
       const latestPub=(tblPdfData[t.법령유형]||{})[t.별표명];
       if(latestPub){
         const pdfPath=localPdfPath(t.법령유형, t.별표명, latestPub);
-        html+=`<details style="margin-top:6px" ontoggle="if(this.open){const c=this.querySelector('.pdf-mount'); if(c&&!c.dataset.loaded){c.innerHTML='<iframe src=\\''+c.dataset.path+'\\' style=\\'width:100%;height:600px;border:1px solid #d4d4d8;border-radius:4px\\'></iframe>'; c.dataset.loaded='1';}}">`;
+        html+=`<details style="margin-top:6px" ontoggle="if(this.open){const c=this.querySelector('.pdf-mount'); if(c&&!c.dataset.loaded){c.innerHTML=pdfPreviewHtml(c.dataset.path,'600px'); c.dataset.loaded='1';}}">`;
         html+=`<summary style="font-size:11px;color:#854d0e;cursor:pointer;font-weight:600">📄 최신 별표 PDF 보기 (정확한 표 구조)</summary>`;
         html+=`<div class="pdf-mount" data-path="${pdfPath}" style="margin-top:6px;min-height:40px"><div style="font-size:11px;color:var(--sub)">로딩 중...</div></div>`;
         html+=`</details>`;
@@ -1053,7 +1061,7 @@ function renderHistory(){
             const afterPath=t.이후PDF_URL?localPdfPath('시행령', t.별표명, dec.공포일자):'';
             const ext=t.이전PDF_URL?`https://www.law.go.kr${t.이전PDF_URL}`:'';
             const ext2=t.이후PDF_URL?`https://www.law.go.kr${t.이후PDF_URL}`:'';
-            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.innerHTML='<iframe src=\\''+c.dataset.path+'\\' style=\\'width:100%;height:700px;border:none\\'></iframe>'; c.dataset.loaded='1';}});}">`;
+            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.innerHTML=pdfPreviewHtml(c.dataset.path,'700px'); c.dataset.loaded='1';}});}">`;
             html+=`<summary style="font-size:12px;color:#854d0e;cursor:pointer;font-weight:700">📄 ${t.별표명} 개정 직전·직후 PDF 좌우 비교</summary>`;
             html+=`<div class="pdf-compare-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">`;
             html+=`<div><div style="font-size:11px;font-weight:600;color:#991b1b;margin-bottom:4px">개정 직전 (${t.이전공포일?fmtD(t.이전공포일):'없음'}) ${ext?'<a href="'+ext+'" target="_blank" rel="noopener" style="font-size:10px;color:var(--sub);margin-left:6px">[원본 새 탭]</a>':''}</div>`;
@@ -1134,7 +1142,7 @@ function renderHistory(){
             const afterPath=t.이후PDF_URL?localPdfPath('시행규칙', t.별표명, rule.공포일자):'';
             const ext=t.이전PDF_URL?`https://www.law.go.kr${t.이전PDF_URL}`:'';
             const ext2=t.이후PDF_URL?`https://www.law.go.kr${t.이후PDF_URL}`:'';
-            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.innerHTML='<iframe src=\\''+c.dataset.path+'\\' style=\\'width:100%;height:700px;border:none\\'></iframe>'; c.dataset.loaded='1';}});}">`;
+            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.innerHTML=pdfPreviewHtml(c.dataset.path,'700px'); c.dataset.loaded='1';}});}">`;
             html+=`<summary style="font-size:12px;color:#854d0e;cursor:pointer;font-weight:700">📄 ${t.별표명} 개정 직전·직후 PDF 좌우 비교</summary>`;
             html+=`<div class="pdf-compare-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">`;
             html+=`<div><div style="font-size:11px;font-weight:600;color:#991b1b;margin-bottom:4px">개정 직전 (${t.이전공포일?fmtD(t.이전공포일):'없음'}) ${ext?'<a href="'+ext+'" target="_blank" rel="noopener" style="font-size:10px;color:var(--sub);margin-left:6px">[원본 새 탭]</a>':''}</div>`;
@@ -1217,6 +1225,19 @@ function renderHistory(){
 
 // 전후비교 렌더링 — 좌우 비교, 변경된 부분만 표시 + 단어 단위 하이라이트
 function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// 모바일 감지 — 모바일 브라우저는 iframe 안 PDF 렌더링 미지원 (특히 iOS Safari)
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobi|webOS/i.test(navigator.userAgent);
+
+// PDF 미리보기 HTML 생성 — 모바일이면 iframe 대신 새 탭 열기 버튼
+function pdfPreviewHtml(src, height){
+  height = height || '70vh';
+  if(!src) return '<p style="color:var(--sub);text-align:center;padding:20px">PDF 미리보기 없음</p>';
+  if(IS_MOBILE){
+    return `<div style="padding:24px;text-align:center;background:#fef9c3;border:1px dashed #fde68a;border-radius:8px"><div style="font-size:13px;color:#854d0e;margin-bottom:12px">모바일에서는 PDF를 페이지 안에 표시하지 못합니다.</div><a href="${src}" target="_blank" rel="noopener" style="display:inline-block;padding:12px 24px;background:#c0392b;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">📄 PDF 새 탭에서 열기</a></div>`;
+  }
+  return `<iframe src="${src}" style="width:100%;height:${height};border:1px solid var(--border);border-radius:6px"></iframe>`;
+}
 
 // 제개정이유 요약 — 「◇ 개정이유」 섹션 첫 문단을 추출해 한 문장으로 다듬음
 function summarizeReason(reason){
