@@ -824,7 +824,9 @@ function switchTab(tab){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   document.getElementById('content').style.display=tab==='compare'?'block':'none';
   document.getElementById('historyContent').style.display=tab==='history'?'block':'none';
+  // 탭 전환 시 select에 선택된 조 기준으로 항상 다시 그림 (양 탭 동기화)
   if(tab==='history') renderHistory();
+  else render();
   // URL 동기화
   const sel=document.getElementById('sel');
   if(sel && sel.value) updateUrlForArticle(sel.value);
