@@ -238,6 +238,27 @@ def main():
         with open(tbl_diff_path, "r", encoding="utf-8") as f:
             tbl_diff_data = json.load(f)
 
+    # 별표/서식 history 슬림판 — 옛 시점 본문에서 폐지/번호변경된 별지를 폴백 매칭하기 위한 인덱스.
+    # 본문 텍스트(약 215MB)는 제외하고 (제목, PDF_URL, 공포일자) 만 추출 → 약 3MB.
+    tbl_hist_slim = {"시행령": {}, "시행규칙": {}}
+    tbl_hist_path = os.path.join(DATA_DIR, "attached_tables_history.json")
+    if os.path.exists(tbl_hist_path):
+        with open(tbl_hist_path, "r", encoding="utf-8") as f:
+            _full_hist = json.load(f)
+        for sub_type in ["시행령", "시행규칙"]:
+            for name, pubs in _full_hist.get(sub_type, {}).items():
+                # 시점 리스트(공포일 내림차순) — 클라이언트에서 최신부터 표시
+                items = []
+                for pub in sorted(pubs.keys(), reverse=True):
+                    v = pubs[pub] or {}
+                    items.append({
+                        "공포일자": pub,
+                        "제목": v.get("제목", ""),
+                        "PDF_URL": v.get("PDF_URL", ""),
+                    })
+                tbl_hist_slim[sub_type][name] = items
+        del _full_hist  # 215MB 메모리 즉시 해제
+
     # 별표 "최신 PDF" — base64 임베드 대신 로컬 PDF 경로 매핑.
     # 큰 PDF(예: 시행규칙 별표 6 ~3.5MB base64)는 브라우저 data: URI 한도 초과로 임베드 실패.
     # 따라서 가장 최신 공포일자만 저장하고 JS에서 data/table_pdfs/{type}_{name}_{date}.pdf 경로 사용.
@@ -299,6 +320,8 @@ def main():
                   write_data("data_tbl_diff_rule.js", "_DATA_TBL_DIFF_RULE", tbl_diff_data.get("시행규칙", {}))))
     # 별표 PDF base64
     sizes.append(("data_tbl_pdf.js", write_data("data_tbl_pdf.js", "_DATA_TBL_PDF", tbl_pdf_data)))
+    # 별표/서식 history 슬림판 (폐지/번호변경된 옛 시점 별지 폴백 매칭용)
+    sizes.append(("data_tbl_history.js", write_data("data_tbl_history.js", "_DATA_TBL_HISTORY", tbl_hist_slim)))
 
     for name, sz in sizes:
         warn = " ⚠️ 100MB 한도 초과!" if sz > 100 else ""
@@ -595,6 +618,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <script src="web_data/data_tbl_diff_decree.js"></script>
 <script src="web_data/data_tbl_diff_rule.js"></script>
 <script src="web_data/data_tbl_pdf.js"></script>
+<script src="web_data/data_tbl_history.js"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -605,6 +629,7 @@ const diffData = window._DATA_CORE.diffData;
 const timelineData = window._DATA_TIMELINE;
 const tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE, 시행규칙: window._DATA_TBL_DIFF_RULE};
 const tblPdfData = window._DATA_TBL_PDF;
+const tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};
 
 let opts=[];
 // currentTab은 init() 안에서 호출되는 updateUrlForArticle()이 참조하므로 미리 선언 (TDZ 회피)
@@ -1120,8 +1145,37 @@ function openTable(lawType,ref){
   const bodyEl=document.getElementById('modalBody');
 
   if(!found){
+    // 폴백: history 슬림판(폐지·번호변경된 옛 시점 자료) 검색.
+    // history 키 형식: 별표 → "별표 N", 별지 → "서식 N" (API가 별지를 "서식"으로 저장)
     titleEl.textContent=`${lawType} ${ref}`;
-    bodyEl.innerHTML=`<p>"${ref}"가 아직 제정되지 않았거나 다른 법령에 포함되어 있을 수 있습니다.</p>`;
+    let histItems=null;
+    if(num){
+      const histTables=(tblHistoryData&&tblHistoryData[lawType])||{};
+      const candidates=isByeolpyo?[`별표 ${num}`]:[`서식 ${num}`,`별지 ${num}`];
+      for(const k of candidates){
+        if(histTables[k]&&histTables[k].length){histItems=histTables[k];break}
+      }
+    }
+    if(histItems&&histItems.length){
+      let h=`<div style="padding:11px 13px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;margin-bottom:14px;font-size:13px;line-height:1.6;color:#854d0e">⚠️ 현재 유효한 ${isByeolpyo?'별표':'별지'} 목록에는 없습니다 (폐지·번호변경 가능성). 옛 시점의 자료는 아래에서 시점별로 받을 수 있습니다.</div>`;
+      h+=`<div style="font-size:12px;color:var(--sub);margin-bottom:8px">전체 ${histItems.length}개 시점 — 최신순</div>`;
+      h+=`<div style="display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto;padding-right:4px">`;
+      for(const it of histItems){
+        const pubFmt=(it.공포일자||'').replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
+        const url=it.PDF_URL?('https://www.law.go.kr'+it.PDF_URL):'';
+        const titleEsc=(it.제목||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        h+=`<div style="padding:10px 12px;background:#f9fafb;border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;gap:4px">`;
+        h+=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="font-weight:700;color:var(--law);font-size:13px">${pubFmt}</span>`;
+        h+=url?`<a href="${url}" target="_blank" rel="noopener" class="pdf-link" style="background:#c0392b;font-size:11px;padding:4px 10px">📄 PDF 받기</a>`:`<span style="color:var(--sub);font-size:11px">PDF 링크 없음</span>`;
+        h+=`</div>`;
+        if(titleEsc) h+=`<div style="font-size:12px;color:#374151;line-height:1.5">${titleEsc}</div>`;
+        h+=`</div>`;
+      }
+      h+=`</div>`;
+      bodyEl.innerHTML=h;
+    }else{
+      bodyEl.innerHTML=`<p>"${ref}"가 아직 제정되지 않았거나 다른 법령에 포함되어 있을 수 있습니다.</p>`;
+    }
   }else{
     titleEl.textContent=`${lawType} [${found.key}] ${found.val.제목||''}`;
     let html='';

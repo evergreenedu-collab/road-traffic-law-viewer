@@ -279,6 +279,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <script src="web_data/data_tbl_diff_decree.js"></script>
 <script src="web_data/data_tbl_diff_rule.js"></script>
 <script src="web_data/data_tbl_pdf.js"></script>
+<script src="web_data/data_tbl_history.js"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -289,6 +290,7 @@ const diffData = window._DATA_CORE.diffData;
 const timelineData = window._DATA_TIMELINE;
 const tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE, 시행규칙: window._DATA_TBL_DIFF_RULE};
 const tblPdfData = window._DATA_TBL_PDF;
+const tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};
 
 let opts=[];
 // currentTab은 init() 안에서 호출되는 updateUrlForArticle()이 참조하므로 미리 선언 (TDZ 회피)
@@ -804,8 +806,37 @@ function openTable(lawType,ref){
   const bodyEl=document.getElementById('modalBody');
 
   if(!found){
+    // 폴백: history 슬림판(폐지·번호변경된 옛 시점 자료) 검색.
+    // history 키 형식: 별표 → "별표 N", 별지 → "서식 N" (API가 별지를 "서식"으로 저장)
     titleEl.textContent=`${lawType} ${ref}`;
-    bodyEl.innerHTML=`<p>"${ref}"가 아직 제정되지 않았거나 다른 법령에 포함되어 있을 수 있습니다.</p>`;
+    let histItems=null;
+    if(num){
+      const histTables=(tblHistoryData&&tblHistoryData[lawType])||{};
+      const candidates=isByeolpyo?[`별표 ${num}`]:[`서식 ${num}`,`별지 ${num}`];
+      for(const k of candidates){
+        if(histTables[k]&&histTables[k].length){histItems=histTables[k];break}
+      }
+    }
+    if(histItems&&histItems.length){
+      let h=`<div style="padding:11px 13px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;margin-bottom:14px;font-size:13px;line-height:1.6;color:#854d0e">⚠️ 현재 유효한 ${isByeolpyo?'별표':'별지'} 목록에는 없습니다 (폐지·번호변경 가능성). 옛 시점의 자료는 아래에서 시점별로 받을 수 있습니다.</div>`;
+      h+=`<div style="font-size:12px;color:var(--sub);margin-bottom:8px">전체 ${histItems.length}개 시점 — 최신순</div>`;
+      h+=`<div style="display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto;padding-right:4px">`;
+      for(const it of histItems){
+        const pubFmt=(it.공포일자||'').replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
+        const url=it.PDF_URL?('https://www.law.go.kr'+it.PDF_URL):'';
+        const titleEsc=(it.제목||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        h+=`<div style="padding:10px 12px;background:#f9fafb;border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;gap:4px">`;
+        h+=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="font-weight:700;color:var(--law);font-size:13px">${pubFmt}</span>`;
+        h+=url?`<a href="${url}" target="_blank" rel="noopener" class="pdf-link" style="background:#c0392b;font-size:11px;padding:4px 10px">📄 PDF 받기</a>`:`<span style="color:var(--sub);font-size:11px">PDF 링크 없음</span>`;
+        h+=`</div>`;
+        if(titleEsc) h+=`<div style="font-size:12px;color:#374151;line-height:1.5">${titleEsc}</div>`;
+        h+=`</div>`;
+      }
+      h+=`</div>`;
+      bodyEl.innerHTML=h;
+    }else{
+      bodyEl.innerHTML=`<p>"${ref}"가 아직 제정되지 않았거나 다른 법령에 포함되어 있을 수 있습니다.</p>`;
+    }
   }else{
     titleEl.textContent=`${lawType} [${found.key}] ${found.val.제목||''}`;
     let html='';
