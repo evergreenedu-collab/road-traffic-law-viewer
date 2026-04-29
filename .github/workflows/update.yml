@@ -1,0 +1,230 @@
+name: 매주 자동 갱신
+
+# ─────────────────────────────────────────────────────
+# 도로교통법 한눈에 — 매주 정기 자동 갱신 워크플로
+#
+# 동작:
+#   - 매주 월요일 새벽 02:00 KST (= 일요일 17:00 UTC) 자동 실행
+#   - 수동 실행도 가능 (Actions 탭 → "Run workflow")
+#   - update_all.py 실행 → 빌드 검증 → 변경 시 commit·push
+#   - 결과(성공/실패)를 GitHub Issue로 생성 → 회사 메일에 알림
+#     ("[클로드 코드가 회신]" 제목 prefix로 식별)
+# ─────────────────────────────────────────────────────
+
+on:
+  schedule:
+    - cron: '0 17 * * 0'  # 매주 일요일 17:00 UTC = 월요일 02:00 KST
+  workflow_dispatch:
+    inputs:
+      force_issue:
+        description: '결과를 Issue로 강제 생성 (수동 검증용)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: write   # commit·push
+  issues: write     # 결과 issue 생성
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 빌드 실행 (update_all.py)
+        run: |
+          export PYTHONIOENCODING=utf-8
+          python update_all.py
+
+      - name: 빌드 산출물 검증 (회귀 차단)
+        run: |
+          set -e
+
+          # ① 핵심 파일 존재 + 크기
+          test -f viewer.html || { echo "::error::viewer.html 없음"; exit 1; }
+          SIZE=$(stat -c%s viewer.html)
+          if [ $SIZE -lt 50000 ]; then
+            echo "::error::viewer.html 크기 비정상 ($SIZE bytes < 50KB)"
+            exit 1
+          fi
+
+          test -f web_data/data_core.js || { echo "::error::data_core.js 없음"; exit 1; }
+          test -f web_data/data_tbl_history.js || { echo "::error::data_tbl_history.js 없음"; exit 1; }
+          test -f web_data/pdfjs/web/viewer.html || { echo "::error::PDF.js viewer 없음"; exit 1; }
+
+          # ② gview 부활 검사 (모바일 PDF 회귀 차단)
+          if grep -q 'docs.google.com/gview' viewer.html; then
+            echo "::error::gview 문자열 발견 — 모바일 PDF 회귀 위험"
+            exit 1
+          fi
+
+          # ③ PDF.js 경로 존재 검사
+          if ! grep -q 'web_data/pdfjs/web/viewer.html' viewer.html; then
+            echo "::error::PDF.js viewer 경로 누락"
+            exit 1
+          fi
+
+          # ④ history 폴백 코드 존재 검사
+          if ! grep -q 'tblHistoryData' viewer.html; then
+            echo "::error::history 폴백 코드 누락"
+            exit 1
+          fi
+
+          echo "✅ 빌드 검증 통과 (viewer.html: $(numfmt --to=iec $SIZE))"
+
+      - name: 변경사항 감지
+        id: changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "📭 변경사항 없음 (도로교통법 개정 없음)"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+
+            # 통계 (한 줄)
+            STATS=$(git diff --cached --shortstat | sed 's/^ //')
+            echo "stats=$STATS" >> "$GITHUB_OUTPUT"
+
+            # 변경 파일 목록 (최대 30개) — multiline output
+            {
+              echo "changed_files<<EOF_FILES_MARKER"
+              git diff --cached --name-only | head -30
+              echo "EOF_FILES_MARKER"
+            } >> "$GITHUB_OUTPUT"
+
+            echo "📦 변경사항: $STATS"
+          fi
+
+      - name: 자동 commit & push
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          DATE_KST=$(TZ=Asia/Seoul date +'%Y-%m-%d')
+          git commit -m "chore: 자동 갱신 - $DATE_KST 도로교통법 데이터 정기 빌드
+
+          GitHub Actions 매주 자동 실행 (.github/workflows/update.yml)
+          "
+          git push origin master
+
+      - name: ✅ 성공 Issue 생성
+        if: success() && (steps.changes.outputs.has_changes == 'true' || inputs.force_issue == 'true')
+        uses: actions/github-script@v7
+        env:
+          HAS_CHANGES: ${{ steps.changes.outputs.has_changes }}
+          STATS: ${{ steps.changes.outputs.stats }}
+          FILES: ${{ steps.changes.outputs.changed_files }}
+        with:
+          script: |
+            const tz = { timeZone: 'Asia/Seoul' };
+            const now = new Date();
+            const dateKst = now.toLocaleDateString('ko-KR', tz).replace(/\. /g, '-').replace('.', '');
+            const timeKst = now.toLocaleString('ko-KR', tz);
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const hasChanges = process.env.HAS_CHANGES === 'true';
+            const stats = process.env.STATS || '';
+            const files = (process.env.FILES || '').trim();
+
+            let title, body;
+            if (hasChanges) {
+              title = `[클로드 코드가 회신] 자동 갱신 성공 - ${dateKst}`;
+              body = [
+                '매주 정기 자동 갱신이 성공적으로 완료되었습니다.',
+                '',
+                `**실행 시각**: ${timeKst}`,
+                '',
+                '**변경 통계**:',
+                '```',
+                stats,
+                '```',
+                '',
+                '**변경 파일** (최대 30개):',
+                '```',
+                files,
+                '```',
+                '',
+                '**새 뷰어 배포**: 1~2분 후 GitHub Pages 반영',
+                'https://evergreenedu-collab.github.io/road-traffic-law-viewer/viewer.html',
+                '',
+                `**워크플로 실행 로그**: ${runUrl}`,
+                '',
+                '---',
+                '*이 메시지는 `.github/workflows/update.yml` 워크플로가 자동 발송한 것입니다.*',
+                '*제목 prefix `[클로드 코드가 회신]`로 정상 알림임을 식별할 수 있습니다.*'
+              ].join('\n');
+            } else {
+              title = `[클로드 코드가 회신] 자동 갱신 점검 - ${dateKst} (변경 없음)`;
+              body = [
+                '수동 트리거 또는 정기 점검 결과: **변경사항 없음** (도로교통법 개정 없음 — 정상 동작 중).',
+                '',
+                `**실행 시각**: ${timeKst}`,
+                `**워크플로 실행 로그**: ${runUrl}`,
+                '',
+                '---',
+                '*이 메시지는 `.github/workflows/update.yml` 워크플로가 자동 발송한 것입니다.*'
+              ].join('\n');
+            }
+
+            const res = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title, body,
+            });
+            core.info(`✅ Issue 생성: ${res.data.html_url}`);
+
+      - name: ⚠️ 실패 Issue 생성
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tz = { timeZone: 'Asia/Seoul' };
+            const now = new Date();
+            const dateKst = now.toLocaleDateString('ko-KR', tz).replace(/\. /g, '-').replace('.', '');
+            const timeKst = now.toLocaleString('ko-KR', tz);
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const title = `[클로드 코드가 회신] ⚠️ 자동 갱신 실패 - ${dateKst}`;
+            const body = [
+              '매주 정기 자동 갱신 워크플로가 **실패**했습니다.',
+              '',
+              `**실행 시각**: ${timeKst}`,
+              '',
+              '**점검 필요**: 아래 워크플로 실행 페이지에서 로그를 확인해주세요.',
+              runUrl,
+              '',
+              '**가능한 원인**:',
+              '- 법령정보센터 API 응답 변경 / 일시 장애',
+              '- 데이터 형식 변경 (정규식·파싱 깨짐)',
+              '- 빌드 검증 실패 (회귀 차단됨 — 사이트는 직전 정상 상태 유지)',
+              '',
+              '---',
+              '*이 메시지는 `.github/workflows/update.yml` 워크플로가 자동 발송한 것입니다.*',
+              '*제목 prefix `[클로드 코드가 회신]`로 정상 알림임을 식별할 수 있습니다.*'
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title, body,
+            });
