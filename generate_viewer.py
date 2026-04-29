@@ -238,22 +238,27 @@ def main():
         with open(tbl_diff_path, "r", encoding="utf-8") as f:
             tbl_diff_data = json.load(f)
 
-    # 별표 PDF (BASE64) — 최신본만 임베드. 별표만(서식/별지 제외)
+    # 별표 "최신 PDF" — base64 임베드 대신 로컬 PDF 경로 매핑.
+    # 큰 PDF(예: 시행규칙 별표 6 ~3.5MB base64)는 브라우저 data: URI 한도 초과로 임베드 실패.
+    # 따라서 가장 최신 공포일자만 저장하고 JS에서 data/table_pdfs/{type}_{name}_{date}.pdf 경로 사용.
     tbl_pdf_data = {"시행령": {}, "시행규칙": {}}
     for sub_type in ["시행령", "시행규칙"]:
-        for tname, tdata in table_data.get(sub_type, {}).items():
-            if tdata.get("구분") != "별표":
+        for tname, changes in tbl_diff_data.get(sub_type, {}).items():
+            if not changes:
                 continue
-            pdf_b64 = tdata.get("PDF_BASE64", "")
-            if pdf_b64:
-                tbl_pdf_data[sub_type][tname] = pdf_b64
+            # 가장 최신 공포일 (changes는 시간순 정렬되어 있음 — 마지막이 최신)
+            latest_pub = max(c["공포일자"] for c in changes)
+            tbl_pdf_data[sub_type][tname] = latest_pub
 
-    # tableData에서 PDF_BASE64는 제거 (tbl_pdf_data로 따로 임베드 — 중복 방지)
+    # tableData 슬림화 — 별표는 큰 PDF가 base64 임베드 한도(~2MB) 초과하므로 PDF_BASE64 제거 (로컬 경로 사용)
+    # 별지(서식)는 작아서 base64 임베드 OK — 유지하여 모달에서 미리보기 가능
     table_data_lite = {}
     for sub_type, items in table_data.items():
         table_data_lite[sub_type] = {}
         for tname, tdata in items.items():
-            slim = {k: v for k, v in tdata.items() if k != "PDF_BASE64"}
+            slim = dict(tdata)
+            if slim.get("구분") == "별표":
+                slim.pop("PDF_BASE64", None)  # 별표는 별도 처리(로컬 경로)
             table_data_lite[sub_type][tname] = slim
 
     print(f"  매핑: {len(map_data['매핑'])}개 조문")
@@ -533,7 +538,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="toolbar">
   <label>조문</label>
-  <select id="sel" onchange="onArticleChange()"></select>
+  <select id="sel" onchange="onArticleChange()" autocomplete="off"></select>
   <input type="text" id="q" placeholder="🔍 조문/키워드 검색 (예: 안전띠)" oninput="filter()" onkeydown="if(event.key==='Escape'){this.value='';filter();}">
   <div class="tab-switch" id="tabSwitch">
     <button class="tab-btn active" data-tab="compare" onclick="switchTab('compare')">3단 비교</button>
@@ -560,6 +565,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="main" id="content"></div>
 <div class="main" id="historyContent" style="display:none"></div>
+<script>
+// 깜빡임 방지 — URL의 ?tab=history면 첫 페인트 전에 탭 즉시 전환
+(function(){
+  try {
+    if(new URLSearchParams(location.search).get('tab')==='history'){
+      document.getElementById('content').style.display='none';
+      document.getElementById('historyContent').style.display='block';
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab==='history'));
+    }
+  } catch(e){}
+})();
+</script>
 
 <!-- 별표 모달 -->
 <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
@@ -590,6 +607,8 @@ const tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE, 시행규칙: wind
 const tblPdfData = window._DATA_TBL_PDF;
 
 let opts=[];
+// currentTab은 init() 안에서 호출되는 updateUrlForArticle()이 참조하므로 미리 선언 (TDZ 회피)
+let currentTab='compare';
 (function init(){
   // 조문 목록 + 장 정보
   for(const e of mapData.매핑){
@@ -612,9 +631,21 @@ let opts=[];
     const tabParam = url.searchParams.get('tab');
     let initJo = opts[0].jo;
     if(joParam && opts.some(o=>o.jo===joParam)) initJo = joParam;
-    document.getElementById('sel').value = initJo;
-    if(tabParam==='history') switchTab('history');
-    else render();
+    // 새로고침 시 브라우저 form 캐시가 select 값을 덮어쓸 수 있어
+    // requestAnimationFrame으로 DOM 갱신 후 다시 한 번 강제 설정 + 렌더
+    const doInit = () => {
+      const sel = document.getElementById('sel');
+      sel.value = initJo;
+      try {
+        if(tabParam==='history') switchTab('history');
+        else render();
+      } catch(e) {
+        console.error('초기 렌더 오류:', e);
+        document.getElementById('content').innerHTML = '<div style="padding:20px;color:#991b1b">화면을 그리는 중 오류가 발생했습니다. 브라우저 새로고침(Ctrl+F5)을 한번 더 해보세요. 문제가 지속되면 개발자 콘솔(F12)의 오류를 확인해주세요.</div>';
+      }
+    };
+    if(window.requestAnimationFrame) requestAnimationFrame(doInit);
+    else doInit();
   }
   // 첫 방문 온보딩 (조문 직접 링크로 들어온 경우엔 표시 안 함)
   const url2 = new URL(window.location.href);
@@ -810,7 +841,9 @@ function render(){
   html+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
   html+=`<button onclick="copyArticleLink('${jo}')" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" title="이 조문 URL 복사">🔗 링크 복사</button>`;
   html+=`<button onclick="window.print()" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" title="현재 화면 인쇄">🖨️ 인쇄</button>`;
-  html+=`<a href="https://www.law.go.kr/법령/도로교통법/제${encodeURIComponent(jo)}조" target="_blank" rel="noopener" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);text-decoration:none">📖 원문</a>`;
+  // 한글 path 전체 인코딩 — 모바일 브라우저는 한글 URL을 자동 인코딩하지 않아 law.go.kr 오류 발생
+  const lawSrcUrl = encodeURI(`https://www.law.go.kr/법령/도로교통법/제${jo}조`);
+  html+=`<a href="${lawSrcUrl}" target="_blank" rel="noopener" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);text-decoration:none">📖 원문</a>`;
   html+=`</div>`;
   html+=`</div>`;
 
@@ -1097,45 +1130,53 @@ function openTable(lawType,ref){
     const safeTitle=(found.val.제목||'').replace(/[\\/:*?"<>|]/g,'').slice(0,40);
     const fileName=`도로교통법 ${lawType} [${found.key}] ${safeTitle}`;
 
+    // PDF 소스 결정:
+    //   - 별지(서식): PDF_BASE64 (작아서 임베드 OK)
+    //   - 별표: 로컬 PDF 파일 경로 (큰 파일 대응)
+    let pdfSrc = '';
+    let isLocalFile = false;
+    if(found.val.PDF_BASE64){
+      // base64 → Blob URL (다운로드 + 미리보기 둘 다 가능)
+      const bin=atob(found.val.PDF_BASE64);
+      const arr=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+      const blob=new Blob([arr],{type:'application/pdf'});
+      pdfSrc=URL.createObjectURL(blob);
+    } else if(found.val.구분==='별표'){
+      // 별표는 로컬 PDF 파일 (data/table_pdfs/) 사용
+      const latestPub=(tblPdfData[lawType]||{})[found.key];
+      if(latestPub){
+        pdfSrc=localPdfPath(lawType, found.key, latestPub);
+        isLocalFile=true;
+      }
+    }
+
     // 상단 다운로드 버튼
     html+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">`;
-    if(found.val.PDF_BASE64){
-      html+=`<a class="pdf-link" id="pdfDownload" href="#" download="${fileName}.pdf" style="background:#c0392b">PDF 다운로드</a>`;
+    if(pdfSrc){
+      const dlAttr = isLocalFile ? `download="${fileName}.pdf"` : `download="${fileName}.pdf"`;
+      html+=`<a class="pdf-link" href="${pdfSrc}" ${dlAttr} style="background:#c0392b">PDF 다운로드</a>`;
     }
     if(found.val.HWP){
       html+=`<a class="pdf-link" href="https://www.law.go.kr${found.val.HWP}" target="_blank" style="background:var(--decree)">HWP 다운로드</a>`;
     }
     html+=`</div>`;
 
-    // PDF 미리보기 (Blob URL 사용 — 대용량 PDF 대응)
-    if(found.val.PDF_BASE64){
-      html+=`<iframe id="pdfPreview" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:6px"></iframe>`;
-    }else{
-      html+=`<p style="color:var(--sub)">PDF 미리보기 없음</p>`;
-    }
+    // PDF 미리보기 (모바일은 iframe 대신 새 탭 열기 버튼)
+    html += pdfPreviewHtml(pdfSrc);
     bodyEl.innerHTML=html;
-    if(found.val.PDF_BASE64){
-      const bin=atob(found.val.PDF_BASE64);
-      const arr=new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
-      const blob=new Blob([arr],{type:'application/pdf'});
-      const blobUrl=URL.createObjectURL(blob);
-      document.getElementById('pdfPreview').src=blobUrl;
-      const dlBtn=document.getElementById('pdfDownload');
-      if(dlBtn)dlBtn.href=blobUrl;
-    }
   }
   overlay.classList.add('open');
 }
-
-let currentTab='compare';
 
 function switchTab(tab){
   currentTab=tab;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   document.getElementById('content').style.display=tab==='compare'?'block':'none';
   document.getElementById('historyContent').style.display=tab==='history'?'block':'none';
+  // 탭 전환 시 select에 선택된 조 기준으로 항상 다시 그림 (양 탭 동기화)
   if(tab==='history') renderHistory();
+  else render();
   // URL 동기화
   const sel=document.getElementById('sel');
   if(sel && sel.value) updateUrlForArticle(sel.value);
@@ -1193,13 +1234,13 @@ function renderHistory(){
       html+=`<div style="margin:6px 0;padding:8px 10px;background:${colorBg};border-radius:5px">`;
       html+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:11px;padding:1px 6px;border-radius:3px;background:${colorMark};color:#fff;font-weight:600">${t.법령유형}</span><span style="font-size:13px;font-weight:600">${t.별표명}</span></div>`;
       html+=`<div style="font-size:12px;color:#451a03;margin-top:3px">${t.제목}</div>`;
-      // 최신 별표 PDF 보기 (PDF_BASE64 임베드, 클릭 시에만 로드 — 페이지 무거움 방지)
-      const pdfB64=(tblPdfData[t.법령유형]||{})[t.별표명];
-      if(pdfB64){
-        const pdfId=`pdf_${t.법령유형}_${t.별표명.replace(/\s/g,'_')}`;
-        html+=`<details style="margin-top:6px" ontoggle="if(this.open){const c=this.querySelector('.pdf-mount'); if(c&&!c.dataset.loaded){c.innerHTML='<iframe src=\\'data:application/pdf;base64,'+c.dataset.b64+'\\' style=\\'width:100%;height:600px;border:1px solid #d4d4d8;border-radius:4px\\'></iframe>'; c.dataset.loaded='1';}}">`;
+      // 최신 별표 PDF 보기 — 로컬 파일 경로 (큰 PDF도 안정적으로 표시)
+      const latestPub=(tblPdfData[t.법령유형]||{})[t.별표명];
+      if(latestPub){
+        const pdfPath=localPdfPath(t.법령유형, t.별표명, latestPub);
+        html+=`<details style="margin-top:6px" ontoggle="if(this.open){const c=this.querySelector('.pdf-mount'); if(c&&!c.dataset.loaded){c.innerHTML=pdfPreviewHtml(c.dataset.path,'600px'); c.dataset.loaded='1';}}">`;
         html+=`<summary style="font-size:11px;color:#854d0e;cursor:pointer;font-weight:600">📄 최신 별표 PDF 보기 (정확한 표 구조)</summary>`;
-        html+=`<div class="pdf-mount" data-b64="${pdfB64}" style="margin-top:6px;min-height:40px"><div style="font-size:11px;color:var(--sub)">로딩 중...</div></div>`;
+        html+=`<div class="pdf-mount" data-path="${pdfPath}" style="margin-top:6px;min-height:40px"><div style="font-size:11px;color:var(--sub)">로딩 중...</div></div>`;
         html+=`</details>`;
       }
       // 텍스트 본문 (참고용, 표 구조는 깨짐)
@@ -1338,7 +1379,7 @@ function renderHistory(){
             const afterPath=t.이후PDF_URL?localPdfPath('시행령', t.별표명, dec.공포일자):'';
             const ext=t.이전PDF_URL?`https://www.law.go.kr${t.이전PDF_URL}`:'';
             const ext2=t.이후PDF_URL?`https://www.law.go.kr${t.이후PDF_URL}`:'';
-            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.innerHTML='<iframe src=\\''+c.dataset.path+'\\' style=\\'width:100%;height:700px;border:none\\'></iframe>'; c.dataset.loaded='1';}});}">`;
+            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.style.display='block'; c.style.padding='0'; c.style.background='transparent'; c.style.border='none'; c.style.height='auto'; c.innerHTML=pdfPreviewHtml(c.dataset.path,'min(70vh,500px)'); c.dataset.loaded='1';}});}">`;
             html+=`<summary style="font-size:12px;color:#854d0e;cursor:pointer;font-weight:700">📄 ${t.별표명} 개정 직전·직후 PDF 좌우 비교</summary>`;
             html+=`<div class="pdf-compare-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">`;
             html+=`<div><div style="font-size:11px;font-weight:600;color:#991b1b;margin-bottom:4px">개정 직전 (${t.이전공포일?fmtD(t.이전공포일):'없음'}) ${ext?'<a href="'+ext+'" target="_blank" rel="noopener" style="font-size:10px;color:var(--sub);margin-left:6px">[원본 새 탭]</a>':''}</div>`;
@@ -1419,7 +1460,7 @@ function renderHistory(){
             const afterPath=t.이후PDF_URL?localPdfPath('시행규칙', t.별표명, rule.공포일자):'';
             const ext=t.이전PDF_URL?`https://www.law.go.kr${t.이전PDF_URL}`:'';
             const ext2=t.이후PDF_URL?`https://www.law.go.kr${t.이후PDF_URL}`:'';
-            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.innerHTML='<iframe src=\\''+c.dataset.path+'\\' style=\\'width:100%;height:700px;border:none\\'></iframe>'; c.dataset.loaded='1';}});}">`;
+            html+=`<details style="margin-top:6px" ontoggle="if(this.open){const m=this.querySelectorAll('.pdf-mount'); m.forEach(c=>{if(!c.dataset.loaded){c.style.display='block'; c.style.padding='0'; c.style.background='transparent'; c.style.border='none'; c.style.height='auto'; c.innerHTML=pdfPreviewHtml(c.dataset.path,'min(70vh,500px)'); c.dataset.loaded='1';}});}">`;
             html+=`<summary style="font-size:12px;color:#854d0e;cursor:pointer;font-weight:700">📄 ${t.별표명} 개정 직전·직후 PDF 좌우 비교</summary>`;
             html+=`<div class="pdf-compare-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">`;
             html+=`<div><div style="font-size:11px;font-weight:600;color:#991b1b;margin-bottom:4px">개정 직전 (${t.이전공포일?fmtD(t.이전공포일):'없음'}) ${ext?'<a href="'+ext+'" target="_blank" rel="noopener" style="font-size:10px;color:var(--sub);margin-left:6px">[원본 새 탭]</a>':''}</div>`;
@@ -1502,6 +1543,25 @@ function renderHistory(){
 
 // 전후비교 렌더링 — 좌우 비교, 변경된 부분만 표시 + 단어 단위 하이라이트
 function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// 모바일 감지 — 모바일 브라우저는 iframe 안 PDF 렌더링 미지원 (특히 iOS Safari)
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobi|webOS/i.test(navigator.userAgent);
+
+// PDF 미리보기 HTML 생성 — 모바일은 자체 호스팅 PDF.js viewer로 렌더 (gview/blob URL 400 에러 회피)
+function pdfPreviewHtml(src, height){
+  height = height || '70vh';
+  if(!src) return '<p style="color:var(--sub);text-align:center;padding:20px">PDF 미리보기 없음</p>';
+  if(IS_MOBILE){
+    // 같은 origin 절대 URL 변환 (blob:/data:는 그대로). PDF.js viewer는 web_data/pdfjs/web/ 기준이라 상대경로면 못 찾음
+    const fullUrl = (src.startsWith('blob:') || src.startsWith('data:'))
+                  ? src
+                  : new URL(src, window.location.href).href;
+    const viewerUrl = 'web_data/pdfjs/web/viewer.html?file=' + encodeURIComponent(fullUrl);
+    return `<iframe src="${viewerUrl}" style="width:100%;height:${height};border:1px solid var(--border);border-radius:6px;background:#fff" allowfullscreen></iframe>
+            <div style="margin-top:8px;font-size:11px;color:var(--sub);text-align:center;word-break:keep-all;line-height:1.6">PDF가 안 뜨면 <a href="${src}" target="_blank" rel="noopener" style="color:var(--law);text-decoration:underline;white-space:nowrap">[새 탭에서 직접 열기]</a></div>`;
+  }
+  return `<iframe src="${src}" style="width:100%;height:${height};border:1px solid var(--border);border-radius:6px"></iframe>`;
+}
 
 // 제개정이유 요약 — 「◇ 개정이유」 섹션 첫 문단을 추출해 한 문장으로 다듬음
 function summarizeReason(reason){
@@ -1836,6 +1896,34 @@ function lcsLines(a,b){
 function escPlain(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
 function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
+
+// 내부 조문 인용 클릭 시 — 모달로 미리보기 (원래 화면 유지). 더 깊이 보려면 "이 조문 화면으로 이동" 버튼.
+function popupArticle(joKey){
+  const art = artData.법률.조문[joKey];
+  if(!art){
+    alert('제'+joKey+'조를 찾을 수 없습니다.');
+    return;
+  }
+  document.getElementById('modalTitle').textContent = `제${joKey}조 ${art.조문제목||''}`;
+  let body = `<div style="font-size:13px;line-height:1.9;color:var(--text)">`;
+  if(art.조문내용) body += escHtml(art.조문내용).replace(/\n/g,'<br>');
+  for(const h of (art.항||[])){
+    body += `<div style="margin-top:10px;padding-left:14px">`;
+    if(h.항번호) body += `<span style="font-weight:600;color:var(--law);margin-right:6px">${escHtml(h.항번호)}</span>`;
+    body += escHtml(h.항내용||'').replace(/\n/g,'<br>');
+    for(const ho of (h.호||[])){
+      body += `<div style="margin-top:5px;padding-left:18px;color:var(--sub);font-size:12.5px">${escHtml(ho.호내용||'').replace(/\n/g,'<br>')}</div>`;
+    }
+    body += `</div>`;
+  }
+  body += `</div>`;
+  body += `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);text-align:center">`;
+  body += `<button onclick="closeModal();goArticle('${joKey}')" style="padding:9px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">📂 이 조문 화면으로 이동</button>`;
+  body += `<div style="font-size:11px;color:var(--sub);margin-top:8px">참고용 미리보기 — 시행령·시행규칙·연혁까지 보려면 위 버튼 클릭</div>`;
+  body += `</div>`;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modalOverlay').classList.add('open');
+}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 
 // 호내용에서 앞의 중복 번호 제거: "1.  말ㆍ소..." → "말ㆍ소..."
@@ -1912,7 +2000,7 @@ function esc(s){
     const joKey=joBranch?joNum+'의'+joBranch:joNum;
     const display=match.trim();
     // 뷰어 내 해당 조문으로 이동 (드롭다운 변경 + 렌더)
-    placeholders.push('<a href="javascript:void(0)" onclick="goArticle(\''+joKey+'\')" style="color:var(--law);text-decoration:underline;cursor:pointer" title="제'+joKey+'조로 이동">'+display+'</a>');
+    placeholders.push('<a href="javascript:void(0)" onclick="popupArticle(\''+joKey+'\')" style="color:var(--law);text-decoration:underline;cursor:pointer" title="제'+joKey+'조 미리보기 (팝업)">'+display+'</a>');
     return '___PH'+idx+'___';
   });
   t=t.replace(/영\s*제(\d+)조(?:의(\d+))?(?:\s*제(\d+)항)?/g, function(match,joNum,joBranch,hangNum){
@@ -1936,7 +2024,7 @@ function esc(s){
     const idx=placeholders.length;
     const joKey=joBranch?joNum+'의'+joBranch:joNum;
     const display=match.trim();
-    placeholders.push('<a href="javascript:void(0)" onclick="goArticle(\''+joKey+'\')" style="color:var(--law);text-decoration:underline;cursor:pointer" title="제'+joKey+'조로 이동">'+display+'</a>');
+    placeholders.push('<a href="javascript:void(0)" onclick="popupArticle(\''+joKey+'\')" style="color:var(--law);text-decoration:underline;cursor:pointer" title="제'+joKey+'조 미리보기 (팝업)">'+display+'</a>');
     return '___PH'+idx+'___';
   });
 
