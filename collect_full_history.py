@@ -189,11 +189,33 @@ def fetch_law_detail(mst: str) -> dict | None:
     return info
 
 
+def _build_cache_index(prev_result: dict) -> dict:
+    """
+    기존 결과에서 (법령유형 → {(공포일자, 공포번호): entry}) 인덱스 생성.
+    API는 같은 MST의 여러 시행일자 항목에 대해 동일 detail(대표 시행일자 1개)을 반환하므로
+    (공포일자, 공포번호) 2-튜플로 캐시 매핑하면 history_list의 다중 시행일 항목이 모두 매칭된다.
+    """
+    cache = {}
+    for ld in prev_result.get("법령목록", []):
+        t = ld.get("법령유형")
+        if not t:
+            continue
+        type_cache = {}
+        for e in ld.get("연혁", []):
+            key = (e.get("공포일자", ""), e.get("공포번호", ""))
+            if key not in type_cache:
+                type_cache[key] = e
+        cache[t] = type_cache
+    return cache
+
+
 def collect_all_history() -> dict:
     """
     3개 법령의 전체 개정 연혁을 수집합니다.
-    10건마다 중간 저장하여 중단 시 이어서 수집할 수 있습니다.
+    기존 결과 파일을 캐시로 사용 — 신규 공포건만 API 본문 조회 (증분 수집).
+    GitHub Actions 매주 자동 갱신 시 보통 0~3건만 처리하여 1분 이내 완료됩니다.
     """
+    output_path = os.path.join(DATA_DIR, "road_traffic_full_history.json")
     checkpoint_path = os.path.join(DATA_DIR, "road_traffic_full_history_checkpoint.json")
 
     print("=" * 55)
@@ -201,42 +223,43 @@ def collect_all_history() -> dict:
     print("  대상: 도로교통법 / 시행령 / 시행규칙")
     print("=" * 55)
 
-    # 중간 저장 파일 확인
-    checkpoint = load_checkpoint(checkpoint_path)
-    if checkpoint:
-        done_count = sum(len(ld.get("연혁", [])) for ld in checkpoint.get("법령목록", []))
-        print(f"\n🔄 중간 저장 파일 발견! (기존 {done_count}건)")
-        print(f"   이어서 수집합니다.")
-        result = checkpoint
+    # 1) 기존 최종 결과 로드 → 캐시 인덱스 구축 (증분 수집의 기준)
+    cache = {}
+    if os.path.exists(output_path):
+        try:
+            with open(output_path, "r", encoding="utf-8") as f:
+                prev_result = json.load(f)
+            cache = _build_cache_index(prev_result)
+            total_cached = sum(len(v) for v in cache.values())
+            print(f"\n📚 기존 결과 캐시 로드: {total_cached}건 (신규 공포건만 API 조회 예정)")
+        except Exception as e:
+            print(f"\n⚠️ 기존 결과 로드 실패 — 전체 재수집합니다: {e}")
+            cache = {}
     else:
-        result = {
-            "생성일시": datetime.now().isoformat(),
-            "설명": "도로교통법, 시행령, 시행규칙 3개 법령의 전체 개정 연혁",
-            "법령목록": [],
-        }
+        print(f"\n📭 기존 결과 없음 — 전체 수집을 시작합니다 (첫 실행).")
 
-    # 이미 수집 완료된 법령 유형 확인
-    done_types = {ld["법령유형"] for ld in result.get("법령목록", [])}
+    result = {
+        "생성일시": datetime.now().isoformat(),
+        "설명": "도로교통법, 시행령, 시행규칙 3개 법령의 전체 개정 연혁",
+        "법령목록": [],
+    }
 
     for law_info in LAW_GROUP:
         law_type = law_info["유형"]
         law_name = law_info["법령명"]
         law_id = law_info["법령ID"]
 
-        if law_type in done_types:
-            print(f"\n⏭️ {law_type}: {law_name} — 이미 수집 완료, 건너뜁니다.")
-            continue
-
         print(f"\n{'=' * 55}")
         print(f"📖 {law_type}: {law_name}")
         print(f"{'=' * 55}")
 
-        # 1단계: 법제처 웹에서 전체 연혁 목록 가져오기
+        # 법제처 웹에서 전체 연혁 목록 가져오기 (가벼움)
         history_list = fetch_history_list(law_id, law_name)
         if not history_list:
             print(f"  ⚠️ {law_name}: 연혁 없음, 건너뜁니다.")
             continue
 
+        type_cache = cache.get(law_type, {})
         law_data = {
             "법령유형": law_type,
             "법령명": law_name,
@@ -244,17 +267,35 @@ def collect_all_history() -> dict:
             "연혁": [],
         }
 
-        # 2단계: 각 연혁 버전의 본문 조회
+        # 신규 수집 시 같은 MST 반복 호출 방지용 캐시
+        detail_by_mst = {}
+
+        new_count = 0
+        cached_count = 0
         for i, ver in enumerate(history_list):
+            cache_key = (ver["공포일자"], ver["공포번호"])
+            if cache_key in type_cache:
+                # 캐시 히트 — 기존 entry 재사용 (API 호출 생략)
+                law_data["연혁"].append(type_cache[cache_key])
+                cached_count += 1
+                continue
+
+            # 캐시 미스 — 신규 공포건이므로 본문 조회
             mst = ver["MST"]
             pub_date = ver["공포일자"]
             rev_type = ver["제개정구분"]
 
-            print(f"  📄 [{i+1}/{len(history_list)}] "
-                  f"{format_date(pub_date)} ({rev_type}) MST={mst} 조회 중...")
-            time.sleep(REQUEST_DELAY)
-
-            detail = fetch_law_detail(mst)
+            # 같은 MST 재호출 방지 (대표 detail 1번만 받음)
+            if mst in detail_by_mst:
+                detail = detail_by_mst[mst]
+                print(f"  📄 [신규 {new_count+1}] "
+                      f"{format_date(pub_date)} ({rev_type}) MST={mst} (캐시 detail 재사용)")
+            else:
+                print(f"  📄 [신규 {new_count+1}] "
+                      f"{format_date(pub_date)} ({rev_type}) MST={mst} 조회 중...")
+                time.sleep(REQUEST_DELAY)
+                detail = fetch_law_detail(mst)
+                detail_by_mst[mst] = detail
             if not detail:
                 # 본문 조회 실패 시 연혁 목록의 기본 정보만 저장
                 law_data["연혁"].append({
@@ -269,7 +310,7 @@ def collect_all_history() -> dict:
                     "조회실패": True,
                 })
             else:
-                entry = {
+                law_data["연혁"].append({
                     "법령명": detail.get("법령명", law_name),
                     "공포일자": detail.get("공포일자", pub_date),
                     "공포번호": detail.get("공포번호", ver["공포번호"]),
@@ -278,30 +319,31 @@ def collect_all_history() -> dict:
                     "제개정이유내용": detail.get("제개정이유내용", ""),
                     "부칙": detail.get("부칙", []),
                     "개정문내용요약": detail.get("개정문내용요약", ""),
-                }
-                law_data["연혁"].append(entry)
+                })
+            new_count += 1
 
-            # 10건마다 중간 저장
-            if (i + 1) % SAVE_INTERVAL == 0:
+            # 신규 N건마다 중간 저장 (대량 신규 수집 중 중단 대비)
+            if new_count % SAVE_INTERVAL == 0:
                 temp_result = {
                     "생성일시": result["생성일시"],
                     "설명": result["설명"],
                     "법령목록": result["법령목록"] + [law_data],
                 }
                 save_checkpoint(temp_result, checkpoint_path)
-                print(f"    💾 중간 저장 완료 ({i+1}/{len(history_list)})")
+                print(f"    💾 중간 저장 (신규 {new_count}건)")
 
-        print(f"\n  ✅ {law_name}: {len(law_data['연혁'])}건 수집 완료")
+        # 공포일자 내림차순 정렬 (캐시+신규 혼합 → 일관된 순서 보장)
+        law_data["연혁"].sort(key=lambda x: x.get("공포일자", ""), reverse=True)
+
+        if new_count == 0:
+            print(f"\n  ✅ {law_name}: {len(history_list)}건 (모두 캐시, 신규 0건)")
+        else:
+            print(f"\n  ✅ {law_name}: {len(history_list)}건 (캐시 {cached_count} + 신규 {new_count})")
         result["법령목록"].append(law_data)
 
-        # 법령 하나 완료 시에도 중간 저장
-        save_checkpoint(result, checkpoint_path)
-        print(f"  💾 {law_type} 전체 저장 완료")
-
-    # 수집 완료 후 체크포인트 삭제
+    # 정상 완료 시 체크포인트 삭제
     if os.path.exists(checkpoint_path):
         os.remove(checkpoint_path)
-        print(f"\n🧹 중간 저장 파일 삭제")
 
     return result
 

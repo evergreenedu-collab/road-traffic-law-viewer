@@ -32,7 +32,9 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # 첫 실행(캐시 미스 = 풀스캔)은 60분+, 이후 증분 갱신은 5~10분.
+    # 안전 마진 포함하여 180분(3시간)으로 설정.
+    timeout-minutes: 180
 
     steps:
       - name: 저장소 체크아웃
@@ -49,6 +51,28 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      # data/ 폴더 캐시 — .gitignore에 의해 git에서 제외되므로
+      # 워크플로 환경에서는 별도 캐시 없이는 매번 풀스캔(API 350+건).
+      # actions/cache로 직전 실행 결과를 복원하여 collect_*.py가 증분 수집할 수 있도록 함.
+      - name: data/ 캐시 복원
+        id: cache-data
+        uses: actions/cache@v4
+        with:
+          path: data
+          # 키를 commit SHA에 묶지 않아야 매주 재사용 가능. restore-keys로 fallback.
+          key: law-history-data-v1-${{ github.run_id }}
+          restore-keys: |
+            law-history-data-v1-
+
+      - name: 캐시 상태 출력
+        run: |
+          if [ -d data ] && [ -n "$(ls -A data 2>/dev/null)" ]; then
+            echo "📚 캐시 복원 성공 ($(ls data/*.json 2>/dev/null | wc -l)개 JSON)"
+            ls -lah data/*.json 2>/dev/null | head -10 || true
+          else
+            echo "📭 캐시 없음 — 풀스캔 진행 (첫 실행 또는 캐시 만료 7일 경과)"
+          fi
 
       - name: 빌드 실행 (update_all.py)
         run: |
