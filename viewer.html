@@ -1090,7 +1090,8 @@ function renderHistory(){
           // 직전/직후 PDF 좌우 비교 (로컬 PDF 폴더 — data/table_pdfs/)
           // details 펼칠 때만 iframe 동적 생성 (페이지 로드 시 자동 다운로드 방지)
           if(t.이전공포일 || t.이후PDF_URL){
-            const beforePath=t.이전공포일?localPdfPath('시행령', t.별표명, t.이전공포일):'';
+            // PDF_URL이 비면 다운로드된 로컬 PDF도 없으므로 path 자체를 만들지 않음 (404 회피)
+            const beforePath=(t.이전공포일 && t.이전PDF_URL)?localPdfPath('시행령', t.별표명, t.이전공포일):'';
             const afterPath=t.이후PDF_URL?localPdfPath('시행령', t.별표명, dec.공포일자):'';
             const ext=t.이전PDF_URL?`https://www.law.go.kr${t.이전PDF_URL}`:'';
             const ext2=t.이후PDF_URL?`https://www.law.go.kr${t.이후PDF_URL}`:'';
@@ -1099,11 +1100,12 @@ function renderHistory(){
             html+=`<div class="pdf-compare-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">`;
             html+=`<div><div style="font-size:11px;font-weight:600;color:#991b1b;margin-bottom:4px">개정 직전 (${t.이전공포일?fmtD(t.이전공포일):'없음'}) ${ext?'<a href="'+ext+'" target="_blank" rel="noopener" style="font-size:10px;color:var(--sub);margin-left:6px">[원본 새 탭]</a>':''}</div>`;
             if(beforePath) html+=`<div class="pdf-mount" data-path="${beforePath}" style="height:700px;border:1px solid #fecaca;border-radius:4px;background:#fef2f2;display:flex;align-items:center;justify-content:center;color:#991b1b;font-size:11px">로딩 중...</div>`;
-            else html+=`<div style="height:200px;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#991b1b;font-size:12px">신설 — 직전 PDF 없음</div>`;
+            else if(!t.이전공포일) html+=`<div style="height:200px;background:#fef3c7;border:1px solid #fde68a;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#854d0e;font-size:12px;padding:12px;text-align:center;line-height:1.6"><span style="font-weight:700;font-size:13px">🆕 신설된 별표</span><span style="margin-top:6px;font-size:11px;color:#92400e">이전 비교 대상 없음 — 이번 개정에서 처음 추가됨</span></div>`;
+            else html+=`<div style="height:200px;background:#fef3c7;border:1px solid #fde68a;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#854d0e;font-size:12px;padding:12px;text-align:center;line-height:1.6"><span style="font-weight:700;font-size:13px">📄 PDF 없음</span><span style="margin-top:6px;font-size:11px;color:#92400e">${fmtD(t.이전공포일)} 시점 — 법제처 원본에 PDF 미등록 (옛 시점이거나 삭제된 별표)</span></div>`;
             html+=`</div>`;
             html+=`<div><div style="font-size:11px;font-weight:600;color:#166534;margin-bottom:4px">개정 후 (${fmtD(dec.공포일자)}) ${ext2?'<a href="'+ext2+'" target="_blank" rel="noopener" style="font-size:10px;color:var(--sub);margin-left:6px">[원본 새 탭]</a>':''}</div>`;
             if(afterPath) html+=`<div class="pdf-mount" data-path="${afterPath}" style="height:700px;border:1px solid #bbf7d0;border-radius:4px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;color:#166534;font-size:11px">로딩 중...</div>`;
-            else html+=`<div style="height:200px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">PDF 없음</div>`;
+            else html+=`<div style="height:200px;background:#fef3c7;border:1px solid #fde68a;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#854d0e;font-size:12px;padding:12px;text-align:center;line-height:1.6"><span style="font-weight:700;font-size:13px">📄 PDF 없음</span><span style="margin-top:6px;font-size:11px;color:#92400e">법제처 원본에 PDF 미등록 (옛 시점이거나 삭제된 별표)</span></div>`;
             html+=`</div></div></details>`;
           }
           // 텍스트 본문 비교 (참고)
@@ -1171,7 +1173,8 @@ function renderHistory(){
           html+=`<div style="font-weight:700;font-size:13px">${t.별표명} <span style="font-weight:400;color:var(--sub)">— ${t.제목||''}</span></div>`;
           html+=`<div style="margin-top:3px;font-size:11px"><span style="padding:1px 6px;background:#f5f5f4;border-radius:3px">${t.변경유형}</span></div>`;
           if(t.이전공포일 || t.이후PDF_URL){
-            const beforePath=t.이전공포일?localPdfPath('시행규칙', t.별표명, t.이전공포일):'';
+            // PDF_URL이 비면 다운로드된 로컬 PDF도 없으므로 path 자체를 만들지 않음 (404 회피)
+            const beforePath=(t.이전공포일 && t.이전PDF_URL)?localPdfPath('시행규칙', t.별표명, t.이전공포일):'';
             const afterPath=t.이후PDF_URL?localPdfPath('시행규칙', t.별표명, rule.공포일자):'';
             const ext=t.이전PDF_URL?`https://www.law.go.kr${t.이전PDF_URL}`:'';
             const ext2=t.이후PDF_URL?`https://www.law.go.kr${t.이후PDF_URL}`:'';
@@ -1180,11 +1183,12 @@ function renderHistory(){
             html+=`<div class="pdf-compare-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">`;
             html+=`<div><div style="font-size:11px;font-weight:600;color:#991b1b;margin-bottom:4px">개정 직전 (${t.이전공포일?fmtD(t.이전공포일):'없음'}) ${ext?'<a href="'+ext+'" target="_blank" rel="noopener" style="font-size:10px;color:var(--sub);margin-left:6px">[원본 새 탭]</a>':''}</div>`;
             if(beforePath) html+=`<div class="pdf-mount" data-path="${beforePath}" style="height:700px;border:1px solid #fecaca;border-radius:4px;background:#fef2f2;display:flex;align-items:center;justify-content:center;color:#991b1b;font-size:11px">로딩 중...</div>`;
-            else html+=`<div style="height:200px;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#991b1b;font-size:12px">신설 — 직전 PDF 없음</div>`;
+            else if(!t.이전공포일) html+=`<div style="height:200px;background:#fef3c7;border:1px solid #fde68a;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#854d0e;font-size:12px;padding:12px;text-align:center;line-height:1.6"><span style="font-weight:700;font-size:13px">🆕 신설된 별표</span><span style="margin-top:6px;font-size:11px;color:#92400e">이전 비교 대상 없음 — 이번 개정에서 처음 추가됨</span></div>`;
+            else html+=`<div style="height:200px;background:#fef3c7;border:1px solid #fde68a;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#854d0e;font-size:12px;padding:12px;text-align:center;line-height:1.6"><span style="font-weight:700;font-size:13px">📄 PDF 없음</span><span style="margin-top:6px;font-size:11px;color:#92400e">${fmtD(t.이전공포일)} 시점 — 법제처 원본에 PDF 미등록 (옛 시점이거나 삭제된 별표)</span></div>`;
             html+=`</div>`;
             html+=`<div><div style="font-size:11px;font-weight:600;color:#166534;margin-bottom:4px">개정 후 (${fmtD(rule.공포일자)}) ${ext2?'<a href="'+ext2+'" target="_blank" rel="noopener" style="font-size:10px;color:var(--sub);margin-left:6px">[원본 새 탭]</a>':''}</div>`;
             if(afterPath) html+=`<div class="pdf-mount" data-path="${afterPath}" style="height:700px;border:1px solid #bbf7d0;border-radius:4px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;color:#166534;font-size:11px">로딩 중...</div>`;
-            else html+=`<div style="height:200px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">PDF 없음</div>`;
+            else html+=`<div style="height:200px;background:#fef3c7;border:1px solid #fde68a;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#854d0e;font-size:12px;padding:12px;text-align:center;line-height:1.6"><span style="font-weight:700;font-size:13px">📄 PDF 없음</span><span style="margin-top:6px;font-size:11px;color:#92400e">법제처 원본에 PDF 미등록 (옛 시점이거나 삭제된 별표)</span></div>`;
             html+=`</div></div></details>`;
           }
           const tblDiffs=((tblDiffData['시행규칙']||{})[t.별표명]||[]);
