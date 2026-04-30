@@ -20,6 +20,8 @@ import re
 import time
 from datetime import datetime
 
+from api_utils import request_xml_with_retry
+
 # === 설정 ===
 API_KEY = "evergreen_edu"
 DETAIL_URL = "http://www.law.go.kr/DRF/lawService.do"
@@ -85,14 +87,9 @@ def fetch_history_list(law_id: str, law_name: str) -> list[dict]:
     """
     print(f"\n📋 [{law_name}] 연혁 목록 검색 중...")
     params = {"lsId": law_id}
-    try:
-        resp = requests.get(
-            HISTORY_LIST_URL, params=params, timeout=30,
-            headers={"User-Agent": "Mozilla/5.0"}
-        )
-        resp.raise_for_status()
-    except requests.RequestException as e:
-        print(f"  ❌ 연혁 목록 조회 실패: {e}")
+    resp = request_xml_with_retry(HISTORY_LIST_URL, params, timeout=30)
+    if resp is None:
+        print(f"  ❌ 연혁 목록 조회 실패")
         return []
 
     # onclick 패턴에서 연혁 정보 추출
@@ -131,11 +128,9 @@ def fetch_law_detail(mst: str) -> dict | None:
         "type": "XML",
         "MST": mst,
     }
-    try:
-        resp = requests.get(DETAIL_URL, params=params, timeout=60)
-        resp.raise_for_status()
-    except requests.RequestException as e:
-        print(f"    ❌ 본문 조회 실패 (MST={mst}): {e}")
+    resp = request_xml_with_retry(DETAIL_URL, params, timeout=60)
+    if resp is None:
+        print(f"    ❌ 본문 조회 실패 (MST={mst})")
         return None
 
     try:

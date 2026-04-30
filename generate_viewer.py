@@ -193,14 +193,55 @@ def _build_table(table_lines):
     return html
 
 
+def load_table_data_with_fallback():
+    """
+    attached_tables.json 우선 로드, 없으면 attached_tables_history.json에서 최신 슬라이스 폴백.
+    워크플로 첫 풀스캔 시 attached_tables.json이 없어도 generate_viewer.py가 죽지 않게 함.
+    """
+    if os.path.exists(TABLE_PATH):
+        with open(TABLE_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    # 폴백: history에서 각 별표·서식의 최신 공포일자 슬라이스 추출
+    history_path = os.path.join(DATA_DIR, "attached_tables_history.json")
+    if not os.path.exists(history_path):
+        raise FileNotFoundError(
+            f"{TABLE_PATH} 도 없고 {history_path} 도 없음 — "
+            f"collect_attached_tables_history.py 먼저 실행 필요"
+        )
+    print(f"  ⚠️ attached_tables.json 부재 — attached_tables_history.json 최신 슬라이스로 폴백")
+    with open(history_path, "r", encoding="utf-8") as f:
+        history = json.load(f)
+
+    table_data = {"시행령": {}, "시행규칙": {}}
+    for law_type in ["시행령", "시행규칙"]:
+        for tname, snapshots in history.get(law_type, {}).items():
+            if not snapshots:
+                continue
+            latest_pub = max(snapshots.keys())  # 공포일자 문자열(YYYYMMDD) 사전식 최대 = 최신
+            snap = snapshots[latest_pub]
+            parts = tname.split(" ", 1)
+            구분 = parts[0] if parts else "별표"
+            번호 = parts[1] if len(parts) > 1 else ""
+            table_data[law_type][tname] = {
+                "구분": 구분,
+                "번호": 번호,
+                "제목": snap.get("제목", ""),
+                "내용": snap.get("내용", ""),
+                "PDF": snap.get("PDF_URL", ""),
+                "HWP": "",
+                "PDF_BASE64": "",  # 폴백 시 base64 없음 — 별지 모달은 history 슬림판 폴백 사용
+            }
+    return table_data
+
+
 def main():
     print("📖 데이터 로딩...")
     with open(MAP_PATH, "r", encoding="utf-8") as f:
         map_data = json.load(f)
     with open(ART_PATH, "r", encoding="utf-8") as f:
         art_data = json.load(f)
-    with open(TABLE_PATH, "r", encoding="utf-8") as f:
-        table_data = json.load(f)
+    table_data = load_table_data_with_fallback()
 
     # 뷰어 크기 최적화: 텍스트 내용은 PDF가 있으면 제거
     for law_type in ["시행령", "시행규칙"]:

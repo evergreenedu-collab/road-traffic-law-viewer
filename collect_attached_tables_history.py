@@ -32,6 +32,8 @@ from datetime import datetime
 
 import requests
 
+from api_utils import request_xml_with_retry
+
 API_KEY = "evergreen_edu"
 DETAIL_URL = "http://www.law.go.kr/DRF/lawService.do"
 REQUEST_DELAY = 0.6
@@ -52,7 +54,9 @@ def safe_text(el, tag):
 def fetch_tables(mst):
     """MST의 별표 본문 + PDF URL 추출. {별표명: {제목, 내용, PDF_URL}}"""
     params = {"OC": API_KEY, "target": "law", "type": "XML", "MST": mst}
-    resp = requests.get(DETAIL_URL, params=params, timeout=60)
+    resp = request_xml_with_retry(DETAIL_URL, params, timeout=60)
+    if resp is None:
+        raise RuntimeError(f"본문 조회 최종 실패 (MST={mst})")
     root = ET.fromstring(resp.text)
 
     tables = {}

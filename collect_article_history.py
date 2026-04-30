@@ -18,6 +18,8 @@ import re
 import time
 from datetime import datetime
 
+from api_utils import request_xml_with_retry
+
 API_KEY = "evergreen_edu"
 DETAIL_URL = "http://www.law.go.kr/DRF/lawService.do"
 HISTORY_LIST_URL = "https://www.law.go.kr/LSW/lsHstListR.do"
@@ -53,8 +55,10 @@ def fetch_history_list(law_id, law_name):
     """법제처 웹에서 전체 연혁 MST 목록을 가져옵니다."""
     print(f"\n📋 [{law_name}] 연혁 목록 조회...")
     params = {"lsId": law_id}
-    resp = requests.get(HISTORY_LIST_URL, params=params, timeout=30,
-                        headers={"User-Agent": "Mozilla/5.0"})
+    resp = request_xml_with_retry(HISTORY_LIST_URL, params, timeout=30)
+    if resp is None:
+        print(f"  ❌ 연혁 목록 조회 실패")
+        return []
 
     pattern = r"lsViewLsHst2\('(\d+)',\s*'(\d+)',\s*'(\d+)',\s*'(\d+)',\s*'[^']*',\s*'[^']*'\s*,\s*'([^']*)'\)"
     matches = re.findall(pattern, resp.text)
@@ -81,7 +85,9 @@ def fetch_history_list(law_id, law_name):
 def fetch_version_articles(mst):
     """특정 버전의 모든 조문에서 변경 정보를 추출합니다."""
     params = {"OC": API_KEY, "target": "law", "type": "XML", "MST": mst}
-    resp = requests.get(DETAIL_URL, params=params, timeout=60)
+    resp = request_xml_with_retry(DETAIL_URL, params, timeout=60)
+    if resp is None:
+        raise RuntimeError(f"본문 조회 최종 실패 (MST={mst})")
     root = ET.fromstring(resp.text)
 
     basic = root.find(".//기본정보")

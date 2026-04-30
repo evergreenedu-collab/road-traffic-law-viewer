@@ -4,7 +4,8 @@ name: 매주 자동 갱신
 # 도로교통법 한눈에 — 매주 정기 자동 갱신 워크플로
 #
 # 동작:
-#   - 매주 월요일 새벽 02:00 KST (= 일요일 17:00 UTC) 자동 실행
+#   - 매주 월요일 새벽 05:00 KST (= 일요일 20:00 UTC) 자동 실행
+#     (02:00 KST → 05:00 KST 변경: 법제처 야간 점검 시간대 회피)
 #   - 수동 실행도 가능 (Actions 탭 → "Run workflow")
 #   - update_all.py 실행 → 빌드 검증 → 변경 시 commit·push
 #   - 결과(성공/실패)를 GitHub Issue로 생성 → 회사 메일에 알림
@@ -13,7 +14,7 @@ name: 매주 자동 갱신
 
 on:
   schedule:
-    - cron: '0 17 * * 0'  # 매주 일요일 17:00 UTC = 월요일 02:00 KST
+    - cron: '0 20 * * 0'  # 매주 일요일 20:00 UTC = 월요일 05:00 KST
   workflow_dispatch:
     inputs:
       force_issue:
