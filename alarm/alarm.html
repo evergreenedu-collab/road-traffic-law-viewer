@@ -118,6 +118,41 @@
     font-size: 13px; color: #78350f; line-height: 1.6;
   }
   .info-banner strong { color: #78350f; }
+
+  /* 모바일 (좁은 화면) 반응형 — 데스크탑 영향 없음 */
+  @media (max-width: 600px) {
+    body { padding: 8px; }
+    header { padding: 14px 16px; }
+    header h1 { font-size: 17px; }
+    header p { font-size: 11px; line-height: 1.4; }
+    .info-banner { font-size: 12px; padding: 8px 12px; }
+    .filter-bar {
+      flex-direction: column; align-items: stretch; gap: 8px;
+      padding: 10px 12px;
+    }
+    .filter-bar select { width: 100%; }
+    .filter-bar .count { margin-left: 0; align-self: flex-end; }
+    .card { padding: 14px 16px; }
+    .card-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .card-title { font-size: 14px; line-height: 1.5; }
+    .card-meta { font-size: 11px; white-space: normal; }
+    .card-reason { font-size: 12px; max-height: 120px; padding: 8px 10px; }
+    .article-item {
+      flex-direction: column; align-items: stretch; gap: 6px;
+      padding: 10px 12px;
+    }
+    .article-info { width: 100%; }
+    .article-link {
+      width: 100%; text-align: center; padding: 8px 12px;
+      font-size: 13px;
+    }
+    .mapping-hint {
+      display: block; margin-left: 0; margin-top: 4px;
+      font-size: 11px; line-height: 1.4;
+    }
+    .badge { font-size: 10px; padding: 2px 6px; }
+    .articles-section summary { font-size: 13px; }
+  }
 </style>
 </head>
 <body>

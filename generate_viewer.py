@@ -402,6 +402,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .header .header-stats{position:absolute;top:14px;right:20px;font-size:11px;opacity:.85;text-align:right;line-height:1.5}
 .header .header-stats b{font-size:14px;display:block;font-weight:600}
 @media(max-width:768px){.header .header-stats{display:none}}
+/* 모바일에서 헤더 알림 버튼 — 작게 + 좌상단으로 (h1 가리지 않게) */
+@media(max-width:600px){
+  .header{padding-top:44px}
+  .header-alarm-link{top:8px!important;left:8px!important;padding:5px 10px!important;font-size:11px!important}
+}
 
 .toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
 .toolbar label{font-size:13px;font-weight:600;color:var(--law);flex-shrink:0}
