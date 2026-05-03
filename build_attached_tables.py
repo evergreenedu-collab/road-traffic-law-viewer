@@ -54,11 +54,8 @@ import json
 import os
 import sys
 import time
-from datetime import datetime
 
 import requests
-
-from api_utils import request_xml_with_retry  # collect 스크립트가 쓰는 헬퍼와 공유
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data")
@@ -78,20 +75,26 @@ def parse_key(tname: str):
     return 구분, 번호
 
 
-def download_pdf_base64(pdf_url: str) -> str:
+def download_pdf_base64(pdf_url: str, retries: int = 3) -> str:
     """법제처 다운로드 URL에서 PDF 받아 base64로 인코딩.
-    실패 시 빈 문자열 반환 (별지 모달은 그래도 PDF_URL로 fallback 가능)."""
+    일시 네트워크 실패(connection reset 등)에 강하도록 retries회 재시도(지수 백오프).
+    최종 실패 시 빈 문자열 반환 — 다음 빌드의 캐시 fallback이 회복할 수 있도록."""
     if not pdf_url:
         return ""
     full_url = pdf_url if pdf_url.startswith("http") else LAW_GO_KR + pdf_url
-    try:
-        r = requests.get(full_url, timeout=30)
-        if r.status_code != 200 or not r.content:
-            return ""
-        return base64.b64encode(r.content).decode("ascii")
-    except Exception as e:
-        print(f"    ⚠️ PDF 다운로드 실패 ({pdf_url[:60]}): {e}")
-        return ""
+    last_err = None
+    for attempt in range(retries):
+        try:
+            r = requests.get(full_url, timeout=30)
+            if r.status_code == 200 and r.content:
+                return base64.b64encode(r.content).decode("ascii")
+            last_err = f"HTTP {r.status_code}"
+        except Exception as e:
+            last_err = str(e)
+        if attempt < retries - 1:
+            time.sleep(2 ** attempt)  # 1초, 2초 백오프 — 일시 장애 회피
+    print(f"    ⚠️ PDF 다운로드 실패 ({pdf_url[:60]}): {last_err}")
+    return ""
 
 
 def main():
@@ -128,10 +131,23 @@ def main():
         except Exception:
             cache = {}
 
+    # 디버그: 캐시 구조 확인 — HWP 누락 회귀 진단용
+    print(f"🔍 [디버그] 캐시 최상위 키: {list(cache.keys())}")
+    for lt in ["시행령", "시행규칙"]:
+        cl = cache.get(lt, {})
+        if cl:
+            sample_key = list(cl.keys())[0]
+            sample = cl[sample_key]
+            has_hwp = bool(sample.get('HWP'))
+            print(f"🔍 [디버그] cache.{lt}: {len(cl)}개, 샘플 [{sample_key}] HWP={'있음' if has_hwp else '없음/빈값'}, keys={list(sample.keys())[:8]}")
+        else:
+            print(f"🔍 [디버그] cache.{lt}: 비어있음")
+
     result = {"시행령": {}, "시행규칙": {}}
     base64_new = 0
     base64_reused = 0
     base64_failed = 0
+    debug_first_processed = True  # 첫 별표 처리 시 한 번만 상세 디버그
 
     for law_type in ["시행령", "시행규칙"]:
         # 법령 최신 공포일자 (versions는 공포일자 내림차순 정렬됨)
@@ -155,22 +171,32 @@ def main():
             snap = snapshots[latest_pub]
 
             구분, 번호 = parse_key(tname)
-            cached_entry = cache.get(law_type, {}).get(tname, {})
+            cached_entry = cache_law.get(tname, {})
+            hwp_from_history = snap.get("HWP_URL", "")
+            hwp_from_cache = cached_entry.get("HWP", "")
+            final_hwp = hwp_from_history or hwp_from_cache
+
+            # 첫 처리 시 상세 디버그 (HWP 누락 회귀 진단)
+            if debug_first_processed:
+                print(f"🔍 [디버그] 첫 처리: {law_type} {tname}")
+                print(f"🔍 [디버그]   snap.HWP_URL: {repr(hwp_from_history[:50] if hwp_from_history else hwp_from_history)}")
+                print(f"🔍 [디버그]   cache_law.{tname} 존재: {bool(cached_entry)}")
+                print(f"🔍 [디버그]   cached_entry.HWP: {repr(hwp_from_cache[:50] if hwp_from_cache else hwp_from_cache)}")
+                print(f"🔍 [디버그]   최종 HWP: {repr(final_hwp[:50] if final_hwp else final_hwp)}")
+                debug_first_processed = False
+
             entry = {
                 "구분": 구분,
                 "번호": 번호,
                 "제목": snap.get("제목", ""),
                 "내용": snap.get("내용", ""),
                 "PDF": snap.get("PDF_URL", ""),
-                # HWP: history에 HWP_URL이 있으면 사용, 없으면 캐시 재사용 (collect 스크립트가
-                # HWP_URL 추출하기 시작한 시점 이전의 옛 history에 대한 폴백)
-                "HWP": snap.get("HWP_URL", "") or cached_entry.get("HWP", ""),
+                "HWP": final_hwp,
                 "PDF_BASE64": "",
             }
 
             # PDF_BASE64: 서식만 (별표는 generate_viewer.py가 로컬 경로로 처리)
             if 구분 == "서식" and entry["PDF"] and not args.no_base64:
-                cached_entry = cache_law.get(tname, {})
                 # 캐시 일치 조건: PDF URL 동일 + 캐시에 base64 보유
                 if cached_entry.get("PDF") == entry["PDF"] and cached_entry.get("PDF_BASE64"):
                     entry["PDF_BASE64"] = cached_entry["PDF_BASE64"]
@@ -204,6 +230,16 @@ def main():
     print()
     print("=" * 60)
     print(f"✅ 완료: {OUTPUT_PATH} ({size_mb:.1f}MB)")
+    # 디버그: 결과의 HWP·PDF·base64 보유 통계 — 회귀 즉시 감지용
+    for lt in ["시행령", "시행규칙"]:
+        items = result.get(lt, {})
+        n = len(items)
+        if n == 0:
+            continue
+        hwp_count = sum(1 for v in items.values() if v.get('HWP'))
+        pdf_count = sum(1 for v in items.values() if v.get('PDF'))
+        b64_count = sum(1 for v in items.values() if v.get('PDF_BASE64'))
+        print(f"🔍 [디버그] {lt} {n}개 — HWP {hwp_count}/{n}, PDF {pdf_count}/{n}, BASE64 {b64_count}/{n}")
     print(f"  시행령: {len(result['시행령'])}개")
     print(f"  시행규칙: {len(result['시행규칙'])}개")
     print(f"  PDF_BASE64 신규 다운로드: {base64_new}개")
