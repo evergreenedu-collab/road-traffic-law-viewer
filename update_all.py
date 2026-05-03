@@ -9,7 +9,7 @@
     python update_all.py --skip-collect  # 수집 건너뛰고 빌드만 (data/ 이미 있을 때)
     python update_all.py --no-pdfs    # 별표 PDF 다운로드 건너뛰기 (가벼운 테스트)
 
-10단계 (소요시간 처음 시 ~30분, 증분 갱신 시 ~수 분):
+11단계 (소요시간 처음 시 ~35분, 증분 갱신 시 ~수 분):
     1. build_3tier_map.py                    [~10초]
     2. collect_full_history.py               [~30초, API]
     3. collect_article_history.py            [~6분, API, 증분]
@@ -17,9 +17,10 @@
     5. build_text_diff.py                    [~10초]
     6. collect_attached_tables_history.py    [~3분, API]
     7. build_attached_tables_diff.py         [~5초]
-    8. build_cascade_events.py               [~5초]
-    9. download_table_pdfs.py                [~25분 첫 회 / 수초 증분]
-    10. generate_viewer.py                   [~5초]
+    8. build_attached_tables.py              [~5분 첫 회 / 수초 증분, 별지 PDF base64]
+    9. build_cascade_events.py               [~5초]
+    10. download_table_pdfs.py               [~25분 첫 회 / 수초 증분]
+    11. generate_viewer.py                   [~5초]
 """
 
 import argparse
@@ -39,6 +40,7 @@ STAGES = [
     ("build_text_diff.py",                    "본문 전후비교 빌드",          "build",  "10초"),
     ("collect_attached_tables_history.py",    "별표 시점별 본문 수집",        "collect","3분"),
     ("build_attached_tables_diff.py",         "별표 전후비교 빌드",          "build",  "5초"),
+    ("build_attached_tables.py",              "별표/별지 최신 스냅샷 빌드",   "build",  "수초~5분"),
     ("build_cascade_events.py",               "캐스케이드 이벤트 빌드",       "build",  "5초"),
     ("download_table_pdfs.py",                "별표 PDF 다운로드 (증분)",     "pdfs",   "수초~25분"),
     ("generate_viewer.py",                    "최종 뷰어 생성",              "build",  "5초"),

@@ -96,9 +96,25 @@ jobs:
           test -f web_data/data_tbl_history.js || { echo "::error::data_tbl_history.js 없음"; exit 1; }
           test -f web_data/pdfjs/web/viewer.html || { echo "::error::PDF.js viewer 없음"; exit 1; }
 
+          # ① -2. attached_tables.json 정상 빌드 확인 (fallback 회귀 차단)
+          # build_attached_tables.py가 정상 빌드하면 18MB 안팎. 5MB 미만이면 fallback 작동 의심.
+          test -f data/attached_tables.json || { echo "::error::attached_tables.json 없음 — build_attached_tables.py 단계 누락 의심"; exit 1; }
+          AT_SIZE=$(stat -c%s data/attached_tables.json)
+          if [ $AT_SIZE -lt 5000000 ]; then
+            echo "::error::attached_tables.json 크기 비정상 ($AT_SIZE bytes < 5MB) — fallback 작동 또는 데이터 누락 의심"
+            exit 1
+          fi
+
           # ② gview 부활 검사 (모바일 PDF 회귀 차단)
           if grep -q 'docs.google.com/gview' viewer.html; then
             echo "::error::gview 문자열 발견 — 모바일 PDF 회귀 위험"
+            exit 1
+          fi
+
+          # ②-2. web_data/data_core.js에 HWP URL 패턴 존재 검사 (HWP 다운로드 버튼 회귀 차단)
+          # 정상 빌드 시 시행규칙 264개 + 시행령 13개에 HWP URL 들어감. 하나도 없으면 회귀.
+          if ! grep -q '"HWP":"/LSW/' web_data/data_core.js; then
+            echo "::error::web_data/data_core.js에 HWP URL 없음 — HWP 다운로드 회귀 의심 (fallback 작동 또는 build_attached_tables.py 결함)"
             exit 1
           fi
 
@@ -115,6 +131,22 @@ jobs:
           fi
 
           echo "✅ 빌드 검증 통과 (viewer.html: $(numfmt --to=iec $SIZE))"
+
+      # 별표/별지 추가·제거·교체 감지 — 사용자 알림용
+      # checkout 시점의 attached_tables.json(git HEAD) vs 방금 빌드한 attached_tables.json 비교.
+      # 첫 실행 시점(git에 attached_tables.json 미추적 상태)은 비교 건너뜀 — 모든 별표가
+      # "추가"로 표시되어 노이즈가 되는 것을 막는다.
+      - name: 별표/별지 변경 감지
+        id: table_alarm
+        run: |
+          if git cat-file -e HEAD:data/attached_tables.json 2>/dev/null; then
+            git show HEAD:data/attached_tables.json > /tmp/prev_attached_tables.json
+            python compare_attached_tables.py /tmp/prev_attached_tables.json data/attached_tables.json
+          else
+            echo "📭 attached_tables.json git 추적 첫 실행 — 비교 건너뜀"
+            echo "has_table_changes=false" >> "$GITHUB_OUTPUT"
+            echo "table_changes_count=0" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: 변경사항 감지
         id: changes
@@ -160,6 +192,9 @@ jobs:
           HAS_CHANGES: ${{ steps.changes.outputs.has_changes }}
           STATS: ${{ steps.changes.outputs.stats }}
           FILES: ${{ steps.changes.outputs.changed_files }}
+          HAS_TABLE_CHANGES: ${{ steps.table_alarm.outputs.has_table_changes }}
+          TABLE_CHANGES_TEXT: ${{ steps.table_alarm.outputs.table_changes_text }}
+          TABLE_CHANGES_COUNT: ${{ steps.table_alarm.outputs.table_changes_count }}
         with:
           script: |
             const tz = { timeZone: 'Asia/Seoul' };
@@ -170,15 +205,31 @@ jobs:
             const hasChanges = process.env.HAS_CHANGES === 'true';
             const stats = process.env.STATS || '';
             const files = (process.env.FILES || '').trim();
+            const hasTableChanges = process.env.HAS_TABLE_CHANGES === 'true';
+            const tableChangesText = (process.env.TABLE_CHANGES_TEXT || '').trim();
+            const tableChangesCount = process.env.TABLE_CHANGES_COUNT || '0';
 
             let title, body;
             if (hasChanges) {
-              title = `[클로드 코드가 회신] 자동 갱신 성공 - ${dateKst}`;
-              body = [
+              // 별표 변경이 있으면 제목에 표시 — 사용자가 메일 제목만 봐도 인지 가능
+              const titleSuffix = hasTableChanges ? ` ⚠️ 별표 변경 감지(${tableChangesCount}건)` : '';
+              title = `[클로드 코드가 회신] 자동 갱신 성공 - ${dateKst}${titleSuffix}`;
+              const bodyLines = [
                 '매주 정기 자동 갱신이 성공적으로 완료되었습니다.',
                 '',
                 `**실행 시각**: ${timeKst}`,
-                '',
+                ''
+              ];
+              // 별표 변경 섹션 — 있을 때만 본문 상단에 표시
+              if (hasTableChanges) {
+                bodyLines.push('## ⚠️ 별표/별지 변경 감지');
+                bodyLines.push('');
+                bodyLines.push('```');
+                bodyLines.push(tableChangesText);
+                bodyLines.push('```');
+                bodyLines.push('');
+              }
+              bodyLines.push(
                 '**변경 통계**:',
                 '```',
                 stats,
@@ -197,7 +248,8 @@ jobs:
                 '---',
                 '*이 메시지는 `.github/workflows/update.yml` 워크플로가 자동 발송한 것입니다.*',
                 '*제목 prefix `[클로드 코드가 회신]`로 정상 알림임을 식별할 수 있습니다.*'
-              ].join('\n');
+              );
+              body = bodyLines.join('\n');
             } else {
               title = `[클로드 코드가 회신] 자동 갱신 점검 - ${dateKst} (변경 없음)`;
               body = [

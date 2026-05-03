@@ -3,6 +3,10 @@
 data/*.json
 !data/.gitkeep
 
+# 별표/별지 최신 스냅샷 — 워크플로의 비교 알림(별표 추가/제거 감지) 기준점.
+# 매주 build_attached_tables.py가 갱신하여 자동 commit. 18MB 정도라 push 부담 작음.
+!data/attached_tables.json
+
 # 시점별 별표 PDF는 별도 처리 — push 포함 (뷰어가 직접 참조). 폴더는 유지.
 !data/table_pdfs/
 
