@@ -55,13 +55,13 @@ jobs:
 
       # data/ 폴더 캐시 — .gitignore에 의해 git에서 제외되므로
       # 워크플로 환경에서는 별도 캐시 없이는 매번 풀스캔(API 350+건).
-      # actions/cache로 직전 실행 결과를 복원하여 collect_*.py가 증분 수집할 수 있도록 함.
+      # actions/cache의 자동 Post는 워크플로 success 시에만 작동 → 검증 fail 시 캐시 미저장.
+      # cache/restore + cache/save로 분리하여 빌드 성공 시 검증 결과 무관하게 캐시 저장 보장.
       - name: data/ 캐시 복원
         id: cache-data
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: data
-          # 키를 commit SHA에 묶지 않아야 매주 재사용 가능. restore-keys로 fallback.
           key: law-history-data-v1-${{ github.run_id }}
           restore-keys: |
             law-history-data-v1-
@@ -76,15 +76,27 @@ jobs:
           fi
 
       - name: 빌드 실행 (update_all.py)
+        id: build
         run: |
           export PYTHONIOENCODING=utf-8
           python update_all.py
 
-      - name: 빌드 산출물 검증 (회귀 차단)
+      # 캐시 저장 — 빌드 성공 시 검증 결과 무관하게 저장 (다음 워크플로 풀스캔 회피)
+      - name: data/ 캐시 저장
+        if: always() && steps.build.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: data
+          key: law-history-data-v1-${{ github.run_id }}
+
+      - name: 빌드 산출물 검증 (회귀 처리)
+        id: validate
         run: |
           set -e
 
-          # ① 핵심 파일 존재 + 크기
+          # ─────────────────────────────────────────────
+          # 카테고리 A: 핵심 파일 누락 = 빌드 자체 깨짐 → fail 차단
+          # ─────────────────────────────────────────────
           test -f viewer.html || { echo "::error::viewer.html 없음"; exit 1; }
           SIZE=$(stat -c%s viewer.html)
           if [ $SIZE -lt 50000 ]; then
@@ -96,41 +108,52 @@ jobs:
           test -f web_data/data_tbl_history.js || { echo "::error::data_tbl_history.js 없음"; exit 1; }
           test -f web_data/pdfjs/web/viewer.html || { echo "::error::PDF.js viewer 없음"; exit 1; }
 
-          # ① -2. attached_tables.json 정상 빌드 확인 (fallback 회귀 차단)
-          # build_attached_tables.py가 정상 빌드하면 18MB 안팎. 5MB 미만이면 fallback 작동 의심.
-          test -f data/attached_tables.json || { echo "::error::attached_tables.json 없음 — build_attached_tables.py 단계 누락 의심"; exit 1; }
+          test -f data/attached_tables.json || { echo "::error::attached_tables.json 없음"; exit 1; }
           AT_SIZE=$(stat -c%s data/attached_tables.json)
           if [ $AT_SIZE -lt 5000000 ]; then
-            echo "::error::attached_tables.json 크기 비정상 ($AT_SIZE bytes < 5MB) — fallback 작동 또는 데이터 누락 의심"
+            echo "::error::attached_tables.json 크기 비정상 ($AT_SIZE bytes < 5MB)"
             exit 1
           fi
 
-          # ② gview 부활 검사 (모바일 PDF 회귀 차단)
+          # gview 부활 — 사용자 화면 깨짐 직접 원인 → fail 차단
           if grep -q 'docs.google.com/gview' viewer.html; then
-            echo "::error::gview 문자열 발견 — 모바일 PDF 회귀 위험"
+            echo "::error::gview 문자열 발견 — 모바일 PDF 회귀"
             exit 1
           fi
 
-          # ②-2. web_data/data_core.js에 HWP URL 패턴 존재 검사 (HWP 다운로드 버튼 회귀 차단)
-          # 정상 빌드 시 시행규칙 264개 + 시행령 13개에 HWP URL 들어감. 하나도 없으면 회귀.
-          if ! grep -q '"HWP":"/LSW/' web_data/data_core.js; then
-            echo "::error::web_data/data_core.js에 HWP URL 없음 — HWP 다운로드 회귀 의심 (fallback 작동 또는 build_attached_tables.py 결함)"
-            exit 1
-          fi
-
-          # ③ PDF.js 경로 존재 검사
+          # PDF.js 경로 누락 → fail 차단
           if ! grep -q 'web_data/pdfjs/web/viewer.html' viewer.html; then
             echo "::error::PDF.js viewer 경로 누락"
             exit 1
           fi
 
-          # ④ history 폴백 코드 존재 검사
+          # history 폴백 코드 누락 → fail 차단
           if ! grep -q 'tblHistoryData' viewer.html; then
             echo "::error::history 폴백 코드 누락"
             exit 1
           fi
 
-          echo "✅ 빌드 검증 통과 (viewer.html: $(numfmt --to=iec $SIZE))"
+          # ─────────────────────────────────────────────
+          # 카테고리 B: 부분 회귀 = 자동 복원 (옛 web_data 유지) + 알림
+          # ─────────────────────────────────────────────
+          REGRESSION_DETECTED=""
+
+          # HWP URL 회귀 검사
+          if ! grep -q '"HWP":"/LSW/' web_data/data_core.js; then
+            echo "::warning::HWP URL 누락 감지 — 옛 viewer/web_data 복원"
+            git checkout HEAD -- viewer.html web_data/ 2>/dev/null || true
+            REGRESSION_DETECTED="HWP URL 누락"
+          fi
+
+          # 회귀 결과를 outputs로 전달
+          if [ -n "$REGRESSION_DETECTED" ]; then
+            echo "regression=true" >> "$GITHUB_OUTPUT"
+            echo "regression_reason=$REGRESSION_DETECTED" >> "$GITHUB_OUTPUT"
+            echo "⚠️ 부분 회귀 감지 — viewer/web_data는 옛 상태 유지, 데이터 부분만 갱신됩니다"
+          else
+            echo "regression=false" >> "$GITHUB_OUTPUT"
+            echo "✅ 빌드 검증 통과 (viewer.html: $(numfmt --to=iec $SIZE))"
+          fi
 
       # 별표/별지 추가·제거·교체 감지 — 사용자 알림용
       # checkout 시점의 attached_tables.json(git HEAD) vs 방금 빌드한 attached_tables.json 비교.
@@ -195,6 +218,8 @@ jobs:
           HAS_TABLE_CHANGES: ${{ steps.table_alarm.outputs.has_table_changes }}
           TABLE_CHANGES_TEXT: ${{ steps.table_alarm.outputs.table_changes_text }}
           TABLE_CHANGES_COUNT: ${{ steps.table_alarm.outputs.table_changes_count }}
+          REGRESSION: ${{ steps.validate.outputs.regression }}
+          REGRESSION_REASON: ${{ steps.validate.outputs.regression_reason }}
         with:
           script: |
             const tz = { timeZone: 'Asia/Seoul' };
@@ -208,11 +233,15 @@ jobs:
             const hasTableChanges = process.env.HAS_TABLE_CHANGES === 'true';
             const tableChangesText = (process.env.TABLE_CHANGES_TEXT || '').trim();
             const tableChangesCount = process.env.TABLE_CHANGES_COUNT || '0';
+            const regression = process.env.REGRESSION === 'true';
+            const regressionReason = process.env.REGRESSION_REASON || '';
 
             let title, body;
             if (hasChanges) {
-              // 별표 변경이 있으면 제목에 표시 — 사용자가 메일 제목만 봐도 인지 가능
-              const titleSuffix = hasTableChanges ? ` ⚠️ 별표 변경 감지(${tableChangesCount}건)` : '';
+              // 회귀 또는 별표 변경 감지 시 제목에 표시
+              let titleSuffix = '';
+              if (regression) titleSuffix += ` ⚠️ 부분 회귀(${regressionReason})`;
+              if (hasTableChanges) titleSuffix += ` ⚠️ 별표 변경(${tableChangesCount}건)`;
               title = `[클로드 코드가 회신] 자동 갱신 성공 - ${dateKst}${titleSuffix}`;
               const bodyLines = [
                 '매주 정기 자동 갱신이 성공적으로 완료되었습니다.',
@@ -220,6 +249,22 @@ jobs:
                 `**실행 시각**: ${timeKst}`,
                 ''
               ];
+              // 회귀 감지 섹션 — 있을 때만
+              if (regression) {
+                bodyLines.push('## ⚠️ 부분 회귀 감지 — 자동 복원');
+                bodyLines.push('');
+                bodyLines.push('```');
+                bodyLines.push(`회귀 종류: ${regressionReason}`);
+                bodyLines.push('처리: viewer.html과 web_data/는 옛 정상 상태를 유지');
+                bodyLines.push('       data/ 폴더(별표 데이터, table_pdfs)는 새 빌드 결과 반영');
+                bodyLines.push('       사용자 화면은 옛 정상 상태로 작동');
+                bodyLines.push('```');
+                bodyLines.push('');
+                bodyLines.push('📌 다음 단계:');
+                bodyLines.push('  Claude에게 "워크플로 회귀 발생했어, 디버그 부탁해" 알려주시면 함께 점검합니다.');
+                bodyLines.push('  (사용자 화면은 정상 작동 중이라 긴급은 아님)');
+                bodyLines.push('');
+              }
               // 별표 변경 섹션 — 있을 때만 본문 상단에 표시
               if (hasTableChanges) {
                 bodyLines.push('## ⚠️ 별표/별지 변경 감지');
