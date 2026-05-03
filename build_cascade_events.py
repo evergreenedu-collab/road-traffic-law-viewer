@@ -965,11 +965,73 @@ def main():
     # ─────────────────────────────────────────────────────
     # 7. 조문별 이벤트 인덱스 + 저장
     # ─────────────────────────────────────────────────────
+    # 시행령·시행규칙 → 매핑된 법률 조문 사전 (인덱스 확장용)
+    # 시행령·시행규칙이 단독 변경된 시점도 매핑된 법률 조문 연혁 탭에 표시되도록.
+    sub_to_law_jo = {}  # (법령유형, 조문키) → 법률 조문키
+    for entry in mapdata.get("매핑", []):
+        law_jo = entry.get("법률_조키")
+        if not law_jo:
+            continue
+        for hh in entry.get("항별_매핑", []):
+            for r in hh.get("시행령", []):
+                sub_to_law_jo.setdefault(("시행령", r.get("조키")), law_jo)
+            for r in hh.get("시행규칙_직접", []):
+                sub_to_law_jo.setdefault(("시행규칙", r.get("조키")), law_jo)
+        for c in entry.get("조문전체_매핑", []):
+            st = c.get("법령유형")
+            sj = c.get("조키")
+            if st and sj:
+                sub_to_law_jo.setdefault((st, sj), law_jo)
+
+    # 기타변경조문 중 매핑된 법률 조문이 있는 것은 연결변경조문으로 자동 이동
+    # → viewer.html이 연결변경조문만 표시하므로, 매핑 가능한 변경은 모두 연결변경조문으로
+    moved_count = 0
+    for event in events:
+        for sub_type_key in ["시행령", "시행규칙"]:
+            for sub in event.get(sub_type_key, []):
+                etc_remaining = []
+                for art in sub.get("기타변경조문", []):
+                    jo_key = art.get("조문키")
+                    law_jo = sub_to_law_jo.get((sub_type_key, jo_key))
+                    if law_jo:
+                        art_new = dict(art)
+                        art_new["연결법률조문"] = [law_jo]
+                        sub.setdefault("연결변경조문", []).append(art_new)
+                        moved_count += 1
+                    else:
+                        etc_remaining.append(art)
+                sub["기타변경조문"] = etc_remaining
+    print(f"  📌 기타변경조문 → 연결변경조문 이동: {moved_count}건 (mapdata 매핑 활용)")
+
     article_events = defaultdict(list)
     for i, event in enumerate(events):
+        # 한 이벤트당 한 조문에 중복 추가 방지
+        jos_for_event = set()
+        # 법률 자체 변경
         for art in event["법률"]["변경조문"]:
-            article_events[art["조문키"]].append(i)
-    print(f"\n📌 7. 조문별 이벤트 인덱스: {len(article_events)}개 조문")
+            jos_for_event.add(art["조문키"])
+        # 시행령 변경 → 매핑된 법률 조문
+        # 연결변경조문에는 이미 "연결법률조문" 필드 있음. 기타변경조문은 sub_to_law_jo로 매핑.
+        for d in event.get("시행령", []):
+            for art in d.get("연결변경조문", []):
+                for law_jo in art.get("연결법률조문", []):
+                    jos_for_event.add(law_jo)
+            for art in d.get("기타변경조문", []):
+                law_jo = sub_to_law_jo.get(("시행령", art.get("조문키")))
+                if law_jo:
+                    jos_for_event.add(law_jo)
+        # 시행규칙 변경 → 매핑된 법률 조문
+        for r in event.get("시행규칙", []):
+            for art in r.get("연결변경조문", []):
+                for law_jo in art.get("연결법률조문", []):
+                    jos_for_event.add(law_jo)
+            for art in r.get("기타변경조문", []):
+                law_jo = sub_to_law_jo.get(("시행규칙", art.get("조문키")))
+                if law_jo:
+                    jos_for_event.add(law_jo)
+        for jo in jos_for_event:
+            article_events[jo].append(i)
+    print(f"\n📌 7. 조문별 이벤트 인덱스: {len(article_events)}개 조문 (시행령·시행규칙 매핑 확장 포함)")
 
     result = {
         "생성일시": datetime.now().isoformat(),
