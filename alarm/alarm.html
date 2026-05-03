@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📢 법령 개정 알림 — 도로교통법</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    max-width: 900px; margin: 0 auto; padding: 16px;
+    background: #f8fafc; color: #1e293b; line-height: 1.6;
+  }
+
+  /* 헤더 */
+  header {
+    background: linear-gradient(135deg, #1a5276, #2980b9);
+    color: white; padding: 20px 24px; border-radius: 8px;
+    margin-bottom: 16px;
+  }
+  header h1 { margin: 0 0 4px 0; font-size: 22px; }
+  header p { margin: 0; opacity: 0.9; font-size: 13px; }
+  header a { color: #ffd; text-decoration: underline; }
+
+  /* 필터 바 */
+  .filter-bar {
+    background: white; padding: 12px 16px; border-radius: 8px;
+    margin-bottom: 16px; display: flex; gap: 8px; align-items: center;
+    flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .filter-bar button {
+    background: #e2e8f0; color: #475569; border: none;
+    padding: 6px 14px; border-radius: 4px; cursor: pointer;
+    font-size: 13px; font-family: inherit;
+  }
+  .filter-bar button.active { background: #1a5276; color: white; }
+  .filter-bar select {
+    padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px;
+    font-size: 13px; font-family: inherit;
+  }
+  .filter-bar .count { margin-left: auto; color: #64748b; font-size: 13px; }
+
+  /* 알림 카드 */
+  .card {
+    background: white; padding: 18px 20px; border-radius: 8px;
+    margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border-left: 4px solid #cbd5e1;
+  }
+  .card.new { border-left-color: #ef4444; background: linear-gradient(to right, #fef2f2, white 30%); }
+  .card.recent { border-left-color: #f59e0b; }
+
+  .card-header { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 8px; }
+  .card-title { margin: 0; font-size: 16px; color: #1a5276; flex: 1; }
+  .card-meta { color: #64748b; font-size: 12px; white-space: nowrap; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-size: 11px; font-weight: 600; margin-right: 6px;
+  }
+  .badge-new { background: #ef4444; color: white; }
+  .badge-law { background: #dbeafe; color: #1e40af; }
+  .badge-decree { background: #fef3c7; color: #92400e; }
+  .badge-rule { background: #d1fae5; color: #065f46; }
+  .badge-type { background: #e0e7ff; color: #3730a3; }
+
+  .card-reason {
+    background: #f1f5f9; padding: 10px 12px; border-radius: 4px;
+    margin: 10px 0; font-size: 13px; color: #334155;
+    max-height: 150px; overflow-y: auto;
+    white-space: pre-wrap;
+  }
+
+  .articles-section { margin-top: 12px; }
+  .articles-section summary {
+    cursor: pointer; font-weight: 600; color: #1a5276; font-size: 14px;
+    padding: 6px 0; user-select: none;
+  }
+  .articles-section summary:hover { color: #154765; }
+  .article-list {
+    list-style: none; padding: 0; margin: 8px 0 0 0;
+  }
+  .article-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; background: #f8fafc; border-radius: 4px;
+    margin-bottom: 4px; font-size: 13px;
+  }
+  .article-item:hover { background: #e0f2fe; }
+  .article-info { flex: 1; }
+  .article-num { font-weight: 600; color: #1a5276; }
+  .article-title { color: #475569; margin-left: 8px; }
+  .article-link {
+    background: #1a5276; color: white; text-decoration: none;
+    padding: 5px 12px; border-radius: 3px; font-size: 12px;
+    white-space: nowrap; border: none; cursor: pointer;
+    font-family: inherit; font-weight: 500;
+  }
+  .article-link:hover:not(:disabled) { background: #154765; }
+  .mapping-hint {
+    display: inline-block; margin-left: 8px; font-size: 11px;
+    color: #64748b; font-style: italic;
+  }
+  .mapping-hint.mapping-none { color: #c0392b; font-style: normal; }
+
+  /* 빈 상태 */
+  .empty {
+    text-align: center; padding: 40px 20px; color: #64748b;
+    background: white; border-radius: 8px;
+  }
+  .empty .icon { font-size: 48px; margin-bottom: 12px; }
+
+  /* 로딩 */
+  .loading { text-align: center; padding: 40px; color: #64748b; }
+
+  /* 안내 배너 */
+  .info-banner {
+    background: #fef3c7; border-left: 4px solid #f59e0b;
+    padding: 10px 14px; border-radius: 6px; margin-bottom: 12px;
+    font-size: 13px; color: #78350f; line-height: 1.6;
+  }
+  .info-banner strong { color: #78350f; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📢 최근 개정 알림</h1>
+  <p>도로교통법 / 시행령 / 시행규칙 — 최근 90일 이내 개정</p>
+</header>
+
+<div class="info-banner">
+  <span>ℹ️ <strong>최근 90일 이내</strong> 개정만 표시됩니다.
+  그 이전 개정 사항은 메인 페이지의 <strong>"연혁" 탭</strong>에서 확인하세요.</span>
+</div>
+
+<div class="filter-bar">
+  <select id="lawTypeFilter">
+    <option value="all">모든 법령</option>
+    <option value="법률">법률</option>
+    <option value="시행령">시행령</option>
+    <option value="시행규칙">시행규칙</option>
+  </select>
+  <span class="count" id="countDisplay"></span>
+</div>
+
+<main id="alarmList">
+  <div class="loading">⏳ 알림 데이터 로딩 중...</div>
+</main>
+
+<script>
+// ─────────────────────────────────────────────────────
+// 데이터 로드
+// ─────────────────────────────────────────────────────
+
+let allVersions = [];
+const FILTER_DAYS = 90;  // 90일 고정
+let currentLawType = 'all';
+
+// iframe 안에 띄워졌는지 감지 (viewer.html의 모달에서 호출 시 true)
+const IS_EMBEDDED = (window.parent !== window);
+
+async function init() {
+  try {
+    const r = await fetch('data/recent_revisions.json');
+    const data = await r.json();
+    allVersions = data.버전들 || [];
+    render();
+  } catch (e) {
+    document.getElementById('alarmList').innerHTML =
+      `<div class="empty"><div class="icon">⚠️</div>데이터 로드 실패: ${e.message}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────────────────
+// 필터링
+// ─────────────────────────────────────────────────────
+
+function getFilteredVersions() {
+  const today = new Date();
+  return allVersions.filter(v => {
+    // 법령 유형 필터
+    if (currentLawType !== 'all' && v.법령유형 !== currentLawType) return false;
+
+    // 90일 고정 필터
+    if (!v.공포일자 || v.공포일자.length !== 8) return false;
+    const pub = new Date(
+      parseInt(v.공포일자.slice(0, 4)),
+      parseInt(v.공포일자.slice(4, 6)) - 1,
+      parseInt(v.공포일자.slice(6, 8))
+    );
+    const daysAgo = (today - pub) / (1000 * 60 * 60 * 24);
+    return daysAgo <= FILTER_DAYS;
+  });
+}
+
+// ─────────────────────────────────────────────────────
+// NEW 뱃지 판정 (30일 이내)
+// ─────────────────────────────────────────────────────
+
+function isNew(yyyymmdd) {
+  if (!yyyymmdd || yyyymmdd.length !== 8) return false;
+  const today = new Date();
+  const pub = new Date(
+    parseInt(yyyymmdd.slice(0, 4)),
+    parseInt(yyyymmdd.slice(4, 6)) - 1,
+    parseInt(yyyymmdd.slice(6, 8))
+  );
+  return (today - pub) / (1000 * 60 * 60 * 24) <= 30;
+}
+
+function isRecent(yyyymmdd) {
+  if (!yyyymmdd || yyyymmdd.length !== 8) return false;
+  const today = new Date();
+  const pub = new Date(
+    parseInt(yyyymmdd.slice(0, 4)),
+    parseInt(yyyymmdd.slice(4, 6)) - 1,
+    parseInt(yyyymmdd.slice(6, 8))
+  );
+  return (today - pub) / (1000 * 60 * 60 * 24) <= 90;
+}
+
+// ─────────────────────────────────────────────────────
+// 날짜 포매팅
+// ─────────────────────────────────────────────────────
+
+function formatDate(yyyymmdd) {
+  if (!yyyymmdd || yyyymmdd.length !== 8) return yyyymmdd;
+  return `${yyyymmdd.slice(0, 4)}.${yyyymmdd.slice(4, 6)}.${yyyymmdd.slice(6, 8)}`;
+}
+
+// ─────────────────────────────────────────────────────
+// 카드 렌더링
+// ─────────────────────────────────────────────────────
+
+function escapeHtml(s) {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function lawTypeBadge(lt) {
+  const cls = lt === '법률' ? 'badge-law' : (lt === '시행령' ? 'badge-decree' : 'badge-rule');
+  return `<span class="badge ${cls}">${lt}</span>`;
+}
+
+// 연혁 보기 클릭 — iframe 안이면 부모창에 메시지(모달 닫고 viewer 이동), 직접 페이지면 직접 이동
+// jumpJo: 실제 viewer.html에 점프할 조문 (법률은 자기 자신, 시행령·시행규칙은 매핑된 법률 조문)
+function goToHistory(jumpJo) {
+  if (IS_EMBEDDED) {
+    window.parent.postMessage({ type: 'goToHistory', jo: jumpJo }, '*');
+  } else {
+    const url = `../viewer.html?jo=${encodeURIComponent(jumpJo)}&tab=history`;
+    window.location.href = url;
+  }
+}
+
+function articleLinkHtml(art, lawType) {
+  // 점프 대상 조문 결정 — 법률은 자기 자신, 시행령·시행규칙은 매핑된 법률 조문
+  const mappedLawJo = art.매핑법률조문;
+  const canJump = lawType === '법률' || mappedLawJo;
+  const jumpJo = lawType === '법률' ? art.조문번호 : mappedLawJo;
+
+  // 시행령·시행규칙은 매핑 안내 표시 (법률 조문 제목 포함)
+  // 솔직한 안내: viewer 연혁 탭은 법률 조문 기준이라 시행규칙 자체 변경 내용은 누락 가능
+  // → 사용자가 알림 카드의 변경 조문 목록을 메인 정보로 인지하도록
+  let mappingHint = '';
+  if (lawType !== '법률' && mappedLawJo) {
+    const mappedTitle = art.매핑법률조문제목 || '';
+    const titlePart = mappedTitle ? ` (${escapeHtml(mappedTitle)})` : '';
+    mappingHint = `<span class="mapping-hint">→ 법률 제${escapeHtml(mappedLawJo)}조${titlePart} 연혁으로 이동</span>`;
+  } else if (lawType !== '법률' && !mappedLawJo) {
+    mappingHint = `<span class="mapping-hint mapping-none">법률 매핑 없음</span>`;
+  }
+
+  const buttonHtml = canJump
+    ? `<button type="button" class="article-link" onclick="goToHistory('${escapeHtml(jumpJo)}')">→ 연혁 보기</button>`
+    : `<button type="button" class="article-link" disabled style="background:#94a3b8;cursor:not-allowed">매핑 없음</button>`;
+
+  return `
+    <li class="article-item">
+      <div class="article-info">
+        <span class="article-num">제${escapeHtml(art.조문번호)}조</span>
+        <span class="article-title">${escapeHtml(art.조문제목)}</span>
+        ${art.조문제개정유형 ? `<span class="badge badge-type">${escapeHtml(art.조문제개정유형)}</span>` : ''}
+        ${mappingHint}
+      </div>
+      ${buttonHtml}
+    </li>
+  `;
+}
+
+function cardHtml(v) {
+  const isNewVersion = isNew(v.공포일자);
+  const isRecentVersion = isRecent(v.공포일자);
+  const cls = isNewVersion ? 'new' : (isRecentVersion ? 'recent' : '');
+
+  const articlesSection = v.변경조문 && v.변경조문.length > 0 ? `
+    <details class="articles-section" ${v.변경조문.length <= 5 ? 'open' : ''}>
+      <summary>📋 영향받은 조문 ${v.변경조문.length}개 ${v.변경조문.length <= 5 ? '' : '(클릭하여 펼치기)'}</summary>
+      <ul class="article-list">
+        ${v.변경조문.map(a => articleLinkHtml(a, v.법령유형)).join('')}
+      </ul>
+    </details>
+  ` : '';
+
+  return `
+    <article class="card ${cls}">
+      <div class="card-header">
+        <h2 class="card-title">
+          ${isNewVersion ? '<span class="badge badge-new">🆕 NEW</span>' : ''}
+          ${lawTypeBadge(v.법령유형)}
+          <span class="badge badge-type">${escapeHtml(v.제개정구분)}</span>
+          ${escapeHtml(v.법령명)}
+        </h2>
+        <div class="card-meta">
+          공포 ${formatDate(v.공포일자)}<br>
+          시행 ${formatDate(v.시행일자)}
+        </div>
+      </div>
+      ${v.제개정이유 ? `<div class="card-reason">${escapeHtml(v.제개정이유)}</div>` : ''}
+      ${articlesSection}
+    </article>
+  `;
+}
+
+function render() {
+  const filtered = getFilteredVersions();
+  const list = document.getElementById('alarmList');
+
+  document.getElementById('countDisplay').textContent =
+    filtered.length > 0 ? `${filtered.length}건` : '';
+
+  if (filtered.length === 0) {
+    list.innerHTML = `
+      <div class="empty">
+        <div class="icon">📭</div>
+        <p>해당 기간에 개정 사항이 없습니다.</p>
+        <p style="font-size:13px">필터를 "전체"로 바꿔보세요.</p>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = filtered.map(cardHtml).join('');
+}
+
+// ─────────────────────────────────────────────────────
+// 필터 버튼 이벤트
+// ─────────────────────────────────────────────────────
+
+document.getElementById('lawTypeFilter').addEventListener('change', e => {
+  currentLawType = e.target.value;
+  render();
+});
+
+// 시작
+init();
+</script>
+</body>
+</html>
