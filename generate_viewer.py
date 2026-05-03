@@ -594,10 +594,24 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </head>
 <body>
 
-<div class="header">
+<div class="header" style="position:relative">
   <div class="header-stats" id="headerStats"></div>
+  <button type="button" class="header-alarm-link" id="alarmLink" onclick="openAlarmModal()"
+     style="position:absolute;top:12px;left:20px;background:#c0392b;color:white;border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;box-shadow:0 2px 4px rgba(0,0,0,0.15);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;z-index:5">
+    📢 최근 개정 알림
+  </button>
   <h1>도로교통법 한눈에</h1>
   <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
+</div>
+
+<!-- 최근 개정 알림 모달 (alarm.html을 iframe으로 띄움) -->
+<div id="alarmModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+  <div onclick="closeAlarmModal()" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:0"></div>
+  <div style="position:relative;z-index:1;background:white;width:100%;max-width:960px;height:90vh;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column">
+    <button type="button" onclick="closeAlarmModal()" aria-label="닫기"
+      style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.9);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3">×</button>
+    <iframe id="alarmIframe" src="alarm/alarm.html" style="flex:1;width:100%;border:none;background:#f8fafc;display:block"></iframe>
+  </div>
 </div>
 
 <div class="toolbar">
@@ -2155,6 +2169,39 @@ function esc(s){
   t=t.replace(/\n/g,'<br>');
   return t;
 }
+
+// ─────────────────────────────────────────────────────
+// 최근 개정 알림 모달 — alarm.html을 iframe으로 띄움
+// ─────────────────────────────────────────────────────
+
+function openAlarmModal(){
+  // iframe src는 HTML에서 미리 설정되어 페이지 로드 시 alarm.html 로딩 완료 상태
+  document.getElementById('alarmModal').style.display='flex';
+  document.body.style.overflow='hidden';  // 배경 스크롤 잠금
+}
+
+function closeAlarmModal(){
+  document.getElementById('alarmModal').style.display='none';
+  document.body.style.overflow='';
+}
+
+// ESC 키로 모달 닫기
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && document.getElementById('alarmModal').style.display==='flex'){
+    closeAlarmModal();
+  }
+});
+
+// alarm.html(iframe)로부터 "연혁 보기" 메시지 수신 → 모달 닫고 메인 페이지에서 조문 이동
+// alarm.html이 이미 "매핑된 법률 조문 키"로 변환해서 보내므로 그대로 사용 (fallback 불필요)
+window.addEventListener('message',e=>{
+  if(!e.data || e.data.type!=='goToHistory') return;
+  closeAlarmModal();
+  const url=new URL(window.location.href);
+  url.searchParams.set('jo',e.data.jo);
+  url.searchParams.set('tab','history');
+  window.location.href=url.toString();
+});
 </script>
 </body>
 </html>
