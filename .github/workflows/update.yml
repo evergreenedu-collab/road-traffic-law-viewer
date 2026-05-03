@@ -138,11 +138,13 @@ jobs:
           # ─────────────────────────────────────────────
           REGRESSION_DETECTED=""
 
-          # HWP URL 회귀 검사
+          # HWP URL 회귀 검사 — grep이 27MB minified 한 줄 JSON에서 false negative 발생함 확인
+          # (정상 빌드(시행규칙 264/264 HWP)인데 grep 매칭 실패하여 잘못된 자동 복원이 작동한 사례 있음)
+          # 일시 조치: 자동 복원 비활성. 경고만 남기고 빌드 결과 그대로 push.
+          # TODO: 검증 방법 개선 — Python으로 JSON 파싱 후 카운트 또는 head -c 일부만 grep 등
           if ! grep -q '"HWP":"/LSW/' web_data/data_core.js; then
-            echo "::warning::HWP URL 누락 감지 — 옛 viewer/web_data 복원"
-            git checkout HEAD -- viewer.html web_data/ 2>/dev/null || true
-            REGRESSION_DETECTED="HWP URL 누락"
+            echo "::warning::HWP URL grep 매칭 실패 — false negative 가능 (자동 복원 비활성, 빌드 결과 그대로 push)"
+            REGRESSION_DETECTED="HWP URL grep 실패 (자동 복원 비활성 중)"
           fi
 
           # 회귀 결과를 outputs로 전달
