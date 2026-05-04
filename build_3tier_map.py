@@ -21,6 +21,8 @@ import time
 from datetime import datetime
 from collections import defaultdict
 
+from api_utils import request_xml_with_retry
+
 # === 설정 ===
 API_KEY = "evergreen_edu"
 DETAIL_URL = "http://www.law.go.kr/DRF/lawService.do"
@@ -98,7 +100,9 @@ def fetch_all_articles():
         print(f"\n📖 {law_type}: {law_name} (MST={mst})")
 
         params = {"OC": API_KEY, "target": "law", "type": "XML", "MST": mst}
-        resp = requests.get(DETAIL_URL, params=params, timeout=60)
+        resp = request_xml_with_retry(DETAIL_URL, params, timeout=60)
+        if resp is None:
+            raise RuntimeError(f"본문 조회 최종 실패 ({law_type}, MST={mst})")
         root = ET.fromstring(resp.text)
 
         # 기본정보
