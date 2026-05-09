@@ -230,12 +230,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 최근 개정 알림 모달 (alarm.html을 iframe으로 띄움) -->
-<div id="alarmModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
-  <div onclick="closeAlarmModal()" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:0"></div>
-  <div style="position:relative;z-index:1;background:white;width:100%;max-width:960px;height:90vh;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column">
-    <button type="button" onclick="closeAlarmModal()" aria-label="닫기"
-      style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.9);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3">×</button>
-    <iframe id="alarmIframe" src="alarm/alarm.html" style="flex:1;width:100%;border:none;background:#f8fafc;display:block"></iframe>
+<!-- 일반 .modal-overlay/.modal 클래스 사용 — 다른 팝업과 동일한 사이즈로 통일 -->
+<div class="modal-overlay" id="alarmModal" onclick="if(event.target===this)closeAlarmModal()">
+  <div class="modal" style="position:relative">
+    <button type="button" onclick="closeAlarmModal()" aria-label="닫기" title="닫기"
+      style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.95);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3;display:flex;align-items:center;justify-content:center">×</button>
+    <iframe id="alarmIframe" src="alarm/alarm.html" style="width:100%;flex:1;border:none;background:#f8fafc;display:block;border-radius:12px"></iframe>
   </div>
 </div>
 
@@ -1801,18 +1801,19 @@ function esc(s){
 
 function openAlarmModal(){
   // iframe src는 HTML에서 미리 설정되어 페이지 로드 시 alarm.html 로딩 완료 상태
-  document.getElementById('alarmModal').style.display='flex';
+  // 일반 modal과 동일하게 .open 클래스 토글로 표시
+  document.getElementById('alarmModal').classList.add('open');
   document.body.style.overflow='hidden';  // 배경 스크롤 잠금
 }
 
 function closeAlarmModal(){
-  document.getElementById('alarmModal').style.display='none';
+  document.getElementById('alarmModal').classList.remove('open');
   document.body.style.overflow='';
 }
 
 // ESC 키로 모달 닫기
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape' && document.getElementById('alarmModal').style.display==='flex'){
+  if(e.key==='Escape' && document.getElementById('alarmModal').classList.contains('open')){
     closeAlarmModal();
   }
 });
