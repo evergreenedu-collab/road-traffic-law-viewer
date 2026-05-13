@@ -232,7 +232,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- 최근 개정 알림 모달 (alarm.html을 iframe으로 띄움) -->
 <!-- 일반 .modal-overlay/.modal 클래스 사용 — 다른 팝업과 동일한 사이즈로 통일 -->
 <div class="modal-overlay" id="alarmModal" onclick="if(event.target===this)closeAlarmModal()">
-  <div class="modal" style="position:relative">
+  <div class="modal" style="position:relative;height:85vh">
     <button type="button" onclick="closeAlarmModal()" aria-label="닫기" title="닫기"
       style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.95);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3;display:flex;align-items:center;justify-content:center">×</button>
     <iframe id="alarmIframe" src="alarm/alarm.html" style="width:100%;flex:1;border:none;background:#f8fafc;display:block;border-radius:12px"></iframe>
