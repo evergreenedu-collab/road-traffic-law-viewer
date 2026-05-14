@@ -24,8 +24,12 @@ import json
 import math
 import os
 import re
+import sys
 from collections import defaultdict
 from datetime import datetime
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from parse_addenda_effective import parse_addenda
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data")
@@ -256,6 +260,20 @@ def main():
     versions = {"법률": {}, "시행령": {}, "시행규칙": {}}  # 공포일자 → 버전데이터
     rescued = {"법률": 0, "시행령": 0, "시행규칙": 0}  # API=N인데 본문 변경된 것 살린 카운트
 
+    # fullhist 에서 (법령유형, 공포일자) → 부칙 리스트 매핑
+    # article_history.json 에는 부칙이 없으므로 road_traffic_full_history.json 에서 따로 가져온다
+    type_to_name = {
+        "법률": "도로교통법",
+        "시행령": "도로교통법 시행령",
+        "시행규칙": "도로교통법 시행규칙",
+    }
+    addenda_by_pub = {"법률": {}, "시행령": {}, "시행규칙": {}}
+    for lt, lname in type_to_name.items():
+        for v in fullhist_by_name.get(lname, {}).get("연혁", []):
+            pub = v.get("공포일자", "")
+            if pub and pub not in addenda_by_pub[lt]:
+                addenda_by_pub[lt][pub] = v.get("부칙", [])
+
     for law_type in ["법률", "시행령", "시행규칙"]:
         # text_diff에 등장하는 모든 공포일을 순회 (API 메타데이터 무시)
         # 이후 ver에서 본문/제목 정보 추출 시도, 없으면 text_diff 정보 사용
@@ -297,6 +315,7 @@ def main():
                 "제개정구분": ver.get("제개정구분", ""),
                 "제개정이유": ver.get("제개정이유", "") or "",
                 "변경조문": changed,
+                "부칙_시행일": parse_addenda(addenda_by_pub[law_type].get(pub, []), pub),
             }
         print(f"  {law_type}: {len(versions[law_type])}개 버전 (API 거짓음성 구제 {rescued[law_type]}건)")
 
@@ -881,6 +900,7 @@ def main():
             "신뢰도": METHOD_TO_TRUST.get(method, ""),
             "직접부모": sub_ver.get("_parent_type", ""),
             "직접부모공포일": sub_ver.get("_parent_pub", ""),
+            "부칙_시행일": sub_ver.get("부칙_시행일"),
         }
 
     def make_unmatched_entry(sub_ver, sub_type):
@@ -903,6 +923,7 @@ def main():
             ],
             "신뢰도": "미매칭",
             "안내": "관련 법률을 자동 매칭하지 못했습니다. 제개정이유와 변경조문을 직접 확인하세요.",
+            "부칙_시행일": sub_ver.get("부칙_시행일"),
         }
 
     events = []
@@ -915,6 +936,7 @@ def main():
                 "제개정구분": lver["제개정구분"],
                 "제개정이유": lver["제개정이유"],
                 "변경조문": [],
+                "부칙_시행일": lver.get("부칙_시행일"),
             },
             "시행령": [],
             "시행규칙": [],

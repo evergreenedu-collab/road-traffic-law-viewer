@@ -1324,6 +1324,36 @@ function fmtD(s){
   return s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8);
 }
 
+// 부칙 시행일 헬퍼 — 조문이 부칙에 의해 별도 시행일을 가지는지 판별 + 배지 렌더
+function getAddendaException(addendaInfo, joKey){
+  if(!addendaInfo||!addendaInfo.exceptions) return null;
+  const k=String(joKey);
+  for(const ex of addendaInfo.exceptions){
+    if((ex.articles||[]).includes(k)) return ex;
+  }
+  return null;
+}
+function renderAddendaBadge(exc){
+  if(!exc) return '';
+  const eff=fmtD(exc.effective_date||'');
+  return `<span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:11px;font-weight:600;background:#fed7aa;color:#9a3412;border-radius:3px;cursor:help" title="부칙에 의해 별도 시행: ${eff}">⏰ ${eff} 별도시행</span>`;
+}
+function renderAddendaDetails(exc, addendaInfo){
+  if(!exc) return '';
+  const eff=fmtD(exc.effective_date||'');
+  const phrase=(exc.raw_phrase||'').replace(/</g,'&lt;');
+  const rawText=(addendaInfo&&addendaInfo.raw_text||'').replace(/</g,'&lt;').replace(/\n/g,'<br>');
+  let h=`<details style="margin-top:4px;margin-left:12px"><summary style="font-size:11px;color:#9a3412;cursor:pointer;font-weight:500">부칙 별도 시행일 상세 (${eff})</summary>`;
+  h+=`<div style="font-size:11px;padding:6px 8px;background:#fff7ed;border-left:3px solid #fed7aa;border-radius:4px;margin-top:4px;color:#7c2d12">`;
+  h+=`<div style="margin-bottom:4px"><strong>부칙 발췌</strong>: ${phrase}</div>`;
+  if(rawText) h+=`<details style="margin-top:4px"><summary style="font-size:11px;color:#9a3412;cursor:pointer">부칙 전체 보기</summary><div style="font-size:11px;line-height:1.6;padding:6px 8px;background:#fff;border-radius:3px;margin-top:4px;max-height:300px;overflow-y:auto;color:#451a03">${rawText}</div></details>`;
+  h+=`</div></details>`;
+  return h;
+}
+function countAddendaExceptions(addendaInfo){
+  return (addendaInfo&&addendaInfo.exceptions||[]).length;
+}
+
 function renderHistory(){
   const jo=document.getElementById('sel').value;
   const lawArt=artData.법률.조문[jo]||{};
@@ -1397,6 +1427,8 @@ function renderHistory(){
     html+=`<span style="font-size:15px;font-weight:700">${fmtD(law.공포일자)}</span>`;
     html+=`<span style="font-size:13px;opacity:.9">${law.제개정구분}</span>`;
     html+=`<span style="font-size:12px;opacity:.7">시행 ${fmtD(law.시행일자)}</span>`;
+    const lawAddCnt=countAddendaExceptions(law.부칙_시행일);
+    if(lawAddCnt) html+=`<span style="font-size:11px;padding:1px 6px;background:rgba(254,215,170,.95);color:#9a3412;border-radius:3px;font-weight:600" title="이 개정안 중 일부 조문은 부칙에 의해 별도 시행일을 가집니다">⏰ 부칙 별도시행 ${lawAddCnt}건</span>`;
     // 헤더 카운트: 현재 조문(jo) 관련 하위법령만 카운트
     const dHere=decs.filter(d=>(d.연결변경조문||[]).some(a=>(a.연결법률조문||[]).includes(jo))).length;
     const rHere=rules.filter(r=>(r.연결변경조문||[]).some(a=>(a.연결법률조문||[]).includes(jo))).length;
@@ -1414,13 +1446,36 @@ function renderHistory(){
     // 상세 (클릭 펼침)
     html+=`<div id="${eid}_detail" style="display:none">`;
 
+    // 부칙 별도 시행 요약 (어떤 조문을 보든 항상 표시 — UI 일관성)
+    if(law.부칙_시행일 && (law.부칙_시행일.exceptions||[]).length){
+      const adExs=law.부칙_시행일.exceptions;
+      html+=`<div style="padding:10px 14px;background:#fff7ed;border-left:4px solid #fb923c;border-bottom:1px solid var(--border)">`;
+      html+=`<div style="font-size:12px;font-weight:700;color:#9a3412;margin-bottom:6px">⏰ 이 개정안의 부칙 별도 시행 (${adExs.length}건)</div>`;
+      for(const ex of adExs){
+        const targets=[];
+        for(const a of (ex.articles||[])) targets.push(`제${a}조`);
+        for(const t of (ex.tables||[])) targets.push(`별표 ${t}`);
+        const phr=(ex.raw_phrase||'').replace(/</g,'&lt;');
+        html+=`<div style="font-size:12px;margin:3px 0;color:#7c2d12"><strong>${targets.join(', ')||'(파싱 실패 — 원문 참조)'}</strong> → ${fmtD(ex.effective_date)} 시행`;
+        if(phr) html+=` <details style="display:inline-block;margin-left:6px;vertical-align:middle"><summary style="font-size:11px;color:#9a3412;cursor:pointer">원문</summary><div style="margin-top:4px;padding:6px 8px;background:#fff;border-radius:3px;font-size:11px;color:#451a03;max-width:600px">${phr}</div></details>`;
+        html+=`</div>`;
+      }
+      if(law.부칙_시행일.raw_text){
+        const rt=law.부칙_시행일.raw_text.replace(/</g,'&lt;').replace(/\n/g,'<br>');
+        html+=`<details style="margin-top:6px"><summary style="font-size:11px;color:#9a3412;cursor:pointer;font-weight:500">부칙 전체 원문 보기</summary><div style="margin-top:4px;padding:8px;background:#fff;border-radius:3px;font-size:11px;line-height:1.6;color:#451a03;max-height:300px;overflow-y:auto">${rt}</div></details>`;
+      }
+      html+=`</div>`;
+    }
+
     // 법률 변경 조문
     html+=`<div style="padding:12px 16px;border-bottom:1px solid var(--border)">`;
     html+=`<div style="font-size:13px;font-weight:600;color:var(--law);margin-bottom:6px">법률 변경 조문 (${law.변경조문.length}건)</div>`;
     for(const a of law.변경조문){
       const isMe=a.조문키===jo;
+      const exc=getAddendaException(law.부칙_시행일, a.조문키);
       html+=`<div style="padding:4px 8px;margin:2px 0;border-radius:4px;font-size:12px;${isMe?'background:var(--law-bg);font-weight:600':''}">`;
-      html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}`;
+      html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}${renderAddendaBadge(exc)}`;
+      if(exc) html+=renderAddendaDetails(exc, law.부칙_시행일);
       html+=`</div>`;
     }
     // 현재 조문의 전후비교
@@ -1461,11 +1516,15 @@ function renderHistory(){
       html+=`<span style="font-size:11px;padding:2px 8px;border-radius:3px;background:var(--decree);color:#fff;font-weight:600">시행령</span>`;
       html+=`<span style="font-size:13px;font-weight:600">${fmtD(dec.공포일자)}</span>`;
       html+=`<span style="font-size:12px;color:var(--sub)">${dec.제개정구분} (시행 ${fmtD(dec.시행일자)})</span>`;
+      const decAddCnt=countAddendaExceptions(dec.부칙_시행일);
+      if(decAddCnt) html+=`<span style="font-size:11px;padding:1px 6px;background:#fed7aa;color:#9a3412;border-radius:3px;font-weight:600" title="부칙 별도 시행일 ${decAddCnt}건">⏰ 부칙 ${decAddCnt}건</span>`;
       html+=`</div>`;
       html+=`<div style="font-size:12px;color:var(--decree);font-weight:500;margin-bottom:4px">제${jo}조 관련 변경:</div>`;
       for(const a of jRel){
+        const exc=getAddendaException(dec.부칙_시행일, a.조문키);
         html+=`<div style="padding:4px 8px;margin:2px 0;border-radius:4px;font-size:12px;background:rgba(108,52,131,.1)">`;
-        html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}`;
+        html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}${renderAddendaBadge(exc)}`;
+        if(exc) html+=renderAddendaDetails(exc, dec.부칙_시행일);
         html+=`</div>`;
       }
       // 전후비교: 제jo조 관련 변경조문만
@@ -1547,11 +1606,15 @@ function renderHistory(){
       html+=`<span style="font-size:13px;font-weight:600">${fmtD(rule.공포일자)}</span>`;
       html+=`<span style="font-size:12px;color:var(--sub)">${rule.제개정구분} (시행 ${fmtD(rule.시행일자)})</span>`;
       if(rule.직접부모==='시행령') html+=`<span class="match-badge via-decree" title="시행령 개정에 따른 시행규칙 — 시행령을 거쳐 법률에 연결">↳ 시행령 경유</span>`;
+      const ruleAddCnt=countAddendaExceptions(rule.부칙_시행일);
+      if(ruleAddCnt) html+=`<span style="font-size:11px;padding:1px 6px;background:#fed7aa;color:#9a3412;border-radius:3px;font-weight:600" title="부칙 별도 시행일 ${ruleAddCnt}건">⏰ 부칙 ${ruleAddCnt}건</span>`;
       html+=`</div>`;
       html+=`<div style="font-size:12px;color:var(--rule);font-weight:500;margin-bottom:4px">제${jo}조 관련 변경:</div>`;
       for(const a of jRel){
+        const exc=getAddendaException(rule.부칙_시행일, a.조문키);
         html+=`<div style="padding:4px 8px;margin:2px 0;border-radius:4px;font-size:12px;background:rgba(17,122,101,.1)">`;
-        html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}`;
+        html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}${renderAddendaBadge(exc)}`;
+        if(exc) html+=renderAddendaDetails(exc, rule.부칙_시행일);
         html+=`</div>`;
       }
       for(const a of jRel){
