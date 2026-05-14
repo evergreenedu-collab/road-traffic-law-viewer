@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📚 출근길 법령 튜터 — 도로교통법 한눈에</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f8f7f4;
+  --card: #fff;
+  --border: #e5e3dd;
+  --text: #1f2937;
+  --sub: #6b7280;
+  --law: #1e3a5f; --law-bg: #eef2f7; --law-light: #dbe4ee;
+  --decree: #5b4b8a; --decree-bg: #f3f0f8;
+  --rule: #1e6a5e; --rule-bg: #ecf5f2;
+  --warn: #d97706;
+  --shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  font-size: 14px;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+header {
+  background: linear-gradient(135deg, #1a5276 0%, #2980b9 100%);
+  color: #fff;
+  padding: 22px 24px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+header h1 { font-size: 22px; margin-bottom: 6px; font-weight: 700; letter-spacing: -0.3px; }
+header p { font-size: 13px; opacity: 0.9; }
+header a { color: #ffe; text-decoration: underline; }
+
+.date-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--card);
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+}
+.date-nav input[type="date"] {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 13px;
+}
+.date-nav .today-link {
+  margin-left: auto;
+  color: var(--law);
+  text-decoration: none;
+  font-weight: 500;
+}
+.date-nav .today-link:hover { text-decoration: underline; }
+
+.card {
+  background: var(--card);
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--law);
+}
+.card.law { border-left-color: var(--law); }
+.card.decree { border-left-color: var(--decree); }
+.card.rule { border-left-color: var(--rule); }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.card-date {
+  font-size: 12px;
+  color: var(--sub);
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+}
+.badge.law { background: var(--law); }
+.badge.decree { background: var(--decree); }
+.badge.rule { background: var(--rule); }
+
+.oneliner {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 14px;
+  line-height: 1.4;
+  word-break: keep-all;
+}
+
+.explanation {
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.7;
+  margin-bottom: 14px;
+  word-break: keep-all;
+}
+
+.source {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--law);
+  background: var(--law-bg);
+  padding: 4px 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+
+.llm-skip-banner {
+  font-size: 12px;
+  color: var(--warn);
+  background: #fef9e7;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  border-left: 3px solid var(--warn);
+}
+
+.fallback-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.fallback-meta {
+  font-size: 13px;
+  color: var(--sub);
+  margin-bottom: 14px;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-primary {
+  background: var(--law);
+  color: #fff;
+  text-decoration: none;
+  padding: 9px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.btn-primary:hover { background: #14264a; }
+
+.btn-secondary {
+  background: #fff;
+  color: var(--law);
+  border: 1px solid var(--law-light);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.btn-secondary:hover { background: var(--law-bg); }
+
+.mapping-info {
+  font-size: 11px;
+  color: var(--sub);
+  font-style: italic;
+}
+
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--sub);
+  background: var(--card);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.empty .icon { font-size: 56px; margin-bottom: 16px; }
+.empty p { margin-bottom: 8px; }
+.empty .sub { font-size: 13px; color: var(--sub); }
+
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--sub);
+  background: var(--card);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.raw-source {
+  background: var(--card);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.raw-source summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--law);
+  user-select: none;
+  padding: 4px 0;
+}
+.raw-source summary:hover { color: #14264a; }
+.raw-source pre {
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  color: var(--text);
+  font-family: inherit;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+footer {
+  text-align: center;
+  padding: 20px 10px;
+  color: var(--sub);
+  font-size: 12px;
+}
+footer a { color: var(--sub); text-decoration: underline; }
+
+/* 모바일 */
+@media (max-width: 600px) {
+  body { padding: 8px; }
+  header { padding: 16px 18px; }
+  header h1 { font-size: 18px; }
+  header p { font-size: 12px; }
+  .card { padding: 18px; }
+  .oneliner { font-size: 18px; }
+  .explanation { font-size: 14px; }
+  .card-footer { flex-direction: column; align-items: stretch; }
+  .btn-primary, .btn-secondary { text-align: center; }
+  .date-nav { flex-direction: column; align-items: stretch; }
+  .date-nav .today-link { margin-left: 0; text-align: right; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📚 출근길 법령 튜터</h1>
+  <p>매일 아침 도로교통법 한 줄 학습 — <a href="../viewer.html">전체 뷰어로 이동</a></p>
+</header>
+
+<nav class="date-nav">
+  <label for="dateInput">날짜:</label>
+  <input type="date" id="dateInput">
+  <a href="./" class="today-link">오늘로 →</a>
+</nav>
+
+<main id="content">
+  <div class="loading">⏳ 학습 자료 로딩 중...</div>
+</main>
+
+<footer>
+  데이터 출처: <a href="https://www.law.go.kr" target="_blank">국가법령정보센터</a> ·
+  AI 생성 콘텐츠 (RAG 원본 근거)
+</footer>
+
+<script>
+const LAW_TYPE_CLASS = {
+  '법률': 'law',
+  '시행령': 'decree',
+  '시행규칙': 'rule',
+};
+
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatDate(yyyymmdd) {
+  if (!yyyymmdd || yyyymmdd.length !== 8) return yyyymmdd || '';
+  return `${yyyymmdd.slice(0,4)}.${yyyymmdd.slice(4,6)}.${yyyymmdd.slice(6,8)}`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+
+async function loadDaily(date) {
+  const url = `data/daily_${date}.json`;
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+function renderEmpty(date, reason) {
+  return `
+    <div class="empty">
+      <div class="icon">🌅</div>
+      <p>${escapeHtml(date)} — 학습 자료가 없습니다.</p>
+      <p class="sub">${escapeHtml(reason || '매일 새벽에 새 자료가 갱신됩니다.')}</p>
+    </div>
+  `;
+}
+
+function renderError(date, msg) {
+  return `
+    <div class="empty">
+      <div class="icon">📭</div>
+      <p>${escapeHtml(date)} 학습 자료를 찾을 수 없습니다.</p>
+      <p class="sub">${escapeHtml(msg)}</p>
+      <p class="sub" style="margin-top:14px">매일 새벽 6시(KST)에 자동 갱신됩니다.</p>
+    </div>
+  `;
+}
+
+function renderCard(data) {
+  const c = data.candidate;
+  const llmOk = data.llm_status === 'ok';
+  const lawTypeClass = LAW_TYPE_CLASS[c.법령유형] || 'law';
+  const isMappingDifferent = c.조문.조문번호 !== c.조문.매핑법률조문;
+
+  const llmSkipNote = (!llmOk && data.llm_note)
+    ? `<div class="llm-skip-banner">⚠️ ${escapeHtml(data.llm_note)}</div>`
+    : '';
+
+  const mainBody = llmOk
+    ? `
+      <h2 class="oneliner">${escapeHtml(c.oneliner)}</h2>
+      <p class="explanation">${escapeHtml(c.explanation)}</p>
+      <span class="source">📖 ${escapeHtml(c.source_article)}</span>
+    `
+    : `
+      <h2 class="fallback-title">제${escapeHtml(c.조문.조문번호)}조 ${escapeHtml(c.조문.조문제목)}</h2>
+      <p class="fallback-meta">${escapeHtml(c.법령명)} · ${escapeHtml(c.제개정구분 || '')}</p>
+    `;
+
+  const mappingHtml = isMappingDifferent
+    ? `<span class="mapping-info">하위법령 제${escapeHtml(c.조문.조문번호)}조 → 법률 제${escapeHtml(c.조문.매핑법률조문)}조 매핑</span>`
+    : '';
+
+  return `
+    <article class="card ${lawTypeClass}">
+      <div class="card-header">
+        <span class="badge ${lawTypeClass}">${escapeHtml(c.법령유형)}</span>
+        <span class="card-date">공포 ${escapeHtml(formatDate(c.공포일자))} · 시행 ${escapeHtml(formatDate(c.시행일자))}</span>
+      </div>
+      ${llmSkipNote}
+      ${mainBody}
+      <div class="card-footer">
+        <a href="${escapeHtml(c.viewer_link)}" class="btn-primary">법령 본문 보기 →</a>
+        ${mappingHtml}
+      </div>
+    </article>
+    ${c.제개정이유_원본 ? `
+      <details class="raw-source">
+        <summary>제개정 이유 원문 보기</summary>
+        <pre>${escapeHtml(c.제개정이유_원본)}</pre>
+      </details>
+    ` : ''}
+  `;
+}
+
+async function render(date) {
+  const container = document.getElementById('content');
+  container.innerHTML = '<div class="loading">⏳ 학습 자료 로딩 중...</div>';
+  try {
+    const data = await loadDaily(date);
+    if (data.status === 'skip') {
+      container.innerHTML = renderEmpty(date, data.reason);
+      return;
+    }
+    container.innerHTML = renderCard(data);
+  } catch (e) {
+    container.innerHTML = renderError(date, e.message);
+  }
+}
+
+function init() {
+  const params = new URLSearchParams(location.search);
+  const date = params.get('date') || todayStr();
+  const dateInput = document.getElementById('dateInput');
+  dateInput.value = date;
+  dateInput.addEventListener('change', (ev) => {
+    const next = ev.target.value;
+    if (next) location.search = `?date=${next}`;
+  });
+  render(date);
+}
+
+init();
+</script>
+</body>
+</html>

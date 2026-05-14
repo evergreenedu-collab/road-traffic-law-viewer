@@ -1,8 +1,8 @@
 {
   "date": "2026-05-14",
-  "generated_at": "2026-05-14T17:39:16.938489",
-  "milestone": "M1",
-  "version": 1,
+  "generated_at": "2026-05-14T21:11:33.136255",
+  "milestone": "M2",
+  "version": 2,
   "status": "ok",
   "candidate": {
     "법령유형": "시행규칙",
@@ -19,7 +19,10 @@
       "조문시행일자": "20260402",
       "조문제개정유형": ""
     },
-    "viewer_link": "../viewer.html?jo=45"
+    "viewer_link": "../viewer.html?jo=45",
+    "oneliner": "약물운전 측정 방법 및 절차 신설",
+    "explanation": "약물 복용 운전자의 측정 방법(상태평가, 간이시약검사)과 불복 시 절차(혈액·소변 채취)를 규정하고, 전문기관 감정 의뢰 절차를 명시합니다.",
+    "source_article": "도로교통법 제45조"
   },
-  "note": "M1 출력 — LLM 미생성. M2에서 oneliner·explanation·source_article 필드 추가 예정."
+  "llm_status": "ok"
 }
