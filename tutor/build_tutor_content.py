@@ -45,11 +45,13 @@ CASES_EXCERPTS = OUTPUT_DIR / 'cases_excerpts.json'
 INDEX_COURT = OUTPUT_DIR / 'index_court_cases.json'
 COURT_DATA = OUTPUT_DIR / 'court_cases_data.json'
 INDEX_ARTICLES = OUTPUT_DIR / 'index_articles.json'
+INDEX_TOPIC = OUTPUT_DIR / 'index_topic_docs.json'
 INPUT_REVISIONS = SCRIPT_DIR.parent / 'alarm' / 'data' / 'recent_revisions.json'
 
 WEIGHT_POOL_SIZE = 40        # 가중치 상위 K개 풀
 MAX_ADMIN_CASES = 2          # LLM 컨텍스트에 넣을 행정심판례 수
 MAX_COURT_CASES = 2          # LLM 컨텍스트에 넣을 대법원 판례 수
+MAX_TOPIC_CHUNKS = 2         # LLM 컨텍스트에 넣을 주제 실무자료 청크 수
 CASE_CONTEXT_CHARS = 1400    # 판례 1건당 LLM에 넣을 본문 길이
 EPOCH = datetime(2026, 1, 1)
 
@@ -65,18 +67,19 @@ TEACHING_KEYWORDS = ('교육', '강의', '수강생', '학습', '교통안전', 
 # ─── 인덱스 로더 ──────────────────────────────────────────────
 
 def load_indexes():
-    def _load(path, root):
+    def _load(path, root, default):
         if path.exists():
-            return json.loads(path.read_text(encoding='utf-8')).get(root, {})
+            return json.loads(path.read_text(encoding='utf-8')).get(root, default)
         print(f"  ⚠️ {path.name} 없음")
-        return {}
+        return default
     idx = {
-        'law': _load(INDEX_LAW, '조문별'),
-        'cases': _load(INDEX_CASES, '조문별'),
-        'excerpts': _load(CASES_EXCERPTS, '데이터'),
-        'court_index': _load(INDEX_COURT, '조문별'),
-        'court_data': _load(COURT_DATA, '데이터'),
-        'articles': _load(INDEX_ARTICLES, '조문별'),
+        'law': _load(INDEX_LAW, '조문별', {}),
+        'cases': _load(INDEX_CASES, '조문별', {}),
+        'excerpts': _load(CASES_EXCERPTS, '데이터', {}),
+        'court_index': _load(INDEX_COURT, '조문별', {}),
+        'court_data': _load(COURT_DATA, '데이터', {}),
+        'articles': _load(INDEX_ARTICLES, '조문별', {}),
+        'topic_docs': _load(INDEX_TOPIC, '청크', []),
         'revisions': None,
     }
     if INPUT_REVISIONS.exists():
@@ -108,8 +111,8 @@ def select_card_for_date(articles, target_date, pool_size=WEIGHT_POOL_SIZE):
     }
 
 
-def find_resources(jo, indexes):
-    """조문 → 해설 + 행정심판례 + 대법원 판례 (자료 균형)."""
+def find_resources(jo, indexes, category=None):
+    """조문 → 해설 + 행정심판례 + 대법원 판례 + 주제 실무자료 (자료 균형)."""
     law_entry = indexes['law'].get(jo)
     law_comment = law_entry.get('content') if isinstance(law_entry, dict) else None
 
@@ -146,7 +149,22 @@ def find_resources(jo, indexes):
         if len(court_cases) >= MAX_COURT_CASES:
             break
 
-    return {'law_comment': law_comment, 'admin_cases': admin_cases, 'court_cases': court_cases}
+    # 주제 실무자료(수사실무·사고판례집) 청크 매칭 — 조문 직접 인용 우선, 카테고리 차선
+    topic_refs = []
+    for chunk in indexes.get('topic_docs', []):
+        if jo in chunk.get('articles', []):
+            topic_refs.append((2, chunk))
+        elif category and category in chunk.get('keywords', []):
+            topic_refs.append((1, chunk))
+    topic_refs.sort(key=lambda x: -x[0])
+    topic_docs = [c for _, c in topic_refs[:MAX_TOPIC_CHUNKS]]
+
+    return {
+        'law_comment': law_comment,
+        'admin_cases': admin_cases,
+        'court_cases': court_cases,
+        'topic_docs': topic_docs,
+    }
 
 
 def find_recent_revision(jo, revisions):
@@ -245,6 +263,16 @@ def _build_context(jo, jo_title, version, resources):
                 f"  판결요지: {c['full_text'][:CASE_CONTEXT_CHARS]}"
             )
         parts.append("[자료 5: 관련 대법원·하급심 판례]\n" + '\n\n'.join(blocks))
+
+    if resources.get('topic_docs'):
+        blocks = []
+        for t in resources['topic_docs']:
+            blocks.append(f"- 출처: {t['doc_id']} — {t['title']}\n  {t['content'][:1100]}")
+        parts.append(
+            "[자료 6: 실무 참고자료 (수사실무연구·사고조사판례집)]\n"
+            "(실무 쟁점·사례 참고용. 사건번호 인용 대상 아님)\n"
+            + '\n\n'.join(blocks)
+        )
 
     return '\n\n'.join(parts)
 
@@ -386,7 +414,7 @@ def build_card(selection, indexes, use_llm=True):
     jo_title = jo_entry.get('title', '') if isinstance(jo_entry, dict) else ''
 
     version, changed = find_recent_revision(jo, indexes['revisions'])
-    resources = find_resources(jo, indexes)
+    resources = find_resources(jo, indexes, selection['basis'].get('category'))
 
     card = {
         'card_id': 'card-1',

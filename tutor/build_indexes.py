@@ -81,6 +81,25 @@ CATEGORY_PRIORITY = {
 }
 DEFAULT_CATEGORY_PRIORITY = 0.3
 
+# topic_doc 청크 최대 길이 (헤더 분할 후 큰 섹션은 이 크기로 재분할)
+TOPIC_CHUNK_MAX = 3000
+
+# 주제 키워드 → 카테고리 (topic_doc 청크를 조문 카테고리에 연결)
+TOPIC_KEYWORDS = {
+    '음주운전': ['음주운전', '음주측정', '혈중알코올', '주취운전'],
+    '음주측정거부': ['측정거부', '측정 거부'],
+    '무면허·결격기간': ['무면허', '면허 결격', '결격기간'],
+    '교통사고': ['교통사고', '뺑소니', '도주차량', '도주치', '미조치', '치상', '치사', '사고후'],
+    '신호위반': ['신호위반', '신호 위반'],
+    '제한속도': ['속도위반', '과속'],
+    '보행자보호': ['횡단보도', '보행자보호'],
+    '난폭운전': ['난폭운전', '보복운전', '공동위험'],
+    '약물·질병': ['약물운전', '마약', '향정'],
+    '면허취소·정지': ['면허취소', '면허정지', '운전면허 취소'],
+    '중앙선': ['중앙선'],
+    '어린이보호': ['어린이보호구역', '통학버스', '민식이법', '스쿨존'],
+}
+
 
 def jo_key(main, sub):
     return f"{main}의{sub}" if sub else main
@@ -225,6 +244,68 @@ def parse_court_cases(path):
     return {jo: sorted(set(v)) for jo, v in index.items()}, data
 
 
+# ─── 파서: 주제별 실무 문서 (topic_doc) ──────────────────────────────────
+
+def extract_topic_keywords(text):
+    """텍스트에서 카테고리 키워드 추출 (조문 카테고리 연결용)."""
+    found = []
+    for cat, kws in TOPIC_KEYWORDS.items():
+        if any(kw in text for kw in kws):
+            found.append(cat)
+    return found
+
+
+def parse_topic_doc(path, doc_id):
+    """주제별 실무 문서 → 청크 리스트.
+
+    1차: 마크다운 헤더(#~####)로 섹션 분할.
+    2차: 큰 섹션(TOPIC_CHUNK_MAX 초과)은 크기 기준 재분할
+         (헤더가 거의 없는 문서 — 사고조사판례집 — 대응).
+    각 청크: doc_id, chunk_id, title, content, articles(조문 인용), keywords(카테고리)
+    """
+    text = path.read_text(encoding='utf-8')
+    lines = text.split('\n')
+
+    sections = []
+    cur_title, cur = doc_id, []
+    header_pat = re.compile(r'^#{1,4}\s+(.+)')
+    for line in lines:
+        h = header_pat.match(line)
+        if h and len(h.group(1).strip()) > 2:
+            if cur:
+                sections.append((cur_title, '\n'.join(cur).strip()))
+            cur_title = h.group(1).strip()
+            cur = [line]
+        else:
+            cur.append(line)
+    if cur:
+        sections.append((cur_title, '\n'.join(cur).strip()))
+
+    chunks = []
+    for title, content in sections:
+        if len(content) < 80:
+            continue
+        if len(content) <= TOPIC_CHUNK_MAX:
+            chunks.append((title, content))
+        else:
+            for i in range(0, len(content), TOPIC_CHUNK_MAX):
+                part = content[i:i + TOPIC_CHUNK_MAX]
+                suffix = f" ({i // TOPIC_CHUNK_MAX + 1})" if i > 0 else ""
+                chunks.append((title + suffix, part))
+
+    result = []
+    for idx, (title, content) in enumerate(chunks):
+        result.append({
+            'doc_id': doc_id,
+            'chunk_id': f"{doc_id}-{idx + 1}",
+            'title': title,
+            'content': content,
+            'articles': sorted(extract_road_law_articles(content)),
+            'keywords': extract_topic_keywords(title + '\n' + content),
+        })
+    return result
+
+
 # ─── 현행 법령 풀 인덱스 ──────────────────────────────────
 
 def load_recent_revised(path):
@@ -311,6 +392,7 @@ def main():
     law_index = {}
     cases_index, cases_excerpts = {}, {}
     court_index, court_data = {}, {}
+    topic_chunks = []
 
     for src in config['sources']:
         if not src.get('enabled', True):
@@ -333,7 +415,10 @@ def main():
             court_index, court_data = parse_court_cases(path)
             print(f"   ✅ 조문 매핑 {len(court_index)}개 · 판례 {len(court_data)}건")
         elif src['type'] == 'topic_doc':
-            print(f"   ⏭️ topic_doc 파서는 R4에서 구현 예정")
+            chunks = parse_topic_doc(path, src['id'])
+            topic_chunks.extend(chunks)
+            with_article = sum(1 for c in chunks if c['articles'])
+            print(f"   ✅ 주제 청크 {len(chunks)}개 (조문 인용 포함 {with_article}개)")
         else:
             print(f"   ⚠️ 알 수 없는 type: {src['type']}")
 
@@ -356,6 +441,7 @@ def main():
         ('index_court_cases.json', {'생성일시': ts, '설명': '조문 → 대법원·하급심 판례 cid', '조문수': len(court_index), '조문별': court_index}),
         ('court_cases_data.json', {'생성일시': ts, '설명': 'cid → 대법원·하급심 판례 전문', '판례수': len(court_data), '데이터': court_data}),
         ('index_articles.json', {'생성일시': ts, '설명': '현행 법령 후보 풀 + 가중치', '조문수': len(article_index), '조문별': article_index}),
+        ('index_topic_docs.json', {'생성일시': ts, '설명': '주제별 실무 문서 청크 (수사실무·사고판례집)', '청크수': len(topic_chunks), '청크': topic_chunks}),
     ]
 
     print("\n💾 저장:")
