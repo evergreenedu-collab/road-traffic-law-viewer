@@ -116,22 +116,24 @@ def find_resources(jo, indexes, category=None):
     law_entry = indexes['law'].get(jo)
     law_comment = law_entry.get('content') if isinstance(law_entry, dict) else None
 
-    admin_cases = []
-    for cn in (indexes['cases'].get(jo, []) or [])[:MAX_ADMIN_CASES * 5]:
+    # 행정심판례 — 잘린 판례("이하 생략")는 후순위 (원본 cases.json의 OPEN API 잘림 대응)
+    admin_pool = []
+    for cn in (indexes['cases'].get(jo, []) or [])[:MAX_ADMIN_CASES * 6]:
         ex = indexes['excerpts'].get(cn)
         if not ex:
             continue
-        admin_cases.append({
+        reasoning = ex.get('reasoning', '')
+        admin_pool.append(('이하 생략' in reasoning, {
             'type': 'admin',
             'case_no': cn,
             'title': ex.get('title', ''),
             'date': ex.get('date', ''),
             'court': ex.get('court', ''),
             'result': ex.get('result', ''),
-            'full_text': ex.get('reasoning', ''),
-        })
-        if len(admin_cases) >= MAX_ADMIN_CASES:
-            break
+            'full_text': reasoning,
+        }))
+    admin_pool.sort(key=lambda x: x[0])  # 안 잘린 판례(False) 먼저
+    admin_cases = [c for _, c in admin_pool[:MAX_ADMIN_CASES]]
 
     court_cases = []
     for cid in (indexes['court_index'].get(jo, []) or [])[:MAX_COURT_CASES * 5]:
@@ -290,6 +292,10 @@ def generate_learning_content(jo, jo_title, version, resources):
 3. 법률 용어는 자료의 결정문·판결문 표현을 그대로 쓴다. 일상어로 의역하지 않는다.
 4. 인용 사건번호는 [자료 4]·[자료 5]에 있는 것만 사용한다.
 5. case_analysis는 [자료 4]·[자료 5]의 실제 사건(처분 내용·당사자 주장·판단 근거·결론)만 기술한다.
+6. 단정·일반화 표현 금지. 판례의 결론은 그 사건의 특정 사실관계(특정 신호 상황, 특정 처분 등)에 한정된다.
+   '항상', '무관하게', '반드시', '모든 경우', '예외 없이' 같은 일반화는 원본 자료가 명확히 그렇게 규정할 때만 쓴다.
+   불명확하면 '~될 수 있다', '~한 경우', '~로 볼 여지가 있다' 등 유보적 표현을 쓴다.
+   (예: 녹색점멸 신호 상황의 판례를 '신호와 무관하게 보호'처럼 일반화하지 말 것)
 
 [원본 자료]
 {context}
@@ -457,6 +463,19 @@ def build_card(selection, indexes, use_llm=True):
         for c in (resources['admin_cases'] + resources['court_cases'])
     ]
 
+    # R5.5: 자료 출처 가시화 — 해설집·실무자료를 카드에 기록 (UI '참고 자료' 표시용)
+    card['source_materials'] = {
+        'law_comment': (resources['law_comment'][:700] if resources['law_comment'] else None),
+        'topic_docs': [
+            {
+                'doc_id': t.get('doc_id', ''),
+                'title': t.get('title', ''),
+                'excerpt': (t.get('content', '') or '')[:500],
+            }
+            for t in resources.get('topic_docs', [])
+        ],
+    }
+
     if use_llm:
         enrich_card(card, jo, jo_title, version, resources)
     else:
@@ -527,8 +546,13 @@ def main():
           f"대법원 {len(indexes['court_index'])} · 후보풀 {len(indexes['articles'])}")
 
     OUTPUT_DIR.mkdir(exist_ok=True)
+    # 여러 날치 생성 시 카드 간 간격 (분당 한도 429 회피). 1일치·--no-llm은 대기 없음.
+    gap = 25 if (args.days > 1 and not args.no_llm) else 0
     results = []
     for d in range(args.days):
+        if d > 0 and gap:
+            print(f"  ⏳ 분당 한도 회피 — {gap}초 대기")
+            time.sleep(gap)
         target = start_date + timedelta(days=d)
         content = build_daily(target, indexes, use_llm=not args.no_llm)
         results.append((target, content))

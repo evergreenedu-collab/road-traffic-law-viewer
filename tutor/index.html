@@ -372,6 +372,26 @@ function renderIssues(lc) {
     + '</section>';
 }
 
+function renderRefs(card) {
+  const sm = card.source_materials || {};
+  const law = sm.law_comment;
+  const topics = sm.topic_docs || [];
+  if (!law && topics.length === 0) return '';
+  let inner = '';
+  if (law) {
+    const txt = law.length > 420 ? law.slice(0, 420) + ' …' : law;
+    inner += '<div class="refs-item"><span class="refs-src">도로교통법 해설집</span> ' + esc(txt) + '</div>';
+  }
+  topics.forEach(function(t) {
+    const ex = t.excerpt || '';
+    const txt = ex.length > 340 ? ex.slice(0, 340) + ' …' : ex;
+    inner += '<div class="refs-item"><span class="refs-src">' + esc(t.doc_id) + '</span> '
+      + '<strong>' + esc(t.title) + '</strong><br>' + esc(txt) + '</div>';
+  });
+  return '<section class="section refs">'
+    + '<h3>📚 참고 자료 (해설집·실무연구)</h3>' + inner + '</section>';
+}
+
 function renderRevisionRaw(card) {
   const rev = card.law_info && card.law_info.recent_revision;
   if (!rev || !rev.제개정이유_원본) return '';
@@ -397,6 +417,7 @@ function renderCard(card) {
     llmOk ? renderStudy(lc) : '',
     llmOk ? renderCases(card) : '',
     llmOk ? renderIssues(lc) : '',
+    llmOk ? renderRefs(card) : '',
     renderRevisionRaw(card),
     renderViewLaw(card)
   ].join('');
