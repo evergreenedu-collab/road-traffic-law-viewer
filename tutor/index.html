@@ -8,443 +8,195 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f8f7f4;
-  --card: #fff;
-  --border: #e5e3dd;
-  --text: #1f2937;
-  --sub: #6b7280;
+  --bg: #f8f7f4; --card: #fff; --border: #e5e3dd;
+  --text: #1f2937; --sub: #6b7280;
   --law: #1e3a5f; --law-bg: #eef2f7; --law-light: #dbe4ee;
-  --decree: #5b4b8a; --decree-bg: #f3f0f8;
-  --rule: #1e6a5e; --rule-bg: #ecf5f2;
+  --decree: #5b4b8a; --rule: #1e6a5e;
   --warn: #d97706; --warn-bg: #fef3c7;
   --analysis: #0e7490; --analysis-bg: #ecfeff;
-  --teaching: #7c2d12; --teaching-bg: #fff7ed;
-  --shadow: 0 1px 3px rgba(0,0,0,0.04);
-  --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+  --teaching: #b45309; --teaching-bg: #fff7ed;
+  --shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
-
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
 body {
   font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.7;
-  font-size: 14px;
-  max-width: 820px;
-  margin: 0 auto;
-  padding: 16px;
+  background: var(--bg); color: var(--text); line-height: 1.7; font-size: 14px;
+  max-width: 800px; margin: 0 auto; padding: 16px;
 }
-
 header {
   background: linear-gradient(135deg, #1a5276 0%, #2980b9 100%);
-  color: #fff;
-  padding: 22px 24px;
-  border-radius: 8px;
-  margin-bottom: 14px;
+  color: #fff; padding: 22px 24px; border-radius: 8px; margin-bottom: 14px;
 }
-header h1 { font-size: 22px; margin-bottom: 6px; font-weight: 700; letter-spacing: -0.3px; }
+header h1 { font-size: 21px; margin-bottom: 6px; font-weight: 700; }
 header p { font-size: 13px; opacity: 0.9; }
 header a { color: #ffe; text-decoration: underline; }
 
 .date-nav {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  background: var(--card);
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-bottom: 14px;
-  box-shadow: var(--shadow);
-  font-size: 13px;
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  background: var(--card); padding: 10px 14px; border-radius: 8px;
+  margin-bottom: 14px; box-shadow: var(--shadow); font-size: 13px;
 }
 .date-nav input[type="date"] {
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  font-family: inherit;
-  font-size: 13px;
+  padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px;
+  font-family: inherit; font-size: 13px;
 }
-.date-nav .today-link {
-  margin-left: auto;
-  color: var(--law);
-  text-decoration: none;
-  font-weight: 500;
-}
+.date-nav .today-link { margin-left: auto; color: var(--law); text-decoration: none; font-weight: 500; }
 .date-nav .today-link:hover { text-decoration: underline; }
-.date-nav .cards-count {
-  color: var(--sub);
-  font-size: 12px;
-}
 
-/* 카드 묶음 (1개 학습 카드 = 메인 + 분석 + 학습포인트 + 판례 + 쟁점 + 개정원문 + 본문보기) */
-.learn-card {
-  margin-bottom: 32px;
-  padding-bottom: 18px;
-  border-bottom: 2px dashed var(--border);
-}
-.learn-card:last-child { border-bottom: none; margin-bottom: 0; }
-
-.card-banner {
-  background: linear-gradient(to right, var(--law-bg), transparent 50%);
-  padding: 8px 14px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--law);
-  font-weight: 500;
-}
-.card-banner .rank {
-  background: var(--law);
-  color: #fff;
-  width: 24px;
-  height: 24px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-}
-.card-banner .category-tag {
-  background: var(--card);
-  border: 1px solid var(--law-light);
-  padding: 2px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-}
-
-/* 메인 카드 */
 .card {
-  background: var(--card);
-  border-radius: 10px;
-  padding: 24px;
-  margin-bottom: 12px;
-  box-shadow: var(--shadow);
-  border-left: 4px solid var(--law);
+  background: var(--card); border-radius: 10px; padding: 24px;
+  margin-bottom: 12px; box-shadow: var(--shadow); border-left: 4px solid var(--law);
 }
 .card.law { border-left-color: var(--law); }
 .card.decree { border-left-color: var(--decree); }
 .card.rule { border-left-color: var(--rule); }
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-.card-date { font-size: 12px; color: var(--sub); }
-
+.card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .badge {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #fff;
+  display: inline-block; padding: 3px 10px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; color: #fff;
 }
 .badge.law { background: var(--law); }
 .badge.decree { background: var(--decree); }
 .badge.rule { background: var(--rule); }
 .badge.current { background: #475569; }
-
+.badge.cat { background: var(--law-bg); color: var(--law); }
+.card-date { font-size: 12px; color: var(--sub); }
+.jo-label { font-size: 13px; color: var(--law); font-weight: 600; margin-bottom: 6px; }
 .oneliner {
-  font-size: 21px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 12px;
-  line-height: 1.4;
-  word-break: keep-all;
+  font-size: 21px; font-weight: 700; color: var(--text);
+  margin-bottom: 12px; line-height: 1.45; word-break: keep-all;
 }
-
 .explanation {
-  font-size: 14.5px;
-  color: var(--text);
-  line-height: 1.7;
-  margin-bottom: 12px;
-  word-break: keep-all;
+  font-size: 14.5px; color: var(--text); line-height: 1.75;
+  margin-bottom: 12px; word-break: keep-all;
 }
-
 .source {
-  display: inline-block;
-  font-size: 12px;
-  color: var(--law);
-  background: var(--law-bg);
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-weight: 500;
+  display: inline-block; font-size: 12px; color: var(--law);
+  background: var(--law-bg); padding: 4px 12px; border-radius: 4px; font-weight: 500;
 }
-
 .llm-skip-banner {
-  font-size: 12px;
-  color: var(--warn);
-  background: var(--warn-bg);
-  padding: 8px 12px;
-  border-radius: 6px;
-  margin-bottom: 12px;
+  font-size: 13px; color: var(--warn); background: var(--warn-bg);
+  padding: 10px 14px; border-radius: 6px; margin-bottom: 12px;
   border-left: 3px solid var(--warn);
 }
 
-/* 인사이트 카드들 */
-.insight-card {
-  background: var(--card);
-  border-radius: 10px;
-  padding: 16px 20px;
-  margin-bottom: 10px;
-  box-shadow: var(--shadow);
-  border-left: 4px solid var(--law-light);
+.section {
+  background: var(--card); border-radius: 10px; padding: 16px 20px;
+  margin-bottom: 12px; box-shadow: var(--shadow); border-left: 4px solid var(--law-light);
 }
-.insight-card.analysis { border-left-color: var(--analysis); background: linear-gradient(to right, var(--analysis-bg) 0%, var(--card) 40%); }
-.insight-card.teaching { border-left-color: var(--teaching); background: linear-gradient(to right, var(--teaching-bg) 0%, var(--card) 40%); }
-.insight-card.study { border-left-color: var(--rule); background: linear-gradient(to right, var(--rule-bg) 0%, var(--card) 40%); }
-.insight-card.cases { border-left-color: var(--decree); }
-.insight-card.issues { border-left-color: var(--warn); }
-
-.insight-card h3 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--law);
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.section.analysis { border-left-color: var(--analysis); background: linear-gradient(to right, var(--analysis-bg), var(--card) 45%); }
+.section.teaching { border-left-color: var(--teaching); }
+.section.study { border-left-color: var(--rule); }
+.section.cases { border-left-color: var(--decree); }
+.section.issues { border-left-color: var(--warn); }
+.section.refs { border-left-color: var(--sub); }
+.section h3 {
+  font-size: 14px; font-weight: 600; color: var(--law);
+  margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
 }
-.insight-card .count {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--sub);
-  background: var(--bg);
-  padding: 2px 8px;
-  border-radius: 10px;
+.section h3 .count {
+  font-size: 11px; font-weight: 500; color: var(--sub);
+  background: var(--bg); padding: 2px 8px; border-radius: 10px;
 }
-.insight-card details summary {
-  list-style: none;
-  cursor: pointer;
-  user-select: none;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--law);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 0;
-}
-.insight-card details summary::-webkit-details-marker { display: none; }
-.insight-card details summary::before {
-  content: '▶';
-  font-size: 10px;
-  color: var(--sub);
-}
-.insight-card details[open] summary::before { content: '▼'; }
-
-.insight-body {
-  font-size: 14px;
-  color: var(--text);
-  line-height: 1.7;
-  margin-top: 4px;
-  word-break: keep-all;
-}
-
-.insight-list {
-  margin-top: 8px;
-  padding-left: 22px;
-  font-size: 13.5px;
-  line-height: 1.8;
-}
+.section-body { font-size: 14px; line-height: 1.75; color: var(--text); word-break: keep-all; }
+.insight-list { padding-left: 20px; font-size: 13.5px; line-height: 1.8; }
 .insight-list li { margin-bottom: 6px; word-break: keep-all; }
 
-/* 관련 판례 */
-.case-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
+.teaching-box {
+  background: var(--teaching-bg); border-radius: 6px; padding: 10px 12px;
+  font-size: 13.5px; line-height: 1.7; margin-top: 8px;
 }
+.teaching-box strong { color: var(--teaching); }
+
 .case-item {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 14px;
-  background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; background: var(--bg); margin-top: 10px;
 }
-.case-header-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-}
+.case-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .case-no {
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--sub);
-  background: var(--card);
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
+  font-family: 'Courier New', monospace; font-size: 12px; font-weight: 600;
+  color: var(--sub); background: var(--card); padding: 2px 8px;
+  border-radius: 4px; border: 1px solid var(--border);
 }
-.case-result {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 10px;
-  border-radius: 3px;
+.case-type {
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px;
+  background: var(--law-bg); color: var(--law);
 }
-.case-result.result-accept { background: var(--rule-bg); color: var(--rule); }
-.case-result.result-reject { background: #fee2e2; color: #b91c1c; }
-.case-result.result-dismiss { background: #f3f4f6; color: var(--sub); }
-.case-court-date {
-  font-size: 11px;
-  color: var(--sub);
-}
-.case-title {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 6px;
-  line-height: 1.5;
-  word-break: keep-all;
-}
+.case-type.court { background: #ede9fe; color: var(--decree); }
+.case-result { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 3px; }
+.case-result.accept { background: #ecf5f2; color: var(--rule); }
+.case-result.reject { background: #fee2e2; color: #b91c1c; }
+.case-result.etc { background: #f3f4f6; color: var(--sub); }
+.case-title { font-size: 13.5px; font-weight: 600; margin-bottom: 6px; line-height: 1.5; word-break: keep-all; }
 .case-lesson {
-  font-size: 13px;
-  color: var(--text);
-  line-height: 1.6;
-  padding: 8px 10px;
-  background: var(--law-bg);
-  border-left: 3px solid var(--law-light);
-  border-radius: 5px;
-  margin-bottom: 8px;
+  font-size: 13px; line-height: 1.65; padding: 8px 10px;
+  background: var(--law-bg); border-left: 3px solid var(--law-light);
+  border-radius: 5px; margin-bottom: 8px;
 }
-.case-full {
-  background: var(--card);
-  border-radius: 6px;
-  padding: 10px;
-  margin-top: 6px;
-}
+.case-full { margin-top: 6px; }
 .case-full summary {
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--law);
-  list-style: none;
-  user-select: none;
+  cursor: pointer; font-size: 12px; color: var(--law); user-select: none; list-style: none;
 }
 .case-full summary::-webkit-details-marker { display: none; }
-.case-full summary::before {
-  content: '▶ ';
-  font-size: 10px;
-  color: var(--sub);
-}
-.case-full[open] summary::before { content: '▼ '; }
+.case-full summary::before { content: '▶ 판례 전문 보기'; }
+.case-full[open] summary::before { content: '▼ 판례 전문 접기'; }
 .case-full pre {
-  margin-top: 8px;
-  padding: 10px;
-  background: var(--bg);
-  border-radius: 5px;
-  font-size: 11.5px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: keep-all;
-  font-family: inherit;
-  max-height: 320px;
-  overflow-y: auto;
-  color: var(--text);
+  margin-top: 8px; padding: 12px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; line-height: 1.8; white-space: pre-wrap;
+  word-break: keep-all; font-family: inherit;
+  max-height: 380px; overflow-y: auto; color: var(--text);
 }
 
-/* 제개정 이유 원문 */
-.raw-source {
-  background: var(--card);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 10px;
-  box-shadow: var(--shadow);
-  border-left: 3px solid var(--sub);
-}
-.raw-source summary {
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--law);
-  user-select: none;
-  list-style: none;
-}
-.raw-source summary::-webkit-details-marker { display: none; }
-.raw-source summary::before {
-  content: '▶ ';
-  font-size: 10px;
-  color: var(--sub);
-}
-.raw-source[open] summary::before { content: '▼ '; }
-.raw-source pre {
-  margin-top: 10px;
-  padding: 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: keep-all;
-  font-family: inherit;
-  max-height: 240px;
-  overflow-y: auto;
-  color: var(--text);
+.refs-item { font-size: 13px; line-height: 1.65; margin-top: 8px; }
+.refs-item .refs-src {
+  font-size: 11px; font-weight: 600; color: var(--decree);
+  background: #ede9fe; padding: 1px 7px; border-radius: 3px;
 }
 
-/* 법령 본문 보기 (카드 마지막) */
-.view-law-link {
-  display: block;
-  text-align: center;
-  background: var(--law);
-  color: #fff;
-  text-decoration: none;
-  padding: 11px 18px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  margin-top: 10px;
+.revision-raw { border-left-color: var(--sub); }
+.revision-raw summary {
+  cursor: pointer; font-size: 13px; font-weight: 600; color: var(--law);
+  user-select: none; list-style: none;
 }
-.view-law-link:hover { background: #14264a; }
+.revision-raw summary::-webkit-details-marker { display: none; }
+.revision-raw summary::before { content: '▶ '; font-size: 10px; }
+.revision-raw[open] summary::before { content: '▼ '; }
+.revision-raw pre {
+  margin-top: 10px; padding: 12px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; line-height: 1.8; white-space: pre-wrap;
+  word-break: keep-all; font-family: inherit;
+  max-height: 280px; overflow-y: auto;
+}
 
-/* 빈 상태 / 로딩 */
+.view-law {
+  display: block; text-align: center; background: var(--law); color: #fff;
+  text-decoration: none; padding: 12px 18px; border-radius: 8px;
+  font-size: 14px; font-weight: 600; margin-top: 4px;
+}
+.view-law:hover { background: #14264a; }
+
 .empty, .loading {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--sub);
-  background: var(--card);
-  border-radius: 10px;
-  box-shadow: var(--shadow);
+  text-align: center; padding: 60px 20px; color: var(--sub);
+  background: var(--card); border-radius: 10px; box-shadow: var(--shadow);
 }
 .empty .icon { font-size: 56px; margin-bottom: 16px; }
 .empty p { margin-bottom: 8px; }
-.empty .sub { font-size: 13px; color: var(--sub); }
+.empty .sub { font-size: 13px; }
 
-footer {
-  text-align: center;
-  padding: 20px 10px;
-  color: var(--sub);
-  font-size: 12px;
-}
+footer { text-align: center; padding: 20px 10px; color: var(--sub); font-size: 12px; }
 footer a { color: var(--sub); text-decoration: underline; }
 
-/* 모바일 */
 @media (max-width: 600px) {
   body { padding: 8px; }
   header { padding: 16px 18px; }
   header h1 { font-size: 18px; }
-  header p { font-size: 12px; }
-  .card { padding: 16px; }
-  .insight-card { padding: 12px 14px; }
-  .oneliner { font-size: 17px; }
-  .explanation { font-size: 13.5px; }
+  .card { padding: 18px; }
+  .section { padding: 14px 16px; }
+  .oneliner { font-size: 18px; }
   .date-nav { flex-direction: column; align-items: stretch; }
   .date-nav .today-link { margin-left: 0; text-align: right; }
-  .date-nav .cards-count { margin-left: auto; }
-  .case-item { padding: 10px 12px; }
-  .learn-card { margin-bottom: 24px; }
 }
 </style>
 </head>
@@ -452,13 +204,12 @@ footer a { color: var(--sub); text-decoration: underline; }
 
 <header>
   <h1>📚 출근길 법령 튜터</h1>
-  <p>매일 5건의 학습 카드 — 도로교통법 현행 + 해설 + 판례 통합 — <a href="../viewer.html">전체 뷰어로 이동</a></p>
+  <p>매일 한 건 — 도로교통법 현행 + 해설 + 판례 통합 학습 — <a href="../viewer.html">전체 뷰어</a></p>
 </header>
 
 <nav class="date-nav">
   <label for="dateInput">날짜:</label>
   <input type="date" id="dateInput">
-  <span class="cards-count" id="cardsCount"></span>
   <a href="./" class="today-link">오늘로 →</a>
 </nav>
 
@@ -468,7 +219,7 @@ footer a { color: var(--sub); text-decoration: underline; }
 
 <footer>
   데이터 출처: <a href="https://www.law.go.kr" target="_blank">국가법령정보센터</a> ·
-  AI 생성 (RAG 원본 근거 + 코드 자기검증)
+  해설집·판례·행정심판례 RAG · AI 생성 (코드 자기검증)
 </footer>
 
 <script>
@@ -476,264 +227,214 @@ const LAW_TYPE_CLASS = { '법률': 'law', '시행령': 'decree', '시행규칙':
 
 function todayStr() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
-
-function formatDate(yyyymmdd) {
-  if (!yyyymmdd || yyyymmdd.length !== 8) return yyyymmdd || '';
-  return `${yyyymmdd.slice(0,4)}.${yyyymmdd.slice(4,6)}.${yyyymmdd.slice(6,8)}`;
+function fmtDate(s) {
+  if (!s || s.length !== 8) return s || '';
+  return s.slice(0,4) + '.' + s.slice(4,6) + '.' + s.slice(6,8);
 }
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   })[c]);
 }
+function resultClass(r) {
+  r = String(r || '');
+  if (r.includes('인용') || r.includes('무죄')) return 'accept';
+  if (r.includes('기각') || r.includes('유죄')) return 'reject';
+  return 'etc';
+}
 
-function resultClass(result) {
-  const r = String(result || '');
-  if (r.includes('인용')) return 'result-accept';
-  if (r.includes('기각')) return 'result-reject';
-  if (r.includes('각하')) return 'result-dismiss';
-  return '';
+// 판례 전문 문단 분리 — 항목 기호 앞 줄바꿈. 날짜는 보호 후 복원.
+function formatJudgment(text) {
+  if (!text) return '';
+  let t = String(text);
+  const saved = [];
+  // 날짜(YYYY. M. D.) 보호 — @@D0@@ 형태 placeholder (본문 충돌 없음)
+  t = t.replace(/\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}\s*\.?/g, function(m) {
+    saved.push(m);
+    return '@@D' + (saved.length - 1) + '@@';
+  });
+  t = t.replace(/\s+(\[\d+\])/g, '\n\n$1');       // [1] [2]
+  t = t.replace(/\s+(\d{1,2}\.\s)/g, '\n\n$1');    // 1. 2. 3.
+  t = t.replace(/\s+([가-하]\.\s)/g, '\n$1');      // 가. 나. 다.
+  t = t.replace(/\s+(○\s)/g, '\n$1');              // ○
+  t = t.replace(/@@D(\d+)@@/g, function(_, i) { return saved[+i]; });  // 날짜 복원
+  t = t.replace(/\n{3,}/g, '\n\n');
+  return t.trim();
 }
 
 async function loadDaily(date) {
-  const url = `data/daily_${date}.json`;
-  const r = await fetch(url, { cache: 'no-store' });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const r = await fetch('data/daily_' + date + '.json', { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
-}
-
-function renderCardBanner(card) {
-  const basis = card.selection_basis || {};
-  const cat = basis.category || card.law_info?.categories?.[0] || '미분류';
-  return `
-    <div class="card-banner">
-      <span class="rank">${card.rank || '?'}</span>
-      <span class="category-tag">${escapeHtml(cat)}</span>
-      <span style="margin-left:auto;color:var(--sub);font-size:11px">학습 가치 ${(basis.weight_score || 0).toFixed(3)}</span>
-    </div>
-  `;
 }
 
 function renderMainCard(card) {
   const li = card.law_info || {};
   const lc = card.learning_content || {};
   const llmOk = card.llm_status === 'ok';
-  const isRevision = li.is_recent_revision;
-  const lawTypeClass = isRevision && li.recent_revision
-    ? (LAW_TYPE_CLASS[li.recent_revision.법령유형] || 'law')
-    : 'law';
-  const badge = isRevision && li.recent_revision
-    ? `<span class="badge ${lawTypeClass}">${escapeHtml(li.recent_revision.법령유형)} · 최근 개정</span>`
-    : `<span class="badge current">현행 법령</span>`;
-  const dateInfo = isRevision && li.recent_revision
-    ? `<span class="card-date">공포 ${escapeHtml(formatDate(li.recent_revision.공포일자))} · 시행 ${escapeHtml(formatDate(li.recent_revision.시행일자))}</span>`
+  const jo = li.매핑법률조문 || '?';
+  const rev = li.recent_revision;
+  const lawClass = rev ? (LAW_TYPE_CLASS[rev.법령유형] || 'law') : 'law';
+  const cat = (li.categories && li.categories[0]) || (card.selection_basis && card.selection_basis.category) || '';
+
+  const badge = rev
+    ? '<span class="badge ' + lawClass + '">' + esc(rev.법령유형) + ' · 최근 개정</span>'
+    : '<span class="badge current">현행 법령</span>';
+  const catBadge = cat ? '<span class="badge cat">' + esc(cat) + '</span>' : '';
+  const dateInfo = rev
+    ? '<span class="card-date">공포 ' + esc(fmtDate(rev.공포일자)) + ' · 시행 ' + esc(fmtDate(rev.시행일자)) + '</span>'
     : '';
 
-  const skipBanner = (!llmOk && card.llm_note)
-    ? `<div class="llm-skip-banner">⚠️ ${escapeHtml(card.llm_note)}</div>`
-    : '';
-
-  const body = llmOk
-    ? `
-      <h2 class="oneliner">${escapeHtml(lc.oneliner)}</h2>
-      <p class="explanation">${escapeHtml(lc.explanation)}</p>
-      <span class="source">📖 ${escapeHtml(lc.source_article)}</span>
-    `
-    : `
-      <h2 class="oneliner">제${escapeHtml(li.매핑법률조문)}조 ${escapeHtml(li.매핑법률조문제목)}</h2>
-      <p class="explanation" style="color:var(--sub)">${escapeHtml(card.llm_note || 'LLM 미생성 — 조문 정보만 표시')}</p>
-    `;
-
-  return `
-    <article class="card ${lawTypeClass}">
-      <div class="card-header">
-        ${badge}
-        ${dateInfo}
-      </div>
-      ${skipBanner}
-      ${body}
-    </article>
-  `;
+  if (llmOk) {
+    return '<article class="card ' + lawClass + '">'
+      + '<div class="card-header">' + badge + catBadge + dateInfo + '</div>'
+      + '<div class="jo-label">📖 ' + esc(lc.source_article || ('도로교통법 제' + jo + '조')) + '</div>'
+      + '<h2 class="oneliner">' + esc(lc.oneliner) + '</h2>'
+      + '<p class="explanation">' + esc(lc.explanation) + '</p>'
+      + '</article>';
+  }
+  return '<article class="card ' + lawClass + '">'
+    + '<div class="card-header">' + badge + catBadge + dateInfo + '</div>'
+    + '<div class="jo-label">📖 도로교통법 제' + esc(jo) + '조</div>'
+    + '<div class="llm-skip-banner">⚠️ 이 날짜는 학습 콘텐츠가 아직 생성되지 않았습니다 (' + esc(card.llm_status) + '). 조문 정보만 표시합니다.</div>'
+    + '</article>';
 }
 
-function renderCaseAnalysis(lc) {
+function renderAnalysis(lc) {
   if (!lc.case_analysis) return '';
-  return `
-    <section class="insight-card analysis">
-      <h3>🔍 인용·기각 법리 분석</h3>
-      <div class="insight-body">${escapeHtml(lc.case_analysis)}</div>
-    </section>
-  `;
+  return '<section class="section analysis">'
+    + '<h3>🔍 인용·기각 법리 분석</h3>'
+    + '<div class="section-body">' + esc(lc.case_analysis) + '</div>'
+    + '</section>';
 }
 
-function renderTeachingAndStudy(lc) {
+function renderStudy(lc) {
+  const pts = lc.study_points || [];
   const teaching = lc.teaching_application;
-  const points = lc.study_points || [];
-  if (!teaching && points.length === 0) return '';
-
-  let inner = '';
-  if (teaching) {
-    inner += `
-      <div class="insight-body" style="background:var(--teaching-bg);padding:10px 12px;border-radius:6px;margin-bottom:8px">
-        <strong style="color:var(--teaching)">📌 교통안전교육 적용:</strong> ${escapeHtml(teaching)}
-      </div>
-    `;
-  }
-  if (points.length > 0) {
-    const items = points.map(it => `<li>${escapeHtml(it)}</li>`).join('');
-    inner += `<ul class="insight-list">${items}</ul>`;
-  }
-
-  return `
-    <section class="insight-card study">
-      <h3>📝 학습 포인트 ${points.length > 0 ? `<span class="count">${points.length}개</span>` : ''}</h3>
-      ${inner}
-    </section>
-  `;
+  if (pts.length === 0 && !teaching) return '';
+  const list = pts.length
+    ? '<ul class="insight-list">' + pts.map(function(p){ return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>'
+    : '';
+  const tbox = teaching
+    ? '<div class="teaching-box"><strong>📌 교통안전교육 적용:</strong> ' + esc(teaching) + '</div>'
+    : '';
+  return '<section class="section study">'
+    + '<h3>📝 학습 포인트 ' + (pts.length ? '<span class="count">' + pts.length + '</span>' : '') + '</h3>'
+    + list + tbox
+    + '</section>';
 }
 
-function renderRelatedCases(lc, card) {
+function renderCases(card) {
+  const lc = card.learning_content || {};
   const cases = lc.related_cases || [];
   if (cases.length === 0) return '';
-
-  // 전문 자료 (card.related_cases_full) 와 매핑
   const fullMap = {};
-  for (const c of (card.related_cases_full || [])) {
-    fullMap[c.case_no] = c;
-  }
+  (card.related_cases_full || []).forEach(function(f){ fullMap[f.case_no] = f; });
 
-  const items = cases.map(c => {
+  const items = cases.map(function(c) {
     const full = fullMap[c.case_no] || {};
-    const date = full.date ? formatDate(full.date.replace(/[.\s]/g, '').slice(0, 8)) : '';
-    const court = full.court || '';
-    const courtDate = (court || date) ? `<span class="case-court-date">${escapeHtml(court)}${date ? ' · ' + escapeHtml(date) : ''}</span>` : '';
-
-    const fullText = full.reasoning_full || '';
-    const fullPanel = fullText
-      ? `<details class="case-full"><summary>이 판례 전문 펼쳐 보기</summary><pre>${escapeHtml(fullText)}</pre></details>`
+    const typeLabel = c.type === 'court' ? '법원판례' : '행정심판';
+    const typeClass = c.type === 'court' ? 'court' : '';
+    const courtDate = full.court
+      ? '<span class="card-date">' + esc(full.court) + (full.date ? ' · ' + esc(full.date) : '') + '</span>'
       : '';
-
-    return `
-      <div class="case-item">
-        <div class="case-header-row">
-          <span class="case-no">${escapeHtml(c.case_no || '?')}</span>
-          ${c.result ? `<span class="case-result ${resultClass(c.result)}">${escapeHtml(c.result)}</span>` : ''}
-          ${courtDate}
-        </div>
-        <div class="case-title">${escapeHtml(c.title || '')}</div>
-        ${c.lesson ? `<div class="case-lesson">💡 ${escapeHtml(c.lesson)}</div>` : ''}
-        ${fullPanel}
-      </div>
-    `;
+    const fullText = full.full_text || '';
+    const fullPanel = fullText
+      ? '<details class="case-full"><summary></summary><pre>' + esc(formatJudgment(fullText)) + '</pre></details>'
+      : '';
+    return '<div class="case-item">'
+      + '<div class="case-head">'
+      + '<span class="case-no">' + esc(c.case_no) + '</span>'
+      + '<span class="case-type ' + typeClass + '">' + typeLabel + '</span>'
+      + (c.result ? '<span class="case-result ' + resultClass(c.result) + '">' + esc(c.result) + '</span>' : '')
+      + courtDate
+      + '</div>'
+      + '<div class="case-title">' + esc(c.title) + '</div>'
+      + (c.lesson ? '<div class="case-lesson">💡 ' + esc(c.lesson) + '</div>' : '')
+      + fullPanel
+      + '</div>';
   }).join('');
 
-  return `
-    <details class="insight-card cases" open>
-      <summary>⚖️ 관련 행정심판례 <span class="count">${cases.length}건</span></summary>
-      <div class="case-list">${items}</div>
-    </details>
-  `;
+  return '<section class="section cases">'
+    + '<h3>⚖️ 관련 판례·행정심판례 <span class="count">' + cases.length + '</span></h3>'
+    + items
+    + '</section>';
 }
 
-function renderKeyIssues(lc) {
+function renderIssues(lc) {
   const issues = lc.key_issues || [];
   if (issues.length === 0) return '';
-  const items = issues.map(it => `<li>${escapeHtml(it)}</li>`).join('');
-  return `
-    <section class="insight-card issues">
-      <h3>🎯 핵심 쟁점 <span class="count">${issues.length}개</span></h3>
-      <ul class="insight-list">${items}</ul>
-    </section>
-  `;
+  return '<section class="section issues">'
+    + '<h3>🎯 핵심 쟁점 <span class="count">' + issues.length + '</span></h3>'
+    + '<ul class="insight-list">' + issues.map(function(i){ return '<li>' + esc(i) + '</li>'; }).join('') + '</ul>'
+    + '</section>';
 }
 
-function renderRecentRevisionRaw(card) {
-  const rr = card.law_info?.recent_revision;
-  if (!rr || !rr.제개정이유_원본) return '';
-  return `
-    <details class="raw-source">
-      <summary>📄 제개정 이유 원문 (${escapeHtml(rr.법령명 || '')} · 공포 ${escapeHtml(formatDate(rr.공포일자))})</summary>
-      <pre>${escapeHtml(rr.제개정이유_원본)}</pre>
-    </details>
-  `;
+function renderRevisionRaw(card) {
+  const rev = card.law_info && card.law_info.recent_revision;
+  if (!rev || !rev.제개정이유_원본) return '';
+  return '<details class="section revision-raw">'
+    + '<summary>📄 제개정 이유 원문 (' + esc(rev.법령명 || '') + ' · 공포 ' + esc(fmtDate(rev.공포일자)) + ')</summary>'
+    + '<pre>' + esc(rev.제개정이유_원본) + '</pre>'
+    + '</details>';
 }
 
-function renderViewLawLink(card) {
-  const link = card.law_info?.viewer_link || '#';
-  const jo = card.law_info?.매핑법률조문 || '?';
-  return `<a href="${escapeHtml(link)}" class="view-law-link">📖 도로교통법 제${escapeHtml(jo)}조 본문 보기 →</a>`;
+function renderViewLaw(card) {
+  const jo = (card.law_info && card.law_info.매핑법률조문) || '';
+  const link = (card.law_info && card.law_info.viewer_link) || ('../viewer.html?jo=' + jo);
+  return '<a href="' + esc(link) + '" class="view-law">📖 도로교통법 제' + esc(jo) + '조 본문·연혁 보기 →</a>';
 }
 
-function renderLearnCard(card) {
+function renderCard(card) {
+  // 순서: 메인 → 인용이유분석 → 학습포인트 → 관련판례 → 핵심쟁점 → 제개정이유원문 → 법령본문보기
   const lc = card.learning_content || {};
-  return `
-    <div class="learn-card">
-      ${renderCardBanner(card)}
-      ${renderMainCard(card)}
-      ${renderCaseAnalysis(lc)}
-      ${renderTeachingAndStudy(lc)}
-      ${renderRelatedCases(lc, card)}
-      ${renderKeyIssues(lc)}
-      ${renderRecentRevisionRaw(card)}
-      ${renderViewLawLink(card)}
-    </div>
-  `;
+  const llmOk = card.llm_status === 'ok';
+  return [
+    renderMainCard(card),
+    llmOk ? renderAnalysis(lc) : '',
+    llmOk ? renderStudy(lc) : '',
+    llmOk ? renderCases(card) : '',
+    llmOk ? renderIssues(lc) : '',
+    renderRevisionRaw(card),
+    renderViewLaw(card)
+  ].join('');
 }
 
 function renderEmpty(date, reason) {
-  return `
-    <div class="empty">
-      <div class="icon">🌅</div>
-      <p>${escapeHtml(date)} — 학습 자료가 없습니다.</p>
-      <p class="sub">${escapeHtml(reason || '매일 새벽 6시에 새 자료가 갱신됩니다.')}</p>
-    </div>
-  `;
+  return '<div class="empty"><div class="icon">🌅</div>'
+    + '<p>' + esc(date) + ' — 학습 자료가 없습니다.</p>'
+    + '<p class="sub">' + esc(reason || '매일 새벽 자동 갱신됩니다.') + '</p></div>';
 }
-
 function renderError(date, msg) {
-  return `
-    <div class="empty">
-      <div class="icon">📭</div>
-      <p>${escapeHtml(date)} 학습 자료를 찾을 수 없습니다.</p>
-      <p class="sub">${escapeHtml(msg)}</p>
-      <p class="sub" style="margin-top:14px">매일 새벽 6시(KST) 자동 갱신</p>
-    </div>
-  `;
+  return '<div class="empty"><div class="icon">📭</div>'
+    + '<p>' + esc(date) + ' 학습 자료를 찾을 수 없습니다.</p>'
+    + '<p class="sub">' + esc(msg) + '</p></div>';
 }
 
 async function render(date) {
-  const container = document.getElementById('content');
-  const countEl = document.getElementById('cardsCount');
-  countEl.textContent = '';
-  container.innerHTML = '<div class="loading">⏳ 학습 자료 로딩 중...</div>';
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="loading">⏳ 학습 자료 로딩 중...</div>';
   try {
     const data = await loadDaily(date);
     if (data.status === 'skip' || !Array.isArray(data.cards) || data.cards.length === 0) {
-      container.innerHTML = renderEmpty(date, data.reason);
+      el.innerHTML = renderEmpty(date, data.reason);
       return;
     }
-    countEl.textContent = `${data.cards.length}건 · M${data.milestone || '2.6'}`;
-    container.innerHTML = data.cards.map(renderLearnCard).join('');
+    el.innerHTML = renderCard(data.cards[0]);
   } catch (e) {
-    container.innerHTML = renderError(date, e.message);
+    el.innerHTML = renderError(date, e.message);
   }
 }
 
 function init() {
-  const params = new URLSearchParams(location.search);
-  const date = params.get('date') || todayStr();
-  const dateInput = document.getElementById('dateInput');
-  dateInput.value = date;
-  dateInput.addEventListener('change', (ev) => {
-    const next = ev.target.value;
-    if (next) location.search = `?date=${next}`;
-  });
+  const date = new URLSearchParams(location.search).get('date') || todayStr();
+  const di = document.getElementById('dateInput');
+  di.value = date;
+  di.addEventListener('change', function(ev){ if (ev.target.value) location.search = '?date=' + ev.target.value; });
   render(date);
 }
-
 init();
 </script>
 </body>

@@ -121,11 +121,17 @@ def extract_road_law_articles(text):
     result = set()
     for m in _ROAD_LAW_MARKER.finditer(text):
         seg = text[m.end():m.end() + 200]
-        # 다른 법령명이 나오면 그 앞까지만 (도로교통법 자신은 경계 아님)
         cut = len(seg)
+        # '시행령'·'시행규칙' 등장 → 그 이후 '제N조'는 하위법령 조문이므로 제외
+        # (행정심판 결정문은 "도로교통법 제93조 ... 같은 법 시행규칙 제84조" 식으로
+        #  법률·하위법령 조문을 이어 나열 — 시행규칙 조문이 법률 조문으로 오매핑되는 것 차단)
+        sub = re.search(r'시행\s*(?:령|규칙)', seg)
+        if sub:
+            cut = min(cut, sub.start())
+        # 다른 법령명이 나오면 그 앞까지만 (도로교통법 자신은 경계 아님)
         for lm in _OTHER_LAW.finditer(seg):
             if not seg[lm.start():lm.end()].endswith('도로교통법'):
-                cut = lm.start()
+                cut = min(cut, lm.start())
                 break
         for jm in _JO_PAT.finditer(seg[:cut]):
             result.add(jo_key(jm.group(1), jm.group(2)))
