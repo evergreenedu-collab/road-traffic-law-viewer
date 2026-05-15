@@ -1,117 +1,154 @@
 """
-출근길 법령 튜터 — 해설집·판례 인덱스 빌더 (M2.5 Step B)
+출근길 법령 튜터 — 자료 레지스트리 기반 인덱스 빌더 (M2.6 재설계 R1·R2)
 =====================================================
-입력 (로컬 자산, c:\\Users\\user\\projects\\판례조회-AI도구\\):
-  - 2024년 도로교통법해설.md  (경찰청 해설서, 마크다운)
-  - cases.json                (2,911건 행정심판례)
+sources_config.json의 자료 레지스트리를 읽어 각 자료를 유형별 파서로 처리.
+자료를 새 버전으로 교체해도 glob 패턴이 자동 인식 → 코드 수정 없이 갱신 가능.
 
-출력 (tutor/data/, git commit 대상):
-  - index_law_comment.json    조문번호 → {title, content} (해설 본문 청크)
-  - index_cases.json          조문번호 → [case_no, ...] (조문별 판례 ID)
-  - cases_excerpts.json       case_no → {title, date, court, result, summary, reasoning_excerpt}
-                              (LLM RAG용 짧은 발췌, 원본 cases.json은 git에 안 들어감)
+자료 유형(type):
+  law_comment  — 해설집 마크다운 (조문 헤더 단위)
+  court_cases  — 대법원·하급심 판례 텍스트 (【N】 블록)
+  admin_cases  — 행정심판례 JSON
+  topic_doc    — 주제별 실무 문서 (R4에서 구현)
 
-실행 시점:
-  - 원본 자료가 갱신될 때만 (수동)
-  - GitHub Actions 자동 빌드에서는 실행 안 함 (원본 자료가 깃에 없으므로)
+출력 (tutor/data/):
+  index_law_comment.json    조문 → 해설 청크
+  index_cases.json          조문 → 행정심판례 case_no 리스트
+  cases_excerpts.json       case_no → 행정심판례 전문 (피드백: 발췌 한도 제거)
+  index_court_cases.json    조문 → 대법원 판례 cid 리스트
+  court_cases_data.json     cid → 대법원 판례 전문
+  index_articles.json       현행 법령 후보 풀 + 가중치 (행정심판 + 대법원 판례 합산)
 
-격리 원칙:
-  - 입력: 외부 폴더(판례조회-AI도구) 읽기만
-  - 출력: tutor/data/ 안에만
-  - 기존 도로교통법-한눈에 파일 미영향
-
-사용법:
-  py tutor/build_indexes.py
-  py tutor/build_indexes.py --source "C:/Users/user/projects/판례조회-AI도구"
+갱신 방법:
+  1) source_dir 폴더에 새 자료 파일을 넣거나 기존 교체 (파일명이 glob에 맞으면 됨)
+  2) py tutor/build_indexes.py 재실행
 """
 
 import argparse
 import json
-import os
+import math
 import re
 import sys
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).parent
 OUTPUT_DIR = SCRIPT_DIR / 'data'
+CONFIG_PATH = SCRIPT_DIR / 'sources_config.json'
+RECENT_REVISIONS_PATH = SCRIPT_DIR.parent / 'alarm' / 'data' / 'recent_revisions.json'
 
-DEFAULT_SOURCE_DIR = Path(r"C:\Users\user\projects\판례조회-AI도구")
+# 해설집 조문 헤더 — '### 제N조(제목)' 형태. 괄호 제목 필수 (본문 속 '제88조 4항' 같은 인용 오인 방지)
+ARTICLE_HEADER = re.compile(r'^#{0,4}\s*제\s*(\d+)\s*조(?:의\s*(\d+))?\s*\(([^)]+)\)')
+# 판례 본문 내 도로교통법 조문 인용 — '도로교통법' 명시 필수 (다른 법 조문 오매핑 방지)
+# "도로교통법 시행령/시행규칙 제N조"는 사이에 '시행'이 끼어 매칭 안 됨 → 법률 조문만 추출
+ARTICLE_CITATION = re.compile(r'「?\s*도로교통법\s*」?\s*제\s*(\d+)\s*조(?:의\s*(\d+))?')
 
-# 조문 헤더 패턴 (해설집): "제N조(제목)" 또는 "제N조의M(제목)" 줄 시작
-ARTICLE_HEADER = re.compile(r'^제\s*(\d+)\s*조(?:의\s*(\d+))?\s*(?:\(([^)]*)\))?')
+COMMENT_CONTENT_MAX = 4000
 
-# 조문 인용 패턴 (판례 reasoning 텍스트 안): "도로교통법 제N조" 또는 "제N조" 등
-ARTICLE_CITATION = re.compile(r'(?:도로교통법(?:\s*시행(?:령|규칙))?\s*)?제\s*(\d+)\s*조(?:의\s*(\d+))?')
+# 대법원 판례 사건명 죄명 → 도로교통법 조문 매핑
+CHARGE_TO_ARTICLE = {
+    '음주운전': '44',
+    '무면허운전': '43',
+    '측정거부': '44',
+    '사고후미조치': '54',
+    '사고후미신고': '54',
+    '약물운전': '45',
+    '난폭운전': '46의3',
+    '공동위험행위': '46',
+}
 
-# 본문에서 발췌할 최대 길이 (글자 단위) — LLM RAG용
-EXCERPT_MAX_CHARS = 800
-# 해설 본문 청크 최대 (너무 길면 LLM 컨텍스트 부담)
-COMMENT_CONTENT_MAX_CHARS = 3000
+# 조문 → 카테고리 매핑
+ARTICLE_CATEGORY = {
+    '5': '신호위반', '17': '제한속도', '25': '교차로통행', '27': '보행자보호',
+    '32': '주정차', '43': '무면허·결격기간', '44': '음주운전', '45': '약물·질병',
+    '46': '난폭운전', '46의3': '난폭운전', '47': '음주측정거부',
+    '50': '운전자의무', '51': '운전자의무', '52': '운전자의무', '53': '운전자의무',
+    '54': '교통사고', '80': '면허일반', '82': '무면허·결격기간', '83': '면허취득',
+    '84': '면허시험', '85': '면허종류', '87': '적성검사·갱신', '88': '적성검사·갱신',
+    '89': '벌점', '90': '면허취소·정지', '91': '면허취소·정지', '92': '면허취소·정지',
+    '93': '면허취소·정지', '94': '벌점', '95': '면허재취득',
+    '148의2': '음주운전', '110': '사업용면허',
+}
+
+# 카테고리별 학습 가치 우선순위 (0~1)
+CATEGORY_PRIORITY = {
+    '음주운전': 1.0, '음주측정거부': 0.95, '약물·질병': 0.95, '교통사고': 0.9,
+    '면허취소·정지': 0.85, '무면허·결격기간': 0.8, '난폭운전': 0.8,
+    '운전자의무': 0.75, '벌점': 0.7, '보행자보호': 0.7, '제한속도': 0.65,
+    '신호위반': 0.6, '교차로통행': 0.6, '적성검사·갱신': 0.55, '면허시험': 0.5,
+    '면허재취득': 0.5, '면허취득': 0.4, '면허종류': 0.4, '면허일반': 0.4,
+    '사업용면허': 0.4, '주정차': 0.4,
+}
+DEFAULT_CATEGORY_PRIORITY = 0.3
 
 
-def jo_key(main: str, sub: str | None) -> str:
-    """조문번호 키 정규화: '45' 또는 '28의2'."""
+def jo_key(main, sub):
     return f"{main}의{sub}" if sub else main
 
 
-def build_law_comment_index(md_path: Path) -> dict:
-    """해설집을 조문번호별 청크로 분할.
+_OTHER_LAW = re.compile(r'[가-힣]{2,10}법(?:률)?')
+_JO_PAT = re.compile(r'제\s*(\d+)\s*조(?:의\s*(\d+))?')
+_ROAD_LAW_MARKER = re.compile(r'「?\s*도로교통법\s*」?(?!\s*시행)')
 
-    한 조문이 여러 번 등장하는 경우(목차·본문) 가장 긴 청크를 채택.
+
+def extract_road_law_articles(text):
+    """텍스트에서 도로교통법(법률) 조문번호만 추출.
+
+    '도로교통법' 마커 뒤 최대 200자 구간(다른 법령명 등장 전까지)에서
+    '제N조'를 수집한다. 결정문이 법 이름을 한 번 쓰고 조문을 나열하는
+    패턴('「도로교통법」 제2조, 제44조, 제82조')에 대응.
+    시행령·시행규칙 조문은 마커의 negative lookahead로 제외된다.
     """
-    if not md_path.exists():
-        print(f"❌ {md_path} 없음")
-        return {}
+    result = set()
+    for m in _ROAD_LAW_MARKER.finditer(text):
+        seg = text[m.end():m.end() + 200]
+        # 다른 법령명이 나오면 그 앞까지만 (도로교통법 자신은 경계 아님)
+        cut = len(seg)
+        for lm in _OTHER_LAW.finditer(seg):
+            if not seg[lm.start():lm.end()].endswith('도로교통법'):
+                cut = lm.start()
+                break
+        for jm in _JO_PAT.finditer(seg[:cut]):
+            result.add(jo_key(jm.group(1), jm.group(2)))
+    return result
 
-    text = md_path.read_text(encoding='utf-8')
+
+# ─── 파서: 해설집 (law_comment) ──────────────────────────────────
+
+def parse_law_comment(path):
+    """해설집 마크다운 → 조문번호별 청크. '### 제N조' 헤더도 인식."""
+    text = path.read_text(encoding='utf-8')
     lines = text.split('\n')
 
-    # 조문 헤더 위치 수집
     headers = []  # [(line_idx, jo_key, title)]
     for i, line in enumerate(lines):
         m = ARTICLE_HEADER.match(line.strip())
         if m:
             headers.append((i, jo_key(m.group(1), m.group(2)), m.group(3) or ''))
 
-    # 헤더~다음 헤더 사이를 청크로
-    candidates = defaultdict(list)  # jo → [chunk_text, ...]
-    for idx, (line_idx, jo, title) in enumerate(headers):
-        end_idx = headers[idx + 1][0] if idx + 1 < len(headers) else len(lines)
-        chunk = '\n'.join(lines[line_idx:end_idx]).strip()
-        if not chunk:
-            continue
-        candidates[jo].append((title, chunk))
+    candidates = defaultdict(list)
+    for idx, (li, jo, title) in enumerate(headers):
+        end = headers[idx + 1][0] if idx + 1 < len(headers) else len(lines)
+        chunk = '\n'.join(lines[li:end]).strip()
+        if chunk:
+            candidates[jo].append((title, chunk))
 
-    # 같은 조문 여러 번 등장 시 가장 긴 청크 채택 (목차 vs 본문 — 본문이 더 길다)
     index = {}
     for jo, chunks in candidates.items():
         title, content = max(chunks, key=lambda c: len(c[1]))
-        content = content[:COMMENT_CONTENT_MAX_CHARS]
         index[jo] = {
             'title': title.strip(),
-            'content': content,
+            'content': content[:COMMENT_CONTENT_MAX],
             'occurrences': len(chunks),
         }
-
     return index
 
 
-def build_cases_index(cases_path: Path) -> tuple[dict, dict]:
-    """cases.json에서 조문번호 → case_no 매핑 + 발췌 메타 구축.
+# ─── 파서: 행정심판례 (admin_cases) ──────────────────────────────────
 
-    Returns:
-        (index, excerpts)
-        - index: {jo_key: [case_no, ...]}
-        - excerpts: {case_no: {title, date, court, result, summary, reasoning_excerpt}}
-    """
-    if not cases_path.exists():
-        print(f"❌ {cases_path} 없음")
-        return {}, {}
-
-    cases = json.loads(cases_path.read_text(encoding='utf-8'))
-    print(f"  📖 cases.json 로드: {len(cases)}건")
-
+def parse_admin_cases(path):
+    """행정심판례 JSON → 조문 매핑 + 전문 발췌 (한도 제거)."""
+    cases = json.loads(path.read_text(encoding='utf-8'))
     index = defaultdict(list)
     excerpts = {}
 
@@ -119,25 +156,14 @@ def build_cases_index(cases_path: Path) -> tuple[dict, dict]:
         case_no = case.get('case_no')
         if not case_no:
             continue
-
         reasoning = case.get('reasoning', '')
 
-        # 인용된 조문 추출 (중복 제거)
-        article_set = set()
-        for main, sub in ARTICLE_CITATION.findall(reasoning):
-            article_set.add(jo_key(main, sub))
-
-        # 인용 조문이 하나도 없으면 인덱스에 안 넣음 (조문 매칭 불가)
+        article_set = extract_road_law_articles(reasoning)
         if not article_set:
             continue
 
         for jo in article_set:
             index[jo].append(case_no)
-
-        # RAG용 발췌
-        reasoning_excerpt = reasoning[:EXCERPT_MAX_CHARS]
-        if len(reasoning) > EXCERPT_MAX_CHARS:
-            reasoning_excerpt += '... (이하 생략)'
 
         excerpts[case_no] = {
             'title': case.get('title', ''),
@@ -146,98 +172,200 @@ def build_cases_index(cases_path: Path) -> tuple[dict, dict]:
             'result': case.get('result', ''),
             'year': case.get('year', ''),
             'summary': case.get('summary', '')[:300],
-            'reasoning_excerpt': reasoning_excerpt,
+            'reasoning': reasoning,  # 전문 (피드백 ①: 생략 없음)
         }
 
-    # 같은 조문 내에서 case_no 중복 제거 + 정렬
-    index_dedup = {}
-    for jo, case_list in index.items():
-        unique = sorted(set(case_list))
-        index_dedup[jo] = unique
+    return {jo: sorted(set(v)) for jo, v in index.items()}, excerpts
 
-    return index_dedup, excerpts
 
+# ─── 파서: 대법원·하급심 판례 (court_cases) ──────────────────────────────────
+
+def parse_court_cases(path):
+    """판례 통합 텍스트 → 【N】 블록 파싱. 죄명·판결요지로 조문 매핑."""
+    text = path.read_text(encoding='utf-8')
+    blocks = re.split(r'━{5,}', text)
+
+    index = defaultdict(list)
+    data = {}
+
+    for block in blocks:
+        block = block.strip()
+        m = re.search(r'【(\d+)】\s*(.+)', block)
+        if not m:
+            continue
+        num, case_name = m.group(1), m.group(2).strip()
+
+        m_date = re.search(r'선고일\s*:\s*([\d.]+)\s*\|\s*(.+)', block)
+        m_caseno = re.search(r'사건번호\s*:\s*(\S+)', block)
+        m_ruling = re.search(r'\[판결요지\]\s*(.+)', block, re.DOTALL)
+        if not m_caseno:
+            continue
+
+        case_no = m_caseno.group(1).strip()
+        cid = case_no if case_no not in data else f"{case_no}#{num}"
+        ruling = m_ruling.group(1).strip() if m_ruling else ''
+        ruling = re.sub(r'<br\s*/?>', '\n', ruling).strip()
+
+        data[cid] = {
+            'case_name': case_name,
+            'date': m_date.group(1).strip() if m_date else '',
+            'court': m_date.group(2).strip() if m_date else '',
+            'case_no': case_no,
+            'ruling': ruling,
+        }
+
+        articles = set()
+        for charge, jo in CHARGE_TO_ARTICLE.items():
+            if charge in case_name:
+                articles.add(jo)
+        articles |= extract_road_law_articles(ruling)
+        for jo in articles:
+            index[jo].append(cid)
+
+    return {jo: sorted(set(v)) for jo, v in index.items()}, data
+
+
+# ─── 현행 법령 풀 인덱스 ──────────────────────────────────
+
+def load_recent_revised(path):
+    """recent_revisions.json에서 최근 개정된 매핑법률조문 집합."""
+    if not path.exists():
+        return set()
+    data = json.loads(path.read_text(encoding='utf-8'))
+    recent = set()
+    for v in data.get('버전들', []):
+        for art in v.get('변경조문', []):
+            mapped = art.get('매핑법률조문')
+            if mapped:
+                recent.add(mapped)
+    return recent
+
+
+def compute_weight(admin_count, court_count, categories, has_comment, has_recent, max_total):
+    """학습 가치 가중치 (0~1). 행정심판 + 대법원 판례 수 합산."""
+    total = admin_count + court_count
+    case_score = math.log(total + 1) / math.log(max_total + 1) if max_total > 0 else 0.0
+    if categories:
+        cat_score = max(CATEGORY_PRIORITY.get(c, DEFAULT_CATEGORY_PRIORITY) for c in categories)
+    else:
+        cat_score = DEFAULT_CATEGORY_PRIORITY
+    recent_score = 1.0 if has_recent else 0.0
+    comment_bonus = 1.0 if has_comment else 0.0
+    score = 0.4 * case_score + 0.3 * cat_score + 0.2 * recent_score + 0.1 * comment_bonus
+    return {
+        'case_score': round(case_score, 3),
+        'category_score': round(cat_score, 3),
+        'recent_score': round(recent_score, 3),
+        'comment_bonus': round(comment_bonus, 3),
+        'total': round(score, 3),
+    }
+
+
+def build_article_index(law_index, cases_index, court_index, recent_revised):
+    """현행 법령 후보 조문 풀."""
+    all_jo = set(law_index) | set(cases_index) | set(court_index)
+    max_total = max(
+        (len(cases_index.get(j, [])) + len(court_index.get(j, [])) for j in all_jo),
+        default=1,
+    )
+    result = {}
+    for jo in all_jo:
+        ac = len(cases_index.get(jo, []))
+        cc = len(court_index.get(jo, []))
+        cat = ARTICLE_CATEGORY.get(jo)
+        cats = [cat] if cat else []
+        has_comment = jo in law_index
+        has_recent = jo in recent_revised
+        bd = compute_weight(ac, cc, cats, has_comment, has_recent, max_total)
+        result[jo] = {
+            'admin_case_count': ac,
+            'court_case_count': cc,
+            'categories': cats,
+            'has_comment': has_comment,
+            'has_recent_revision': has_recent,
+            'weight_score': bd['total'],
+            'score_breakdown': bd,
+        }
+    return result
+
+
+# ─── 메인 ──────────────────────────────────
 
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
-
-    parser = argparse.ArgumentParser(description='해설·판례 인덱스 빌더 (M2.5 Step B)')
-    parser.add_argument('--source', type=str, default=str(DEFAULT_SOURCE_DIR),
-                        help=f'원본 자료 폴더 (기본: {DEFAULT_SOURCE_DIR})')
+    parser = argparse.ArgumentParser(description='자료 레지스트리 기반 인덱스 빌더 (M2.6)')
+    parser.add_argument('--config', type=str, default=str(CONFIG_PATH))
     args = parser.parse_args()
 
-    source_dir = Path(args.source)
+    config = json.loads(Path(args.config).read_text(encoding='utf-8'))
+    source_dir = Path(config['source_dir'])
+
+    print("=" * 60)
+    print("  📚 인덱스 빌더 — 자료 레지스트리 기반 (M2.6 R1·R2)")
+    print("=" * 60)
     if not source_dir.exists():
-        print(f"❌ 원본 자료 폴더 없음: {source_dir}")
+        print(f"❌ 자료 폴더 없음: {source_dir}")
         sys.exit(1)
+    print(f"📁 자료 폴더: {source_dir}\n")
 
-    md_path = source_dir / '2024년 도로교통법해설.md'
-    cases_path = source_dir / 'cases.json'
+    law_index = {}
+    cases_index, cases_excerpts = {}, {}
+    court_index, court_data = {}, {}
 
-    print("=" * 60)
-    print("  📚 출근길 법령 튜터 — 인덱스 빌더")
-    print("=" * 60)
-    print(f"📁 원본 자료: {source_dir}")
-    print()
+    for src in config['sources']:
+        if not src.get('enabled', True):
+            print(f"⏭️ {src['id']} (비활성 — config에서 enabled=true 시 활성화)")
+            continue
+        matches = sorted(source_dir.glob(src['glob']))
+        if not matches:
+            print(f"⚠️ {src['id']}: 매칭 파일 없음 (glob: {src['glob']})")
+            continue
+        path = matches[-1]  # 이름순 최신
+        print(f"📄 {src['id']} [{src['type']}]: {path.name}")
 
-    # 1. 해설집 인덱스
-    print("🔍 해설집 파싱 (2024년 도로교통법해설.md)")
-    law_index = build_law_comment_index(md_path)
-    print(f"  ✅ 조문 청크 {len(law_index)}개 추출")
-    sample = list(law_index.items())[:5]
-    for jo, info in sample:
-        title_preview = info['title'][:30] if info['title'] else '(제목 없음)'
-        print(f"    · 제{jo}조 — {title_preview} ({len(info['content'])}자)")
-    if len(law_index) > 5:
-        print(f"    · ... 외 {len(law_index) - 5}개")
-    print()
+        if src['type'] == 'law_comment':
+            law_index = parse_law_comment(path)
+            print(f"   ✅ 조문 청크 {len(law_index)}개")
+        elif src['type'] == 'admin_cases':
+            cases_index, cases_excerpts = parse_admin_cases(path)
+            print(f"   ✅ 조문 매핑 {len(cases_index)}개 · 발췌 {len(cases_excerpts)}건")
+        elif src['type'] == 'court_cases':
+            court_index, court_data = parse_court_cases(path)
+            print(f"   ✅ 조문 매핑 {len(court_index)}개 · 판례 {len(court_data)}건")
+        elif src['type'] == 'topic_doc':
+            print(f"   ⏭️ topic_doc 파서는 R4에서 구현 예정")
+        else:
+            print(f"   ⚠️ 알 수 없는 type: {src['type']}")
 
-    # 2. 판례 인덱스 + 발췌
-    print("🔍 판례 매핑 (cases.json)")
-    case_index, case_excerpts = build_cases_index(cases_path)
-    print(f"  ✅ 조문 매핑 {len(case_index)}개 조문")
-    print(f"  ✅ 발췌 {len(case_excerpts)}건")
-    # 가장 많이 등장하는 조문 5개
-    top5 = sorted(case_index.items(), key=lambda kv: -len(kv[1]))[:5]
-    print(f"  📊 판례 많은 조문 Top 5:")
-    for jo, case_list in top5:
-        print(f"    · 제{jo}조 — {len(case_list)}건")
-    print()
+    recent_revised = load_recent_revised(RECENT_REVISIONS_PATH)
+    article_index = build_article_index(law_index, cases_index, court_index, recent_revised)
 
-    # 3. 출력
+    print(f"\n📊 현행 법령 후보 풀: {len(article_index)}개 조문")
+    top10 = sorted(article_index.items(), key=lambda kv: -kv[1]['weight_score'])[:10]
+    for jo, info in top10:
+        cats = ','.join(info['categories']) or '-'
+        print(f"   제{jo:>5s}조 — w={info['weight_score']:.3f} | "
+              f"행정심판 {info['admin_case_count']:>4d} + 대법원 {info['court_case_count']:>3d} | {cats}")
+
     OUTPUT_DIR.mkdir(exist_ok=True)
-    out_law = OUTPUT_DIR / 'index_law_comment.json'
-    out_cases = OUTPUT_DIR / 'index_cases.json'
-    out_excerpts = OUTPUT_DIR / 'cases_excerpts.json'
+    ts = datetime.now().isoformat()
+    outputs = [
+        ('index_law_comment.json', {'생성일시': ts, '설명': '조문 → 해설 청크', '조문수': len(law_index), '조문별': law_index}),
+        ('index_cases.json', {'생성일시': ts, '설명': '조문 → 행정심판례 case_no', '조문수': len(cases_index), '조문별': cases_index}),
+        ('cases_excerpts.json', {'생성일시': ts, '설명': 'case_no → 행정심판례 전문', '발췌수': len(cases_excerpts), '데이터': cases_excerpts}),
+        ('index_court_cases.json', {'생성일시': ts, '설명': '조문 → 대법원·하급심 판례 cid', '조문수': len(court_index), '조문별': court_index}),
+        ('court_cases_data.json', {'생성일시': ts, '설명': 'cid → 대법원·하급심 판례 전문', '판례수': len(court_data), '데이터': court_data}),
+        ('index_articles.json', {'생성일시': ts, '설명': '현행 법령 후보 풀 + 가중치', '조문수': len(article_index), '조문별': article_index}),
+    ]
 
-    with open(out_law, 'w', encoding='utf-8') as f:
-        json.dump({
-            '생성일시': __import__('datetime').datetime.now().isoformat(),
-            '설명': '조문번호 → 해설집 본문 청크 (2024년 도로교통법해설.md)',
-            '조문수': len(law_index),
-            '조문별': law_index,
-        }, f, ensure_ascii=False, indent=2)
-
-    with open(out_cases, 'w', encoding='utf-8') as f:
-        json.dump({
-            '생성일시': __import__('datetime').datetime.now().isoformat(),
-            '설명': '조문번호 → 관련 행정심판례 case_no 리스트',
-            '조문수': len(case_index),
-            '조문별': case_index,
-        }, f, ensure_ascii=False, indent=2)
-
-    with open(out_excerpts, 'w', encoding='utf-8') as f:
-        json.dump({
-            '생성일시': __import__('datetime').datetime.now().isoformat(),
-            '설명': 'case_no → RAG용 발췌 메타 (제목·일자·법원·결과·발췌)',
-            '발췌수': len(case_excerpts),
-            '데이터': case_excerpts,
-        }, f, ensure_ascii=False, indent=2)
-
-    print("💾 저장 완료:")
-    print(f"  {out_law}  ({out_law.stat().st_size / 1024:.1f} KB)")
-    print(f"  {out_cases}  ({out_cases.stat().st_size / 1024:.1f} KB)")
-    print(f"  {out_excerpts}  ({out_excerpts.stat().st_size / 1024:.1f} KB)")
+    print("\n💾 저장:")
+    for fn, payload in outputs:
+        p = OUTPUT_DIR / fn
+        with open(p, 'w', encoding='utf-8') as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        sz = p.stat().st_size / 1024
+        s = f"{sz:.0f} KB" if sz < 1024 else f"{sz / 1024:.1f} MB"
+        print(f"   {fn}  ({s})")
 
 
 if __name__ == '__main__':

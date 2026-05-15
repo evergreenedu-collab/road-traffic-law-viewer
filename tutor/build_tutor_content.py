@@ -1,27 +1,28 @@
 """
-출근길 법령 튜터 — 일일 학습 콘텐츠 생성 (M2.5: 해설·판례 통합 RAG)
+출근길 법령 튜터 — 일일 학습 카드 생성 (M2.6 재설계 R3)
 =====================================================
-입력:
-  - ../alarm/data/recent_revisions.json   개정 법령 (필수)
-  - ./data/index_law_comment.json         조문 → 해설집 청크 (있으면 보강)
-  - ./data/index_cases.json               조문 → 관련 판례 case_no 리스트
-  - ./data/cases_excerpts.json            case_no → 발췌 (RAG 입력용)
+하루 1건. --days 옵션으로 여러 날치 한 번에 생성 (테스트용).
 
-출력: ./data/daily_YYYY-MM-DD.json
+자료 균형: 해설집 + 행정심판례 + 대법원·하급심 판례를 모두 LLM 컨텍스트에 제공.
+프롬프트 보수화: 원본에 없는 수치·해석 추가 금지 (할루시네이션 최소화),
+                법률 용어는 결정문·판결문 표현 그대로.
 
-확장된 RAG 알고리즘:
-  1. 후보 조문 선정 (M1·M2와 동일, 결정론적 회전)
-  2. 매핑법률조문에 대해 인덱스에서 해설·판례 수집 (최대 3건 판례)
-  3. 통합 컨텍스트(개정 + 해설 + 판례)로 Gemini 호출
-  4. 출력 필드 확장: oneliner, explanation, related_cases[], key_issues[], study_points[]
-  5. 코드 자기검증 강화:
-     - 인용한 case_no가 자료에 실제 존재하는지 확인 (할루시네이션 차단)
-     - 매핑조문번호 일치, 필드 비어있지 않음, 길이 한도
+입력 (tutor/data/, build_indexes.py 산출물):
+  index_articles.json, index_law_comment.json,
+  index_cases.json, cases_excerpts.json,
+  index_court_cases.json, court_cases_data.json
+  + ../alarm/data/recent_revisions.json
 
-격리 원칙:
-  - 입력: alarm/data + tutor/data (인덱스) — 읽기만
-  - 출력: tutor/data/daily_*.json
-  - 인덱스 없으면(M2 환경) 자동 fallback — 해설·판례 없이 동작
+출력: tutor/data/daily_YYYY-MM-DD.json — 1건 카드
+
+환경변수:
+  GEMINI_API_KEY (필수), GEMINI_MODEL (기본 gemini-2.5-flash-lite)
+
+사용법:
+  py tutor/build_tutor_content.py --date 2026-05-14            # 1일치
+  py tutor/build_tutor_content.py --date 2026-05-14 --days 5   # 5일치
+  py tutor/build_tutor_content.py --date 2026-05-14 --dry-run
+  py tutor/build_tutor_content.py --date 2026-05-14 --no-llm
 """
 
 import argparse
@@ -36,525 +37,497 @@ from pathlib import Path
 import requests
 
 SCRIPT_DIR = Path(__file__).parent
-INPUT_PATH = SCRIPT_DIR.parent / 'alarm' / 'data' / 'recent_revisions.json'
 OUTPUT_DIR = SCRIPT_DIR / 'data'
 
-# M2.5: 인덱스 파일 (없으면 자동 fallback)
-INDEX_LAW_PATH = OUTPUT_DIR / 'index_law_comment.json'
-INDEX_CASES_PATH = OUTPUT_DIR / 'index_cases.json'
-CASES_EXCERPTS_PATH = OUTPUT_DIR / 'cases_excerpts.json'
+INDEX_LAW = OUTPUT_DIR / 'index_law_comment.json'
+INDEX_CASES = OUTPUT_DIR / 'index_cases.json'
+CASES_EXCERPTS = OUTPUT_DIR / 'cases_excerpts.json'
+INDEX_COURT = OUTPUT_DIR / 'index_court_cases.json'
+COURT_DATA = OUTPUT_DIR / 'court_cases_data.json'
+INDEX_ARTICLES = OUTPUT_DIR / 'index_articles.json'
+INPUT_REVISIONS = SCRIPT_DIR.parent / 'alarm' / 'data' / 'recent_revisions.json'
 
-WINDOW_DAYS = 90
+WEIGHT_POOL_SIZE = 40        # 가중치 상위 K개 풀
+MAX_ADMIN_CASES = 2          # LLM 컨텍스트에 넣을 행정심판례 수
+MAX_COURT_CASES = 2          # LLM 컨텍스트에 넣을 대법원 판례 수
+CASE_CONTEXT_CHARS = 1400    # 판례 1건당 LLM에 넣을 본문 길이
 EPOCH = datetime(2026, 1, 1)
-MAX_RELATED_CASES = 3  # LLM 컨텍스트에 포함할 최대 판례 수
 
-# Gemini API 설정
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash-lite-001').strip()
-GEMINI_URL_TEMPLATE = (
-    'https://generativelanguage.googleapis.com/v1beta/'
-    'models/{model}:generateContent?key={key}'
-)
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite').strip()
+GEMINI_URL = ('https://generativelanguage.googleapis.com/v1beta/'
+              'models/{model}:generateContent?key={key}')
 GEMINI_TIMEOUT = 60
 
+TEACHING_KEYWORDS = ('교육', '강의', '수강생', '학습', '교통안전', '훈련', '교습', '안전교육', '교육생')
 
-# ─── 데이터 로더 ────────────────────────────────────────────
 
-def load_recent_revisions():
-    if not INPUT_PATH.exists():
-        print(f"❌ {INPUT_PATH} 없음 — alarm/build_alarm_data.py가 먼저 실행되어야 합니다")
-        sys.exit(1)
-    with open(INPUT_PATH, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
+# ─── 인덱스 로더 ──────────────────────────────────────────────
 
 def load_indexes():
-    """해설·판례 인덱스 로드. 없으면 빈 dict 반환 (M2 동작 fallback)."""
-    indexes = {'law': {}, 'cases': {}, 'excerpts': {}}
-    triples = [
-        ('law', INDEX_LAW_PATH, '조문별'),
-        ('cases', INDEX_CASES_PATH, '조문별'),
-        ('excerpts', CASES_EXCERPTS_PATH, '데이터'),
-    ]
-    for key, path, root_key in triples:
+    def _load(path, root):
         if path.exists():
-            with open(path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            indexes[key] = data.get(root_key, {})
-        else:
-            print(f"  ⚠️ {path.name} 없음 — 해당 보강 비활성")
-    return indexes
+            return json.loads(path.read_text(encoding='utf-8')).get(root, {})
+        print(f"  ⚠️ {path.name} 없음")
+        return {}
+    idx = {
+        'law': _load(INDEX_LAW, '조문별'),
+        'cases': _load(INDEX_CASES, '조문별'),
+        'excerpts': _load(CASES_EXCERPTS, '데이터'),
+        'court_index': _load(INDEX_COURT, '조문별'),
+        'court_data': _load(COURT_DATA, '데이터'),
+        'articles': _load(INDEX_ARTICLES, '조문별'),
+        'revisions': None,
+    }
+    if INPUT_REVISIONS.exists():
+        idx['revisions'] = json.loads(INPUT_REVISIONS.read_text(encoding='utf-8'))
+    return idx
 
 
-def collect_candidates(revisions_data, today, window_days=WINDOW_DAYS):
-    """최근 N일 이내 공포 + 매핑법률조문 있는 변경조문 후보 리스트."""
-    candidates = []
-    cutoff = today - timedelta(days=window_days)
-    for version in revisions_data.get('버전들', []):
-        gp_date_str = version.get('공포일자', '')
-        if not gp_date_str:
-            continue
-        try:
-            gp_date = datetime.strptime(gp_date_str, '%Y%m%d')
-        except ValueError:
-            continue
-        if gp_date < cutoff:
-            continue
-        for article in version.get('변경조문', []):
-            mapped = article.get('매핑법률조문')
-            if not mapped:
-                continue
-            candidates.append({
-                'version': version,
-                'article': article,
-                'gp_date': gp_date,
-            })
-    candidates.sort(key=lambda c: c['gp_date'], reverse=True)
-    return candidates
+# ─── 선정 (하루 1건) ──────────────────────────────────────────────
 
-
-def select_today_candidate(candidates, target_date):
-    if not candidates:
+def select_card_for_date(articles, target_date, pool_size=WEIGHT_POOL_SIZE):
+    """가중치 상위 풀에서 날짜 기반 결정론적 1건 선택."""
+    if not articles:
         return None
-    days_since = (target_date - EPOCH).days
-    idx = days_since % len(candidates)
-    return candidates[idx]
+    pool = sorted(articles.items(), key=lambda kv: -kv[1].get('weight_score', 0))[:pool_size]
+    days = (target_date - EPOCH).days
+    idx = days % len(pool)
+    jo, info = pool[idx]
+    return {
+        'jo': jo,
+        'info': info,
+        'basis': {
+            'weight_score': info.get('weight_score', 0),
+            'category': (info.get('categories') or ['미분류'])[0],
+            'pool_index': idx,
+            'pool_size': len(pool),
+            'admin_case_count': info.get('admin_case_count', 0),
+            'court_case_count': info.get('court_case_count', 0),
+        },
+    }
 
 
-def find_related_resources(article, indexes):
-    """매핑법률조문에 대해 해설·판례 매칭.
-
-    Returns dict: {'law_comment': str|None, 'related_cases': [{...}, ...]}
-    """
-    mapped_jo = article.get('매핑법률조문', '')
-    if not mapped_jo:
-        return {'law_comment': None, 'related_cases': []}
-
-    law_entry = indexes['law'].get(mapped_jo)
+def find_resources(jo, indexes):
+    """조문 → 해설 + 행정심판례 + 대법원 판례 (자료 균형)."""
+    law_entry = indexes['law'].get(jo)
     law_comment = law_entry.get('content') if isinstance(law_entry, dict) else None
 
-    case_nos = indexes['cases'].get(mapped_jo, []) or []
-    related_cases = []
-    # 여유 두고 추출 (excerpts에 없는 case_no 스킵)
-    for case_no in case_nos[:MAX_RELATED_CASES * 4]:
-        excerpt = indexes['excerpts'].get(case_no)
-        if not excerpt:
+    admin_cases = []
+    for cn in (indexes['cases'].get(jo, []) or [])[:MAX_ADMIN_CASES * 5]:
+        ex = indexes['excerpts'].get(cn)
+        if not ex:
             continue
-        related_cases.append({
-            'case_no': case_no,
-            'title': excerpt.get('title', ''),
-            'date': excerpt.get('date', ''),
-            'court': excerpt.get('court', ''),
-            'result': excerpt.get('result', ''),
-            'reasoning_excerpt': (excerpt.get('reasoning_excerpt') or '')[:600],
+        admin_cases.append({
+            'type': 'admin',
+            'case_no': cn,
+            'title': ex.get('title', ''),
+            'date': ex.get('date', ''),
+            'court': ex.get('court', ''),
+            'result': ex.get('result', ''),
+            'full_text': ex.get('reasoning', ''),
         })
-        if len(related_cases) >= MAX_RELATED_CASES:
+        if len(admin_cases) >= MAX_ADMIN_CASES:
             break
 
-    return {'law_comment': law_comment, 'related_cases': related_cases}
+    court_cases = []
+    for cid in (indexes['court_index'].get(jo, []) or [])[:MAX_COURT_CASES * 5]:
+        cd = indexes['court_data'].get(cid)
+        if not cd:
+            continue
+        court_cases.append({
+            'type': 'court',
+            'case_no': cd.get('case_no', cid),
+            'case_name': cd.get('case_name', ''),
+            'date': cd.get('date', ''),
+            'court': cd.get('court', ''),
+            'full_text': cd.get('ruling', ''),
+        })
+        if len(court_cases) >= MAX_COURT_CASES:
+            break
+
+    return {'law_comment': law_comment, 'admin_cases': admin_cases, 'court_cases': court_cases}
 
 
-# ─── Gemini API 호출 계층 (M2와 동일, maxOutputTokens 확장) ─────────────────────────────────────
+def find_recent_revision(jo, revisions):
+    if not revisions:
+        return None, None
+    for v in revisions.get('버전들', []):
+        for art in v.get('변경조문', []):
+            if art.get('매핑법률조문') == jo:
+                return v, art
+    return None, None
 
-def call_gemini_api(prompt, temperature=0.3, timeout=GEMINI_TIMEOUT,
-                    max_retries=3, backoff_seconds=(20, 60, 120)):
-    """Gemini REST API 단일 호출 + 429/5xx 자동 재시도."""
+
+# ─── Gemini API ──────────────────────────────────────────────
+
+def call_gemini_api(prompt, temperature=0.2, timeout=GEMINI_TIMEOUT,
+                    max_retries=3, backoff=(20, 60, 120)):
     if not GEMINI_API_KEY:
         return None
-    url = GEMINI_URL_TEMPLATE.format(model=GEMINI_MODEL, key=GEMINI_API_KEY)
+    url = GEMINI_URL.format(model=GEMINI_MODEL, key=GEMINI_API_KEY)
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": temperature,
-            "maxOutputTokens": 3072,  # M2.5: 풍부한 출력 위해 확장
-        },
+        "generationConfig": {"temperature": temperature, "maxOutputTokens": 4096},
     }
     for attempt in range(max_retries + 1):
         try:
             resp = requests.post(url, json=body, timeout=timeout)
             resp.raise_for_status()
             data = resp.json()
-            candidates = data.get('candidates', [])
-            if not candidates:
+            cands = data.get('candidates', [])
+            if not cands:
                 return None
-            first = candidates[0]
-            finish_reason = first.get('finishReason', '')
-            if finish_reason and finish_reason not in ('STOP', 'FINISH_REASON_STOP'):
-                print(f"  ⚠️ Gemini finishReason={finish_reason} (응답 미완료 가능)")
+            first = cands[0]
+            fr = first.get('finishReason', '')
+            if fr and fr not in ('STOP', 'FINISH_REASON_STOP'):
+                print(f"    ⚠️ finishReason={fr}")
             parts = first.get('content', {}).get('parts', [])
             if not parts:
                 return None
             return parts[0].get('text', '').strip()
         except requests.HTTPError as e:
             status = e.response.status_code if e.response is not None else 0
-            retryable = status == 429 or 500 <= status < 600
-            if retryable and attempt < max_retries:
-                wait = backoff_seconds[min(attempt, len(backoff_seconds) - 1)]
-                print(f"  ⏳ Rate limit/서버 오류 (status={status}) — {wait}초 후 재시도 ({attempt + 1}/{max_retries + 1})")
+            if (status == 429 or 500 <= status < 600) and attempt < max_retries:
+                wait = backoff[min(attempt, len(backoff) - 1)]
+                print(f"    ⏳ status={status} — {wait}초 후 재시도 ({attempt+1}/{max_retries+1})")
                 time.sleep(wait)
                 continue
-            print(f"  ⚠️ Gemini 호출 최종 실패 (status={status})")
-            if e.response is not None:
-                try:
-                    print(f"  응답 본문: {e.response.text[:300]}")
-                except Exception:
-                    pass
+            print(f"    ⚠️ Gemini 실패 (status={status})")
             return None
         except requests.RequestException as e:
-            print(f"  ⚠️ Gemini 호출 네트워크 오류: {type(e).__name__} — {e}")
+            print(f"    ⚠️ 네트워크 오류: {type(e).__name__}")
             return None
         except (KeyError, IndexError, ValueError) as e:
-            print(f"  ⚠️ Gemini 응답 파싱 실패: {type(e).__name__} — {e}")
+            print(f"    ⚠️ 응답 파싱 실패: {type(e).__name__}")
             return None
     return None
 
 
-def _strip_markdown_codeblock(text):
+def _strip_codeblock(text):
     return re.sub(r'^```(?:json)?\s*|\s*```$', '', text.strip(), flags=re.MULTILINE).strip()
 
 
-def _build_context_block(version, article, resources):
-    """RAG 컨텍스트 — 개정 + 해설(있을 때) + 판례 N건(있을 때).
+# ─── 콘텐츠 생성 (보수화 프롬프트) ──────────────────────────────────────────────
 
-    LLM이 컨텍스트 안에서만 작성하도록 강제하는 핵심 가드레일.
-    """
-    parts = [
-        f"""[원본 자료 1: 개정 법령 정보]
-법령명: {version.get('법령명', '')}
-법령유형: {version.get('법령유형', '')}
-공포일자: {version.get('공포일자', '')}
-시행일자: {version.get('시행일자', '')}
-제개정구분: {version.get('제개정구분', '')}
-변경 조문: 제{article.get('조문번호', '')}조 {article.get('조문제목', '')}
-매핑된 법률 조문: 제{article.get('매핑법률조문', '')}조 {article.get('매핑법률조문제목', '')}
+def _build_context(jo, jo_title, version, resources):
+    parts = [f"[자료 1: 조문] 도로교통법 제{jo}조 {jo_title}".strip()]
 
-[제개정 이유 원문]
-{version.get('제개정이유', '').strip()}
-"""
-    ]
-
-    if resources['law_comment']:
-        parts.append(f"""[원본 자료 2: 도로교통법 해설 — 제{article.get('매핑법률조문', '')}조]
-{resources['law_comment']}
-""")
-
-    if resources['related_cases']:
-        case_blocks = []
-        for c in resources['related_cases']:
-            case_blocks.append(
-                f"- 사건번호: {c['case_no']}\n"
-                f"  제목: {c['title']}\n"
-                f"  법원·일자: {c['court']} ({c['date']})\n"
-                f"  결과: {c['result']}\n"
-                f"  이유 발췌: {c['reasoning_excerpt']}"
-            )
+    if version:
         parts.append(
-            f"[원본 자료 3: 관련 행정심판례 ({len(resources['related_cases'])}건)]\n"
-            + '\n\n'.join(case_blocks)
-            + '\n'
+            "[자료 2: 이 조문의 최근 개정]\n"
+            f"법령유형: {version.get('법령유형', '')}\n"
+            f"공포일자: {version.get('공포일자', '')} / 시행일자: {version.get('시행일자', '')}\n"
+            f"제개정구분: {version.get('제개정구분', '')}\n"
+            "[제개정 이유 원문]\n"
+            f"{version.get('제개정이유', '').strip()}"
         )
 
-    return '\n'.join(parts)
+    if resources['law_comment']:
+        parts.append(f"[자료 3: 도로교통법 해설 — 제{jo}조]\n{resources['law_comment']}")
+
+    if resources['admin_cases']:
+        blocks = []
+        for c in resources['admin_cases']:
+            blocks.append(
+                f"- 사건번호 {c['case_no']} | {c['court']} | 결과: {c['result']}\n"
+                f"  제목: {c['title']}\n"
+                f"  이유: {c['full_text'][:CASE_CONTEXT_CHARS]}"
+            )
+        parts.append("[자료 4: 관련 행정심판례]\n" + '\n\n'.join(blocks))
+
+    if resources['court_cases']:
+        blocks = []
+        for c in resources['court_cases']:
+            blocks.append(
+                f"- 사건번호 {c['case_no']} | {c['court']} ({c['date']})\n"
+                f"  사건명: {c['case_name']}\n"
+                f"  판결요지: {c['full_text'][:CASE_CONTEXT_CHARS]}"
+            )
+        parts.append("[자료 5: 관련 대법원·하급심 판례]\n" + '\n\n'.join(blocks))
+
+    return '\n\n'.join(parts)
 
 
-def generate_learning_content(version, article, resources):
-    """1차 호출 — 통합 RAG 가드레일 프롬프트로 풍부한 학습 콘텐츠 생성."""
-    context = _build_context_block(version, article, resources)
-    mapped_jo = article.get('매핑법률조문', '')
+def generate_learning_content(jo, jo_title, version, resources):
+    context = _build_context(jo, jo_title, version, resources)
+    has_cases = bool(resources['admin_cases'] or resources['court_cases'])
 
-    prompt = f"""당신은 한국 교통법규 학습 콘텐츠 작성자입니다.
+    prompt = f"""당신은 한국도로교통공단 교수의 학습 콘텐츠 작성자입니다. 교수들이 매일 아침 읽는 자료이므로 정확성이 최우선입니다.
 
-다음 "원본 자료"에 있는 내용만 사용하여 학습 콘텐츠를 작성하세요.
+[작성 규칙 — 위반 시 자료 신뢰도 훼손, 반드시 지킬 것]
+1. 아래 원본 자료에 명시된 사실만 사용한다. 자료에 없는 수치·기간·해석·사례는 절대 추가하지 않는다.
+   - 예: 개정 이유 원문에 갱신 기간 같은 구체적 수치가 없으면 그런 수치를 지어내거나 추론하지 않는다.
+2. 확실하지 않은 부분은 생략한다. 추측·일반론을 적느니 생략하는 것이 낫다.
+3. 법률 용어는 자료의 결정문·판결문 표현을 그대로 쓴다. 일상어로 의역하지 않는다.
+4. 인용 사건번호는 [자료 4]·[자료 5]에 있는 것만 사용한다.
+5. case_analysis는 [자료 4]·[자료 5]의 실제 사건(처분 내용·당사자 주장·판단 근거·결론)만 기술한다.
 
-**규칙 (반드시 지킬 것)**:
-1. 원본 자료에 없는 정보(다른 조문·다른 사건·추가 사례·개인 의견·인터넷 지식)는 절대 추가 금지
-2. 인용한 사건번호(case_no)는 반드시 [원본 자료 3]에 명시된 것만 사용 — 새로 만들어내면 안 됨
-3. source_article 필드는 반드시 "도로교통법 제{mapped_jo}조"와 일치
-4. 자료가 부족하다고 판단되면 status를 "skip"으로 반환
-
+[원본 자료]
 {context}
 
-[출력 형식 — 아래 JSON만 출력. 마크다운 코드블록(```)·설명·접두사 X]
+[출력 — 아래 JSON만. 마크다운 코드블록·설명 없이]
 {{
   "status": "ok",
-  "oneliner": "한 줄 법령 요약 (50자 이내, 핵심 변화 또는 핵심 의무)",
-  "explanation": "30초 해설 (150자 이내, 무엇이 바뀌었거나 핵심 내용 + 왜 중요한지)",
-  "source_article": "도로교통법 제{mapped_jo}조",
+  "oneliner": "조문 핵심 한 줄 (50자 이내, 의무·금지·기준 중심. 개정 내용을 단정적으로 요약하지 말 것)",
+  "explanation": "조문 해설 (200자 이내, 자료 3 해설 또는 조문 자체 기반. 자료에 근거 없는 서술 금지)",
+  "source_article": "도로교통법 제{jo}조",
+  "case_analysis": "판례·행정심판 분석 (350자 이내, 자료 4·5 기반: 어떤 처분/기소였는지, 당사자 주장, 인용/기각·유죄/무죄 등 결론과 그 법리적 근거. 법률 용어 정확히)",
+  "teaching_application": "교통안전교육 적용 (150자 이내, 어떤 교육·강의에서 어떻게 활용할지. '교육'·'강의'·'수강생' 등 단어 포함)",
   "related_cases": [
-    {{"case_no": "위 자료의 사건번호", "title": "사건 제목 요약", "result": "인용/기각/각하", "lesson": "이 사건의 학습 포인트 1줄 (50자 이내)"}}
+    {{"case_no": "자료의 사건번호", "type": "admin 또는 court", "title": "사건 제목·사건명 요약", "result": "결과(인용/기각/유죄/무죄/파기 등)", "lesson": "이 사건의 학습 포인트 1줄 (60자 이내)"}}
   ],
-  "key_issues": [
-    "이 조문 관련 핵심 쟁점 1 (60자 이내)",
-    "이 조문 관련 핵심 쟁점 2 (60자 이내)"
-  ],
-  "study_points": [
-    "교수 강의 관점 학습 포인트 1 (80자 이내)",
-    "교수 강의 관점 학습 포인트 2 (80자 이내)"
-  ]
+  "key_issues": ["핵심 쟁점 1 (60자 이내)", "핵심 쟁점 2 (60자 이내)"],
+  "study_points": ["강의 활용 포인트 1 (80자 이내)", "강의 활용 포인트 2 (80자 이내)"]
 }}
 
-조건부 필드 규칙:
-- related_cases: [원본 자료 3]이 있으면 최대 {MAX_RELATED_CASES}건. 없으면 빈 배열 [].
-- key_issues: 자료에서 도출 가능한 쟁점 2~3개. 추측·확장 금지.
-- study_points: 교수 학습 관점의 핵심 메시지 2~3개. 자료 밖 의견 금지.
-
-자료 부족 시:
-{{"status": "skip", "reason": "구체적 이유"}}
+조건부:
+- [자료 4]·[자료 5]가 없으면 case_analysis는 "관련 판례 자료 없음", related_cases는 []
+- 자료가 학습 콘텐츠 작성에 부족하면: {{"status": "skip", "reason": "이유"}}
 """
-    response = call_gemini_api(prompt, temperature=0.3)
+    response = call_gemini_api(prompt, temperature=0.2)
     if response is None:
         return None
-    cleaned = _strip_markdown_codeblock(response)
     try:
-        return json.loads(cleaned)
+        return json.loads(_strip_codeblock(response))
     except json.JSONDecodeError as e:
-        print(f"  ⚠️ LLM 응답 JSON 파싱 실패: {e}")
-        print(f"  raw 미리보기: {response[:300]}...")
+        print(f"    ⚠️ JSON 파싱 실패: {e}")
+        print(f"    raw: {response[:200]}")
         return None
 
 
-def verify_content(generated, version, article, resources):
-    """결정론적 코드 자기검증 (M2.5 강화).
-
-    추가 검증:
-      - 인용된 case_no가 [원본 자료 3]에 실제 존재 (할루시네이션 차단)
-      - related_cases·key_issues·study_points 타입·길이 검증
-    """
-    if generated is None or generated.get('status') != 'ok':
+def verify_content(generated, jo, resources):
+    """코드 자기검증."""
+    if not generated or generated.get('status') != 'ok':
         return 'SKIP_NO_CONTENT'
 
-    mapped_jo = article.get('매핑법률조문', '')
-    expected_jo_substr = f'제{mapped_jo}조'
-
-    # 1. 필수 필드 (M2와 동일)
-    for field in ('oneliner', 'explanation', 'source_article'):
-        value = generated.get(field, '')
-        if not isinstance(value, str) or not value.strip():
+    expected_jo = f'제{jo}조'
+    for field in ('oneliner', 'explanation', 'source_article', 'case_analysis', 'teaching_application'):
+        v = generated.get(field, '')
+        if not isinstance(v, str) or not v.strip():
             return f'FAIL_field_empty:{field}'
 
-    # 2. source_article 매핑 조문 포함
-    if expected_jo_substr not in generated['source_article']:
-        return (f'FAIL_source_article_missing_jo:'
-                f'expected="{expected_jo_substr}",got="{generated["source_article"]}"')
+    if expected_jo not in generated['source_article']:
+        return f'FAIL_source_article:expected={expected_jo}'
 
-    # 3. 길이 한도 (M2와 동일)
-    if len(generated['oneliner']) > 80:
-        return f'FAIL_oneliner_too_long:{len(generated["oneliner"])}자'
-    if len(generated['explanation']) > 250:
-        return f'FAIL_explanation_too_long:{len(generated["explanation"])}자'
+    limits = {'oneliner': 90, 'explanation': 320, 'case_analysis': 480, 'teaching_application': 220}
+    for f, lim in limits.items():
+        if len(generated[f]) > lim:
+            return f'FAIL_{f}_too_long:{len(generated[f])}'
 
-    # 4. M2.5 강화: 인용된 case_no가 자료에 실제 있는지 확인
-    allowed_case_nos = {c['case_no'] for c in resources['related_cases']}
-    related_cases = generated.get('related_cases', [])
-    if not isinstance(related_cases, list):
+    if not any(kw in generated['teaching_application'] for kw in TEACHING_KEYWORDS):
+        return f'FAIL_teaching_no_keyword'
+
+    # 인용 사건번호 검증 (행정심판 + 대법원 통합)
+    allowed = {c['case_no'] for c in resources['admin_cases']}
+    allowed |= {c['case_no'] for c in resources['court_cases']}
+    rc = generated.get('related_cases', [])
+    if not isinstance(rc, list):
         return 'FAIL_related_cases_not_list'
-    for i, case in enumerate(related_cases):
-        if not isinstance(case, dict):
-            return f'FAIL_related_case_not_dict:idx={i}'
-        case_no = case.get('case_no', '')
-        if case_no and case_no not in allowed_case_nos:
-            return f'FAIL_invented_case_no:{case_no} (not in source materials)'
-        if case_no:
-            for sub in ('title', 'result', 'lesson'):
-                if not case.get(sub, '').strip():
-                    return f'FAIL_case_field_empty:idx={i},field={sub}'
+    for i, c in enumerate(rc):
+        if not isinstance(c, dict):
+            return f'FAIL_related_case_not_dict:{i}'
+        cn = c.get('case_no', '')
+        if cn and cn not in allowed:
+            return f'FAIL_invented_case_no:{cn}'
 
-    # 5. key_issues / study_points 검증
-    for list_field in ('key_issues', 'study_points'):
-        items = generated.get(list_field, [])
+    for lf in ('key_issues', 'study_points'):
+        items = generated.get(lf, [])
         if not isinstance(items, list):
-            return f'FAIL_{list_field}_not_list'
+            return f'FAIL_{lf}_not_list'
         for j, it in enumerate(items):
             if not isinstance(it, str) or not it.strip():
-                return f'FAIL_{list_field}_invalid:idx={j}'
-            if len(it) > 120:
-                return f'FAIL_{list_field}_too_long:idx={j},len={len(it)}'
+                return f'FAIL_{lf}_invalid:{j}'
 
     return 'PASS'
 
 
-def enrich_with_llm(content, version, article, resources):
-    """build_daily_content 결과에 LLM 생성 필드 추가."""
+def enrich_card(card, jo, jo_title, version, resources):
     if not GEMINI_API_KEY:
-        content['llm_status'] = 'skip_no_api_key'
-        content['llm_note'] = 'GEMINI_API_KEY 환경변수 미설정 — 기본 정보만 출력'
-        return content
-
-    print(f"\n🤖 LLM 1차 생성 호출 (model={GEMINI_MODEL})")
-    print(f"   컨텍스트 구성: 개정 + 해설 {'✓' if resources['law_comment'] else '✗'} + 판례 {len(resources['related_cases'])}건")
-
-    generated = generate_learning_content(version, article, resources)
-
-    if generated is None:
-        content['llm_status'] = 'skip_call_failed'
-        content['llm_note'] = 'LLM 호출 또는 응답 파싱 실패'
-        return content
-
+        card['llm_status'] = 'skip_no_api_key'
+        return
+    n_admin = len(resources['admin_cases'])
+    n_court = len(resources['court_cases'])
+    print(f"  🤖 제{jo}조 LLM 호출 (해설{'✓' if resources['law_comment'] else '✗'} · 행정심판 {n_admin} · 대법원 {n_court})")
+    generated = generate_learning_content(jo, jo_title, version, resources)
+    if not generated:
+        card['llm_status'] = 'skip_call_failed'
+        return
     if generated.get('status') != 'ok':
-        content['llm_status'] = 'skip_llm_returned_skip'
-        content['llm_note'] = f"LLM 자체 SKIP — {generated.get('reason', '')}"
-        return content
-
-    print(f"  ✅ 1차 생성 완료")
-    print(f"  🔍 코드 자기검증 (case_no·필드·길이 검증)")
-    verdict = verify_content(generated, version, article, resources)
-
+        card['llm_status'] = 'skip_llm_returned_skip'
+        card['llm_note'] = generated.get('reason', '')
+        return
+    verdict = verify_content(generated, jo, resources)
     if verdict != 'PASS':
-        content['llm_status'] = 'skip_verification_failed'
-        content['llm_note'] = f'자기검증 FAIL — {verdict}'
-        content['llm_draft'] = generated
-        print(f"  ❌ 자기검증 실패: {verdict}")
-        return content
-
-    print(f"  ✅ 자기검증 PASS")
-    content['candidate']['oneliner'] = generated.get('oneliner', '')
-    content['candidate']['explanation'] = generated.get('explanation', '')
-    content['candidate']['source_article'] = generated.get('source_article', '')
-    content['candidate']['related_cases'] = generated.get('related_cases', [])
-    content['candidate']['key_issues'] = generated.get('key_issues', [])
-    content['candidate']['study_points'] = generated.get('study_points', [])
-    content['llm_status'] = 'ok'
-    return content
-
-
-# ─── 메인 빌드 함수 ────────────────────────────────────────────
-
-def build_daily_content(target_date, candidate, indexes, use_llm=True):
-    base = {
-        'date': target_date.strftime('%Y-%m-%d'),
-        'generated_at': datetime.now().isoformat(),
-        'milestone': 'M2.5',
-        'version': 3,
+        card['llm_status'] = 'skip_verification_failed'
+        card['llm_note'] = verdict
+        card['llm_draft'] = generated
+        print(f"    ❌ {verdict}")
+        return
+    print(f"    ✅ PASS")
+    card['learning_content'] = {
+        'oneliner': generated['oneliner'],
+        'explanation': generated['explanation'],
+        'source_article': generated['source_article'],
+        'case_analysis': generated['case_analysis'],
+        'teaching_application': generated['teaching_application'],
+        'related_cases': generated.get('related_cases', []),
+        'key_issues': generated.get('key_issues', []),
+        'study_points': generated.get('study_points', []),
     }
+    card['llm_status'] = 'ok'
 
-    if candidate is None:
-        base.update({
-            'status': 'skip',
-            'reason': f'학습 후보 없음 (최근 {WINDOW_DAYS}일 이내 매핑된 변경 조문 없음)',
-        })
-        return base
 
-    version = candidate['version']
-    article = candidate['article']
-    mapped_jo = article.get('매핑법률조문', '')
+# ─── 카드/일일 빌드 ──────────────────────────────────────────────
 
-    resources = find_related_resources(article, indexes)
+def build_card(selection, indexes, use_llm=True):
+    jo = selection['jo']
+    jo_entry = indexes['law'].get(jo)
+    jo_title = jo_entry.get('title', '') if isinstance(jo_entry, dict) else ''
 
-    base.update({
-        'status': 'ok',
-        'candidate': {
+    version, changed = find_recent_revision(jo, indexes['revisions'])
+    resources = find_resources(jo, indexes)
+
+    card = {
+        'card_id': 'card-1',
+        'rank': 1,
+        'selection_basis': selection['basis'],
+        'law_info': {
+            '매핑법률조문': jo,
+            '매핑법률조문제목': jo_title,
+            'is_recent_revision': version is not None,
+            'categories': selection['info'].get('categories', []),
+            'viewer_link': f'../viewer.html?jo={jo}',
+            'resources_found': {
+                'has_law_comment': resources['law_comment'] is not None,
+                'admin_cases_count': len(resources['admin_cases']),
+                'court_cases_count': len(resources['court_cases']),
+            },
+        },
+    }
+    if version:
+        card['law_info']['recent_revision'] = {
             '법령유형': version.get('법령유형'),
             '법령명': version.get('법령명'),
             '공포일자': version.get('공포일자'),
             '시행일자': version.get('시행일자'),
             '제개정구분': version.get('제개정구분'),
             '제개정이유_원본': version.get('제개정이유', '').strip(),
-            '조문': {
-                '조문번호': article.get('조문번호'),
-                '조문제목': article.get('조문제목'),
-                '매핑법률조문': mapped_jo,
-                '매핑법률조문제목': article.get('매핑법률조문제목', ''),
-                '조문시행일자': article.get('조문시행일자', ''),
-                '조문제개정유형': article.get('조문제개정유형', ''),
-            },
-            'viewer_link': f'../viewer.html?jo={mapped_jo}',
-            'resources_found': {
-                'has_law_comment': resources['law_comment'] is not None,
-                'related_cases_count': len(resources['related_cases']),
-            },
-        },
-    })
+        }
+
+    # UI 전문 펼침용 (행정심판 + 대법원 통합)
+    card['related_cases_full'] = [
+        {
+            'type': c['type'],
+            'case_no': c['case_no'],
+            'title': c.get('title') or c.get('case_name', ''),
+            'date': c.get('date', ''),
+            'court': c.get('court', ''),
+            'result': c.get('result', ''),
+            'full_text': c['full_text'],
+        }
+        for c in (resources['admin_cases'] + resources['court_cases'])
+    ]
 
     if use_llm:
-        enrich_with_llm(base, version, article, resources)
+        enrich_card(card, jo, jo_title, version, resources)
     else:
-        base['llm_status'] = 'skipped_by_flag'
-        base['llm_note'] = '--no-llm 옵션 사용 — 기본 정보만 출력'
+        card['llm_status'] = 'skipped_by_flag'
 
+    return card
+
+
+def build_daily(target_date, indexes, use_llm=True):
+    base = {
+        'date': target_date.strftime('%Y-%m-%d'),
+        'generated_at': datetime.now().isoformat(),
+        'milestone': 'M2.6',
+        'version': 5,
+    }
+    if not indexes['articles']:
+        base['status'] = 'skip'
+        base['reason'] = 'index_articles.json 없음'
+        return base
+
+    selection = select_card_for_date(indexes['articles'], target_date)
+    if not selection:
+        base['status'] = 'skip'
+        base['reason'] = '선정 후보 없음'
+        return base
+
+    b = selection['basis']
+    print(f"\n📅 {target_date.strftime('%Y-%m-%d')} → 제{selection['jo']}조 "
+          f"(w={b['weight_score']:.3f}, {b['category']}, "
+          f"행정심판 {b['admin_case_count']}·대법원 {b['court_case_count']})")
+
+    card = build_card(selection, indexes, use_llm=use_llm)
+    base['status'] = 'ok'
+    base['cards'] = [card]
     return base
 
 
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
-
-    parser = argparse.ArgumentParser(description='일일 법령 학습 콘텐츠 생성 (M2.5)')
-    parser.add_argument('--dry-run', action='store_true', help='파일 저장 없이 stdout 출력만')
-    parser.add_argument('--date', type=str, default=None, help='대상 날짜 (YYYY-MM-DD)')
-    parser.add_argument('--no-llm', action='store_true', help='LLM 호출 건너뛰기')
+    parser = argparse.ArgumentParser(description='일일 학습 카드 생성 (M2.6 R3)')
+    parser.add_argument('--date', type=str, default=None, help='시작 날짜 YYYY-MM-DD')
+    parser.add_argument('--days', type=int, default=1, help='며칠치 생성 (기본 1)')
+    parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--no-llm', action='store_true')
     args = parser.parse_args()
 
     if args.date:
         try:
-            target_date = datetime.strptime(args.date, '%Y-%m-%d')
+            start_date = datetime.strptime(args.date, '%Y-%m-%d')
         except ValueError:
             print(f"❌ --date 형식 오류: '{args.date}'")
             sys.exit(1)
     else:
-        target_date = datetime.now()
+        start_date = datetime.now()
 
     print("=" * 60)
-    print(f"  📚 일일 법령 학습 콘텐츠 생성 (M2.5) — {target_date.strftime('%Y-%m-%d')}")
+    print(f"  📚 일일 학습 카드 생성 (M2.6 R3) — {start_date.strftime('%Y-%m-%d')} 부터 {args.days}일치")
     print("=" * 60)
-
     if args.no_llm:
-        print("⏭️ --no-llm 옵션 — LLM 단계 건너뜀")
+        print("⏭️ --no-llm")
     elif GEMINI_API_KEY:
         print(f"🔑 GEMINI_API_KEY 감지 (model={GEMINI_MODEL})")
     else:
-        print("⚠️ GEMINI_API_KEY 없음 — 기본 정보만 출력")
-
-    revisions = load_recent_revisions()
-    print(f"📖 개정 입력: 버전수 {revisions.get('버전수', 0)}")
+        print("⚠️ GEMINI_API_KEY 없음")
 
     indexes = load_indexes()
-    print(f"📚 인덱스: 해설 {len(indexes['law'])} 조문, 판례 매핑 {len(indexes['cases'])} 조문, 발췌 {len(indexes['excerpts'])} 건")
-
-    candidates = collect_candidates(revisions, target_date)
-    print(f"\n🔍 후보 추출: 최근 {WINDOW_DAYS}일 + 매핑법률조문 있음 → {len(candidates)}건")
-
-    selected = select_today_candidate(candidates, target_date)
-    if selected:
-        v = selected['version']
-        a = selected['article']
-        days_since = (target_date - EPOCH).days
-        idx = days_since % len(candidates)
-        print(f"\n✅ 선택 (idx={idx}/{len(candidates) - 1}):")
-        print(f"  법령: {v['법령명']} · {v['법령유형']}")
-        print(f"  변경조문: 제{a['조문번호']}조 {a['조문제목']}")
-        print(f"  매핑법률: 제{a['매핑법률조문']}조 {a['매핑법률조문제목']}")
-    else:
-        print(f"\n⚠️ 후보 없음 → SKIP")
-
-    content = build_daily_content(target_date, selected, indexes, use_llm=not args.no_llm)
-
-    if 'llm_status' in content:
-        print(f"\n📊 LLM 상태: {content['llm_status']}")
-        if content['llm_status'] == 'ok':
-            c = content['candidate']
-            print(f"  oneliner: {c.get('oneliner', '')}")
-            print(f"  관련 판례: {len(c.get('related_cases', []))} 건")
-            for cs in c.get('related_cases', []):
-                print(f"    · {cs.get('case_no', '?')} — {cs.get('result', '?')} — {cs.get('lesson', '')[:50]}")
-            print(f"  핵심 쟁점: {len(c.get('key_issues', []))} 개")
-            for it in c.get('key_issues', []):
-                print(f"    · {it}")
-            print(f"  학습 포인트: {len(c.get('study_points', []))} 개")
-            for it in c.get('study_points', []):
-                print(f"    · {it}")
-
-    if args.dry_run:
-        print(f"\n📋 --dry-run: 파일 미저장, JSON 출력:")
-        print("-" * 60)
-        print(json.dumps(content, ensure_ascii=False, indent=2))
-        return
+    print(f"📚 인덱스: 해설 {len(indexes['law'])} · 행정심판 {len(indexes['cases'])} · "
+          f"대법원 {len(indexes['court_index'])} · 후보풀 {len(indexes['articles'])}")
 
     OUTPUT_DIR.mkdir(exist_ok=True)
-    output_path = OUTPUT_DIR / f"daily_{target_date.strftime('%Y-%m-%d')}.json"
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(content, f, ensure_ascii=False, indent=2)
+    results = []
+    for d in range(args.days):
+        target = start_date + timedelta(days=d)
+        content = build_daily(target, indexes, use_llm=not args.no_llm)
+        results.append((target, content))
 
-    size_kb = output_path.stat().st_size / 1024
-    print(f"\n💾 저장: {output_path} ({size_kb:.1f}KB)")
+        if not args.dry_run:
+            out = OUTPUT_DIR / f"daily_{target.strftime('%Y-%m-%d')}.json"
+            with open(out, 'w', encoding='utf-8') as f:
+                json.dump(content, f, ensure_ascii=False, indent=2)
+            size_kb = out.stat().st_size / 1024
+            print(f"  💾 {out.name} ({size_kb:.0f}KB)")
+
+    print("\n📊 요약:")
+    for target, content in results:
+        if content.get('status') == 'ok' and content.get('cards'):
+            card = content['cards'][0]
+            jo = card['law_info']['매핑법률조문']
+            status = card.get('llm_status', '?')
+            mark = '✅' if status == 'ok' else '⚠️'
+            line = f"  {mark} {target.strftime('%Y-%m-%d')} 제{jo}조 — {status}"
+            if status == 'ok':
+                line += f" — {card['learning_content']['oneliner']}"
+            print(line)
+        else:
+            print(f"  ⚠️ {target.strftime('%Y-%m-%d')} — {content.get('status')}")
+
+    if args.dry_run:
+        print("\n📋 --dry-run: 파일 미저장")
 
 
 if __name__ == '__main__':
