@@ -1324,6 +1324,17 @@ function fmtD(s){
   return s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8);
 }
 
+// 조문키("45","148의2")를 [주번호,가지번호] 숫자쌍으로 변환 — 조문번호 순 정렬용
+function joKeyOrder(k){
+  const m=String(k||'').match(/^(\d+)(?:의(\d+))?/);
+  return m?[parseInt(m[1],10),m[2]?parseInt(m[2],10):0]:[999999,0];
+}
+// 변경조문 배열을 조문번호 순으로 정렬하는 비교 함수
+function byJoKey(a,b){
+  const x=joKeyOrder(a.조문키),y=joKeyOrder(b.조문키);
+  return x[0]-y[0]||x[1]-y[1];
+}
+
 // 부칙 시행일 헬퍼 — 조문이 부칙에 의해 별도 시행일을 가지는지 판별 + 배지 렌더
 function getAddendaException(addendaInfo, joKey){
   if(!addendaInfo||!addendaInfo.exceptions) return null;
@@ -1476,7 +1487,7 @@ function renderHistory(){
     // 법률 변경 조문
     html+=`<div style="padding:12px 16px;border-bottom:1px solid var(--border)">`;
     html+=`<div style="font-size:13px;font-weight:600;color:var(--law);margin-bottom:6px">법률 변경 조문 (${law.변경조문.length}건)</div>`;
-    for(const a of law.변경조문){
+    for(const a of [...law.변경조문].sort(byJoKey)){
       const isMe=a.조문키===jo;
       const exc=getAddendaException(law.부칙_시행일, a.조문키);
       html+=`<div style="padding:4px 8px;margin:2px 0;border-radius:4px;font-size:12px;${isMe?'background:var(--law-bg);font-weight:600':''}">`;
@@ -1515,7 +1526,7 @@ function renderHistory(){
     };
     const decsRelated=decs.filter(decIsRelevant);
     for(const dec of decsRelated){
-      const jRel=(dec.연결변경조문||[]).filter(a=>(a.연결법률조문||[]).includes(jo));
+      const jRel=(dec.연결변경조문||[]).filter(a=>(a.연결법률조문||[]).includes(jo)).sort(byJoKey);
       const jTbl=(dec.별표변경||[]).filter(t=>(t.연결법률조문||[]).includes(jo));
       html+=`<div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--decree-bg)">`;
       html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">`;
@@ -1604,7 +1615,7 @@ function renderHistory(){
     };
     const rulesRelated=rules.filter(ruleIsRelevant);
     for(const rule of rulesRelated){
-      const jRel=(rule.연결변경조문||[]).filter(a=>(a.연결법률조문||[]).includes(jo));
+      const jRel=(rule.연결변경조문||[]).filter(a=>(a.연결법률조문||[]).includes(jo)).sort(byJoKey);
       const jTbl=(rule.별표변경||[]).filter(t=>(t.연결법률조문||[]).includes(jo));
       html+=`<div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--rule-bg)">`;
       html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">`;
