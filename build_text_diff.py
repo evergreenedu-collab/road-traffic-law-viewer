@@ -34,6 +34,11 @@ def get_full_text(jo_data):
             ho_content = ho.get("호내용", "") or ""
             if ho_content:
                 content += f"\n{ho_content}"
+            # 목내용도 합침 — 정의 등 "각 목" 조문은 내용이 목에 들어있음
+            for mok in ho.get("목", []):
+                mok_content = mok.get("목내용", "") or ""
+                if mok_content:
+                    content += f"\n{mok_content}"
     # 줄 끝 공백 제거 + 연속 공백 정규화
     lines = [re.sub(r'\s+', ' ', line).strip() for line in content.split('\n')]
     return '\n'.join(line for line in lines if line)

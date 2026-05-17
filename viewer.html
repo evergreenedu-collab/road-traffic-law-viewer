@@ -1762,6 +1762,11 @@ function hoListHtml(hoArr){
     const displayNum=numMatch?numMatch[1]+'.':ho.호번호||'';
     const content=cleanHo(displayNum, rawContent);
     t+='\n  '+displayNum+' '+content;
+    // 목(가목·나목 등) — 호 아래 한 단계 더 들여쓰기
+    for(const mok of (ho.목||[])){
+      const mc=(mok.목내용||'').trim();
+      if(mc) t+='\n    '+mc;
+    }
   }
   return t;
 }

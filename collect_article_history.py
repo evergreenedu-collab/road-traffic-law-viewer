@@ -138,10 +138,21 @@ def fetch_version_articles(mst):
             sub_items = []
             for ho in hang.findall(".//호"):
                 ho_content = safe_text(ho, "호내용")
-                if ho_content:
+                # 목 파싱 — 정의 등 "각 목" 조문은 내용이 목에 들어있음
+                mok_items = []
+                for mok in ho.findall(".//목"):
+                    mok_content = safe_text(mok, "목내용")
+                    if mok_content:
+                        mok_items.append({
+                            "목번호": safe_text(mok, "목번호"),
+                            "목내용": mok_content,
+                        })
+                # 호내용이 있거나 목이 있으면 호 엔트리를 보존
+                if ho_content or mok_items:
                     sub_items.append({
                         "호번호": safe_text(ho, "호번호"),
                         "호내용": ho_content,
+                        "목": mok_items,
                     })
 
             # 항내용이 있거나 호가 있으면 항 엔트리를 보존
