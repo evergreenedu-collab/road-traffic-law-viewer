@@ -118,6 +118,31 @@ class TestParseAddenda(unittest.TestCase):
         all_articles = [a for ex in r["exceptions"] for a in ex["articles"]]
         self.assertNotIn("100", all_articles)
 
+    def test_single_article_item(self):
+        """호 단위 부칙: '제160조제4항제4호'는 조키 + 항·호 상세로 추출."""
+        r = parse_addenda([_bk(
+            "제1조(시행일) 이 법은 공포한 날부터 시행한다. "
+            "다만, 제160조제4항제4호의 개정규정은 공포 후 3개월이 "
+            "경과한 날부터 시행한다."
+        )], "20251230")
+        self.assertEqual(len(r["exceptions"]), 1)
+        ex = r["exceptions"][0]
+        self.assertEqual(ex["articles"], ["160"])
+        self.assertEqual(ex["article_items"], {"160": ["제4항제4호"]})
+        self.assertEqual(ex["effective_date"], "20260330")
+
+    def test_mixed_article_and_item(self):
+        """조 전체 인용과 호 단위 인용이 섞인 경우 — bare 조는 상세에서 제외."""
+        r = parse_addenda([_bk(
+            "제1조(시행일) 이 법은 공포 후 6개월이 경과한 날부터 시행한다. "
+            "다만, 제2조제26호 및 제96조의 개정규정은 공포한 날부터 시행한다."
+        )], "20251230")
+        self.assertEqual(len(r["exceptions"]), 1)
+        ex = r["exceptions"][0]
+        self.assertEqual(ex["articles"], ["2", "96"])
+        self.assertEqual(ex["article_items"], {"2": ["제26호"]})
+        self.assertEqual(ex["effective_date"], "20251230")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

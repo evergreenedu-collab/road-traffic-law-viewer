@@ -34,8 +34,13 @@ _EXPLICIT_DATE_RE = re.compile(
 # "공포한 날부터 시행" (단순)
 _PROMULGATE_DAY_RE = re.compile(r"공포(?:한\s*날|일)(?:로?부터)?\s*시행")
 
-# 조문 번호: "제44조", "제44조의2"
-_ARTICLE_RE = re.compile(r"제\s*(\d+)\s*조(?:의\s*(\d+))?")
+# 조문 번호 + 선택적 항·호: "제44조", "제44조의2", "제160조제4항제4호", "제2조제26호"
+# 그룹: 1=조번호, 2=조가지번호, 3=항번호, 4=호번호, 5=호가지번호
+_ARTICLE_DETAIL_RE = re.compile(
+    r"제\s*(\d+)\s*조(?:의\s*(\d+))?"
+    r"(?:제\s*(\d+)\s*항)?"
+    r"(?:제\s*(\d+)\s*호(?:의\s*(\d+))?)?"
+)
 
 # 조문 범위: "제44조부터 제47조까지"
 _ARTICLE_RANGE_RE = re.compile(
@@ -51,22 +56,53 @@ def _normalize_article_key(num: int, sub: int = None) -> str:
     return f"{num}의{sub}" if sub else str(num)
 
 
-def _extract_articles(text: str) -> list:
-    """텍스트에서 조문 번호들을 추출. 범위 표기는 펼친다."""
-    articles = []
+def _extract_article_targets(text: str) -> tuple:
+    """텍스트에서 조문 키와 항·호 상세를 추출. 범위 표기는 펼친다.
 
+    Returns:
+        (articles, article_items)
+        articles: 조문 키 리스트 (중복 제거, 등장 순서 유지), 예 ["2", "96"]
+        article_items: {조키: [항·호 상세문자열]}, 예 {"2": ["제26호"]}
+                       조가 항·호 없이 통째로(bare) 인용되면 그 조키는 넣지 않는다
+                       (= 조 전체가 별도 시행 대상이라는 뜻).
+    """
+    articles = []
+    bare = set()       # 항·호 없이 조 단위로 인용된 조키
+    detailed = {}      # 조키 → [상세문자열]
+
+    # 범위 표기 "제44조부터 제47조까지" — 조 단위로 펼침
     for m in _ARTICLE_RANGE_RE.finditer(text):
         start, end = int(m.group(1)), int(m.group(2))
         if 1 <= start <= end <= 9999:
-            articles.extend(str(n) for n in range(start, end + 1))
+            for n in range(start, end + 1):
+                articles.append(str(n))
+                bare.add(str(n))
 
     consumed = {m.span() for m in _ARTICLE_RANGE_RE.finditer(text)}
-    for m in _ARTICLE_RE.finditer(text):
+
+    # 개별 조문 + 항·호 상세
+    for m in _ARTICLE_DETAIL_RE.finditer(text):
         if any(s <= m.start() < e for s, e in consumed):
             continue
         num = int(m.group(1))
         sub = int(m.group(2)) if m.group(2) else None
-        articles.append(_normalize_article_key(num, sub))
+        jo_key = _normalize_article_key(num, sub)
+        articles.append(jo_key)
+
+        hang, ho, ho_sub = m.group(3), m.group(4), m.group(5)
+        if hang or ho:
+            detail = ""
+            if hang:
+                detail += f"제{int(hang)}항"
+            if ho:
+                detail += f"제{int(ho)}호"
+                if ho_sub:
+                    detail += f"의{int(ho_sub)}"
+            items = detailed.setdefault(jo_key, [])
+            if detail not in items:
+                items.append(detail)
+        else:
+            bare.add(jo_key)
 
     seen = set()
     out = []
@@ -74,7 +110,10 @@ def _extract_articles(text: str) -> list:
         if a not in seen:
             seen.add(a)
             out.append(a)
-    return out
+
+    # bare 로도 등장한 조는 조 전체 대상 → 상세에서 제외
+    article_items = {k: v for k, v in detailed.items() if k not in bare}
+    return out, article_items
 
 
 def _extract_tables(text: str) -> list:
@@ -169,8 +208,8 @@ def parse_addenda(addenda: list, public_date: str) -> dict:
     Returns:
         dict: {
             "main_effective_date": 본문 시행일 (YYYYMMDD, 추론 실패 시 빈 문자열),
-            "exceptions": [{"articles": [...], "tables": [...],
-                            "effective_date": YYYYMMDD,
+            "exceptions": [{"articles": [...], "article_items": {조키: [상세]},
+                            "tables": [...], "effective_date": YYYYMMDD,
                             "raw_phrase": 단서 원문 발췌}, ...],
             "raw_text": 부칙 원문 전체 (1500자 제한)
         }
@@ -197,7 +236,7 @@ def parse_addenda(addenda: list, public_date: str) -> dict:
     for phrase in ex_phrases:
         if not phrase:
             continue
-        articles = _extract_articles(phrase)
+        articles, article_items = _extract_article_targets(phrase)
         tables = _extract_tables(phrase)
         if not articles and not tables:
             continue
@@ -206,6 +245,7 @@ def parse_addenda(addenda: list, public_date: str) -> dict:
             continue
         exceptions.append({
             "articles": articles,
+            "article_items": article_items,
             "tables": tables,
             "effective_date": eff,
             "raw_phrase": _truncate(phrase, 240),

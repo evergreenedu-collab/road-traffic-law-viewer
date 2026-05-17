@@ -1324,6 +1324,17 @@ function fmtD(s){
   return s.slice(0,4)+'.'+s.slice(4,6)+'.'+s.slice(6,8);
 }
 
+// 조문키("45","148의2")를 [주번호,가지번호] 숫자쌍으로 변환 — 조문번호 순 정렬용
+function joKeyOrder(k){
+  const m=String(k||'').match(/^(\d+)(?:의(\d+))?/);
+  return m?[parseInt(m[1],10),m[2]?parseInt(m[2],10):0]:[999999,0];
+}
+// 변경조문 배열을 조문번호 순으로 정렬하는 비교 함수
+function byJoKey(a,b){
+  const x=joKeyOrder(a.조문키),y=joKeyOrder(b.조문키);
+  return x[0]-y[0]||x[1]-y[1];
+}
+
 // 부칙 시행일 헬퍼 — 조문이 부칙에 의해 별도 시행일을 가지는지 판별 + 배지 렌더
 function getAddendaException(addendaInfo, joKey){
   if(!addendaInfo||!addendaInfo.exceptions) return null;
@@ -1333,10 +1344,13 @@ function getAddendaException(addendaInfo, joKey){
   }
   return null;
 }
-function renderAddendaBadge(exc){
+function renderAddendaBadge(exc, joKey){
   if(!exc) return '';
   const eff=fmtD(exc.effective_date||'');
-  return `<span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:11px;font-weight:600;background:#fed7aa;color:#9a3412;border-radius:3px;cursor:help" title="부칙에 의해 별도 시행: ${eff}">⏰ ${eff} 별도시행</span>`;
+  // 부칙이 조 전체가 아니라 특정 항·호만 별도 시행하는 경우 그 범위를 배지에 표기
+  const items=(exc.article_items||{})[String(joKey)]||[];
+  const scope=items.length?' '+items.join('·'):'';
+  return `<span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:11px;font-weight:600;background:#fed7aa;color:#9a3412;border-radius:3px;cursor:help" title="부칙에 의해 별도 시행: ${eff}${scope}">⏰ ${eff}${scope} 별도시행</span>`;
 }
 function renderAddendaDetails(exc, addendaInfo){
   if(!exc) return '';
@@ -1453,7 +1467,10 @@ function renderHistory(){
       html+=`<div style="font-size:12px;font-weight:700;color:#9a3412;margin-bottom:6px">⏰ 이 개정안의 부칙 별도 시행 (${adExs.length}건)</div>`;
       for(const ex of adExs){
         const targets=[];
-        for(const a of (ex.articles||[])) targets.push(`제${a}조`);
+        for(const a of (ex.articles||[])){
+          const items=(ex.article_items||{})[a]||[];
+          targets.push(items.length?`제${a}조 ${items.join('·')}`:`제${a}조`);
+        }
         for(const t of (ex.tables||[])) targets.push(`별표 ${t}`);
         const phr=(ex.raw_phrase||'').replace(/</g,'&lt;');
         html+=`<div style="font-size:12px;margin:3px 0;color:#7c2d12"><strong>${targets.join(', ')||'(파싱 실패 — 원문 참조)'}</strong> → ${fmtD(ex.effective_date)} 시행`;
@@ -1470,11 +1487,11 @@ function renderHistory(){
     // 법률 변경 조문
     html+=`<div style="padding:12px 16px;border-bottom:1px solid var(--border)">`;
     html+=`<div style="font-size:13px;font-weight:600;color:var(--law);margin-bottom:6px">법률 변경 조문 (${law.변경조문.length}건)</div>`;
-    for(const a of law.변경조문){
+    for(const a of [...law.변경조문].sort(byJoKey)){
       const isMe=a.조문키===jo;
       const exc=getAddendaException(law.부칙_시행일, a.조문키);
       html+=`<div style="padding:4px 8px;margin:2px 0;border-radius:4px;font-size:12px;${isMe?'background:var(--law-bg);font-weight:600':''}">`;
-      html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}${renderAddendaBadge(exc)}`;
+      html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}${renderAddendaBadge(exc,a.조문키)}`;
       if(exc) html+=renderAddendaDetails(exc, law.부칙_시행일);
       html+=`</div>`;
     }
@@ -1509,7 +1526,7 @@ function renderHistory(){
     };
     const decsRelated=decs.filter(decIsRelevant);
     for(const dec of decsRelated){
-      const jRel=(dec.연결변경조문||[]).filter(a=>(a.연결법률조문||[]).includes(jo));
+      const jRel=(dec.연결변경조문||[]).filter(a=>(a.연결법률조문||[]).includes(jo)).sort(byJoKey);
       const jTbl=(dec.별표변경||[]).filter(t=>(t.연결법률조문||[]).includes(jo));
       html+=`<div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--decree-bg)">`;
       html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">`;
@@ -1523,7 +1540,7 @@ function renderHistory(){
       for(const a of jRel){
         const exc=getAddendaException(dec.부칙_시행일, a.조문키);
         html+=`<div style="padding:4px 8px;margin:2px 0;border-radius:4px;font-size:12px;background:rgba(108,52,131,.1)">`;
-        html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}${renderAddendaBadge(exc)}`;
+        html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}${renderAddendaBadge(exc,a.조문키)}`;
         if(exc) html+=renderAddendaDetails(exc, dec.부칙_시행일);
         html+=`</div>`;
       }
@@ -1598,7 +1615,7 @@ function renderHistory(){
     };
     const rulesRelated=rules.filter(ruleIsRelevant);
     for(const rule of rulesRelated){
-      const jRel=(rule.연결변경조문||[]).filter(a=>(a.연결법률조문||[]).includes(jo));
+      const jRel=(rule.연결변경조문||[]).filter(a=>(a.연결법률조문||[]).includes(jo)).sort(byJoKey);
       const jTbl=(rule.별표변경||[]).filter(t=>(t.연결법률조문||[]).includes(jo));
       html+=`<div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--rule-bg)">`;
       html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">`;
@@ -1613,7 +1630,7 @@ function renderHistory(){
       for(const a of jRel){
         const exc=getAddendaException(rule.부칙_시행일, a.조문키);
         html+=`<div style="padding:4px 8px;margin:2px 0;border-radius:4px;font-size:12px;background:rgba(17,122,101,.1)">`;
-        html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}${renderAddendaBadge(exc)}`;
+        html+=`제${a.조문키}조 (${a.조문제목||''}) ${a.변경유형?'— '+a.변경유형:''}${renderAddendaBadge(exc,a.조문키)}`;
         if(exc) html+=renderAddendaDetails(exc, rule.부칙_시행일);
         html+=`</div>`;
       }

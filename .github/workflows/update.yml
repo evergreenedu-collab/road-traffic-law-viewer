@@ -62,9 +62,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: data
-          key: law-history-data-v1-${{ github.run_id }}
+          key: law-history-data-v2-${{ github.run_id }}
           restore-keys: |
-            law-history-data-v1-
+            law-history-data-v2-
 
       - name: 캐시 상태 출력
         run: |
@@ -87,7 +87,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: data
-          key: law-history-data-v1-${{ github.run_id }}
+          key: law-history-data-v2-${{ github.run_id }}
 
       - name: 빌드 산출물 검증 (회귀 처리)
         id: validate
