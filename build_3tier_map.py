@@ -151,10 +151,20 @@ def fetch_all_articles():
                 for ho in hang.findall(".//호"):
                     ho_num = safe_text(ho, "호번호")
                     ho_content = safe_text(ho, "호내용")
-                    if ho_content:
+                    # 목 파싱 — 정의 등 "각 목" 조문은 내용이 목에 들어있음
+                    mok_items = []
+                    for mok in ho.findall(".//목"):
+                        mok_content = safe_text(mok, "목내용")
+                        if mok_content:
+                            mok_items.append({
+                                "목번호": safe_text(mok, "목번호"),
+                                "목내용": mok_content,
+                            })
+                    if ho_content or mok_items:
                         sub_items.append({
                             "호번호": ho_num,
                             "호내용": ho_content,
+                            "목": mok_items,
                         })
 
                 paragraphs.append({
