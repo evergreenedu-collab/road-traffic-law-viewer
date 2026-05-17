@@ -127,17 +127,30 @@ def fetch_version_articles(mst):
         change_type = safe_text(jo, "조문제개정유형")
         eff_date = safe_text(jo, "조문시행일자")
 
-        # 항 내용 수집
+        # 항 + 호 내용 수집
         paras = []
         for hang in jo.findall(".//항"):
             h_num = safe_text(hang, "항번호")
             h_content = safe_text(hang, "항내용")
             h_change = safe_text(hang, "항제개정유형")
-            if h_content:
+
+            # 호 파싱 — 벌칙 등 "각 호" 조문은 내용이 전부 호에 들어있음
+            sub_items = []
+            for ho in hang.findall(".//호"):
+                ho_content = safe_text(ho, "호내용")
+                if ho_content:
+                    sub_items.append({
+                        "호번호": safe_text(ho, "호번호"),
+                        "호내용": ho_content,
+                    })
+
+            # 항내용이 있거나 호가 있으면 항 엔트리를 보존
+            if h_content or sub_items:
                 paras.append({
                     "항번호": h_num,
                     "항내용": h_content,
                     "항제개정유형": h_change,
+                    "호": sub_items,
                 })
 
         articles[jo_key] = {

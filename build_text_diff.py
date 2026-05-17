@@ -22,13 +22,18 @@ OUTPUT_PATH = os.path.join(DATA_DIR, "text_diff.json")
 
 
 def get_full_text(jo_data):
-    """조문내용 + 항내용을 합친 전체 텍스트 (원문자 중복 제거, 줄 정규화)"""
+    """조문내용 + 항내용 + 호내용을 합친 전체 텍스트 (원문자 중복 제거, 줄 정규화)"""
     import re
     content = jo_data.get("조문내용", "") or ""
     for p in jo_data.get("항", []):
         h_content = p.get("항내용", "") or ""
         if h_content:
             content += f"\n{h_content}"
+        # 호내용도 합침 — 벌칙 등 "각 호" 조문은 내용이 전부 호에 들어있음
+        for ho in p.get("호", []):
+            ho_content = ho.get("호내용", "") or ""
+            if ho_content:
+                content += f"\n{ho_content}"
     # 줄 끝 공백 제거 + 연속 공백 정규화
     lines = [re.sub(r'\s+', ' ', line).strip() for line in content.split('\n')]
     return '\n'.join(line for line in lines if line)
