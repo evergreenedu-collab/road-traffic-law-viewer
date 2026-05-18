@@ -214,14 +214,18 @@ _SENT_END = re.compile(r'[가-힣A-Za-z][.?!。．][)\]」』”’]?(?=\s|$)')
 
 
 def clip_at_sentence(text, limit):
-    """해설집 청크를 한도 이내 마지막 '문장 끝'에서 매듭 — 중간에서 잘리는 것 방지."""
+    """해설집 청크를 한도 이내 마지막 '문장 끝'에서 매듭 — 중간에서 잘리는 것 방지.
+    문장 끝을 못 찾으면 줄바꿈·공백 순으로 자르고 말줄임표로 절단을 표시한다."""
     if len(text) <= limit:
         return text
     head = text[:limit]
     ends = list(_SENT_END.finditer(head))
     if ends:
         return head[:ends[-1].end()].rstrip()
-    return head.rstrip()
+    # fallback — 문장 끝이 없으면 마지막 줄바꿈/공백에서 자르고 절단 표시
+    nl, sp = head.rfind('\n'), head.rfind(' ')
+    cut = nl if nl > limit * 0.5 else (sp if sp > limit * 0.5 else limit)
+    return head[:cut].rstrip() + ' …'
 
 
 def parse_law_comment(path):

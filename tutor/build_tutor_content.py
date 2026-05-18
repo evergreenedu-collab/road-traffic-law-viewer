@@ -214,30 +214,25 @@ def find_resources(jo, indexes, category=None, jo_title=''):
         if len(court_cases) >= CAND_COURT:
             break
 
-    # 주제 실무자료(수사실무·사고판례집) 청크 매칭 — 점수식 (R13-C):
-    # 조문 직접 인용 +2 / 없음 -2, 카테고리 일치 +1·충돌 -1, 제목 키워드 일치 +1.
-    # 주제 정합 신호(카테고리·제목)가 전무하면 -1. 합계 2점 이상 청크만 채택 —
-    # 조문과 무관한 실무자료가 카드에 인용되던 문제(05-15 음주 카드에 어린이보호구역) 차단.
-    def _stem(w):
-        return re.sub(r'(으로|에서|에게|의|을|를|이|가|은|는|에|와|과|로|도)$', '', w)
-    title_words = [t for t in (_stem(w) for w in re.split(r'[\s·,()/-]+', jo_title or ''))
-                   if len(t) >= 2]
+    # 주제 실무자료(수사실무·사고판례집) 청크 매칭 (R13-C, Codex 반영):
+    # 조문을 직접 인용한 청크는 가장 강한 신호 → 무조건 채택. 직접 인용이 없는
+    # 청크는 카테고리·제목 키워드가 둘 다 맞을 때만 채택(점수 ≥2) — 조문과 무관한
+    # 실무자료가 카드에 인용되던 문제(05-15 음주 카드에 어린이보호구역) 차단.
+    title_words = [w for w in re.split(r'[\s·,()/-]+', jo_title or '') if len(w) >= 2]
     topic_refs = []
     for chunk in indexes.get('topic_docs', []):
+        if jo in chunk.get('articles', []):       # 조문 직접 인용 — 무조건 채택
+            topic_refs.append((3, chunk))
+            continue
         kws = chunk.get('keywords', []) or []
         ctitle = chunk.get('title', '') or ''
-        score = 2 if jo in chunk.get('articles', []) else -2
-        topical = False
+        score = 0
         if category and category in kws:
             score += 1
-            topical = True
         elif category and kws and category not in kws:
             score -= 1
         if title_words and any(w in ctitle for w in title_words):
             score += 1
-            topical = True
-        if not topical:
-            score -= 1
         if score >= 2:
             topic_refs.append((score, chunk))
     topic_refs.sort(key=lambda x: -x[0])
@@ -530,6 +525,12 @@ def verify_content(generated, jo, resources):
     # R12-C: 해설집이 있는데 case_analysis가 빈약하면 실패 (품질 게이트)
     if resources['law_comment'] and len(generated.get('case_analysis', '').strip()) < 200:
         return 'FAIL_thin_analysis'
+
+    # R13-C(Codex): case_analysis가 길면 의미 단위 문단(빈 줄 구분)으로 나뉘어야 함 —
+    # 프롬프트 규칙만으론 LLM이 통짜로 출력하기도 해 검증으로 강제 (피드백 ⑤ 05-19).
+    ca_text = generated.get('case_analysis', '').strip()
+    if len(ca_text) >= 400 and '\n\n' not in ca_text:
+        return 'FAIL_case_analysis_not_paragraphed'
 
     return 'PASS'
 
