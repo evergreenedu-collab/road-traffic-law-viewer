@@ -133,6 +133,11 @@ header a { color: #ffe; text-decoration: underline; }
   background: var(--law-bg); border-left: 3px solid var(--law-light);
   border-radius: 5px; margin-bottom: 8px;
 }
+.case-history {
+  font-size: 12.5px; line-height: 1.6; margin: 6px 0 8px;
+  padding: 7px 10px; background: var(--warn-bg); color: #92400e;
+  border-left: 3px solid var(--warn); border-radius: 5px;
+}
 .case-full { margin-top: 6px; }
 .case-full summary {
   cursor: pointer; font-size: 12px; color: var(--law); user-select: none; list-style: none;
@@ -148,21 +153,38 @@ header a { color: #ffe; text-decoration: underline; }
   max-height: 380px; overflow-y: auto; color: var(--text);
 }
 
-.refs-item { font-size: 13px; line-height: 1.65; margin-top: 8px; }
+.refs-item { font-size: 13px; line-height: 1.65; margin-top: 10px; }
 .refs-item .refs-src {
   font-size: 11px; font-weight: 600; color: var(--decree);
   background: #ede9fe; padding: 1px 7px; border-radius: 3px;
 }
+.refs-detail > summary {
+  cursor: pointer; list-style: none; font-size: 13px; line-height: 1.6;
+}
+.refs-detail > summary::-webkit-details-marker { display: none; }
+.refs-detail > summary::before { content: '▶ '; font-size: 10px; color: var(--law); }
+.refs-detail[open] > summary::before { content: '▼ '; }
+.refs-detail[open] > summary .refs-preview { display: none; }
+.refs-preview { color: var(--sub); }
+.refs-text {
+  margin-top: 6px; font-size: 13px; line-height: 1.75;
+  white-space: pre-wrap; word-break: keep-all; color: var(--text);
+}
+.refs-full {
+  margin-top: 8px; padding: 10px 12px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px;
+  max-height: 360px; overflow-y: auto;
+}
 
-.revision-raw { border-left-color: var(--sub); }
-.revision-raw summary {
+.article-raw { border-left-color: var(--sub); }
+.article-raw summary {
   cursor: pointer; font-size: 13px; font-weight: 600; color: var(--law);
   user-select: none; list-style: none;
 }
-.revision-raw summary::-webkit-details-marker { display: none; }
-.revision-raw summary::before { content: '▶ '; font-size: 10px; }
-.revision-raw[open] summary::before { content: '▼ '; }
-.revision-raw pre {
+.article-raw summary::-webkit-details-marker { display: none; }
+.article-raw summary::before { content: '▶ '; font-size: 10px; }
+.article-raw[open] summary::before { content: '▼ '; }
+.article-raw pre {
   margin-top: 10px; padding: 12px; background: var(--bg);
   border: 1px solid var(--border); border-radius: 6px;
   font-size: 12px; line-height: 1.8; white-space: pre-wrap;
@@ -245,22 +267,31 @@ function resultClass(r) {
   return 'etc';
 }
 
-// 판례 전문 문단 분리 — 항목 기호 앞 줄바꿈. 날짜는 보호 후 복원.
-function formatJudgment(text) {
+// 판례·해설 문단 정리 (판례·참고자료 공용). PDF 변환으로 깨진 줄바꿈을 한 줄로 합친 뒤
+// 문장(~다.)·항목 기호 단위로 다시 나눈다. 날짜는 보호 후 복원.
+function formatTextBlock(text) {
+  // R12-B: '~다.'마다 자르던 과분할을 폐지. 원본 줄바꿈(문단)은 보존하고,
+  // 번호·기호 항목과 섹션 머리표만 줄을 나눈다. 정규식은 문맥을 '이해'하지
+  // 못하므로 — 항목 분할·머리표 처리까지가 한계(원문 문단 보존이 근본).
   if (!text) return '';
-  let t = String(text);
-  const saved = [];
-  // 날짜(YYYY. M. D.) 보호 — @@D0@@ 형태 placeholder (본문 충돌 없음)
+  var t = String(text).replace(/\r/g, '');
+  var saved = [];
+  // 날짜(YYYY. M. D.) 보호 — 항목 분할 규칙에 안 걸리게 placeholder 치환
   t = t.replace(/\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}\s*\.?/g, function(m) {
     saved.push(m);
     return '@@D' + (saved.length - 1) + '@@';
   });
-  t = t.replace(/\s+(\[\d+\])/g, '\n\n$1');       // [1] [2]
-  t = t.replace(/\s+(\d{1,2}\.\s)/g, '\n\n$1');    // 1. 2. 3.
-  t = t.replace(/\s+([가-하]\.\s)/g, '\n$1');      // 가. 나. 다.
-  t = t.replace(/\s+(○\s)/g, '\n$1');              // ○
+  t = t.replace(/[ \t]+/g, ' ');                  // 가로 공백만 정리 (줄바꿈 보존)
+  // 섹션 머리표 — 독립 줄로, 내용은 다음 줄
+  t = t.replace(/ *(\[(?:참조조문|참조판례|판시사항|판결요지)\]) */g, '\n\n$1\n');
+  t = t.replace(/ +(\[\d{1,2}\] )/g, '\n\n$1');  // [1] [2] 항목 (앞뒤 공백 — 인라인 참조 회피)
+  // 번호·기호 항목을 줄머리로 — 공백 뒤의 것만(문장 끝 '~다.'는 앞에 공백이
+  // 없어 안 걸림). '가-하' 항목도 같은 이유로 '~다.' 오인 없음.
+  t = t.replace(/ +(\d{1,2}[.)] )/g, '\n$1');      // 1.  1)  2)
+  t = t.replace(/ +([가-하][.)] )/g, '\n$1');      // 가.  나.  다.
+  t = t.replace(/ +([○•] )/g, '\n$1');             // ○ • 불릿 ('방○○'·'○○시' 익명처리 회피)
   t = t.replace(/@@D(\d+)@@/g, function(_, i) { return saved[+i]; });  // 날짜 복원
-  t = t.replace(/\n{3,}/g, '\n\n');
+  t = t.replace(/[ \t]*\n[ \t]*/g, '\n').replace(/\n{3,}/g, '\n\n');
   return t.trim();
 }
 
@@ -291,7 +322,7 @@ function renderMainCard(card) {
     return '<article class="card ' + lawClass + '">'
       + '<div class="card-header">' + badge + catBadge + dateInfo + '</div>'
       + '<div class="jo-label">📖 ' + esc(lc.source_article || ('도로교통법 제' + jo + '조')) + '</div>'
-      + '<h2 class="oneliner">' + esc(lc.oneliner) + '</h2>'
+      + '<h2 class="oneliner">' + esc(String(lc.oneliner || '').replace(/[.\s]+$/, '')) + '</h2>'
       + '<p class="explanation">' + esc(lc.explanation) + '</p>'
       + '</article>';
   }
@@ -302,11 +333,21 @@ function renderMainCard(card) {
     + '</article>';
 }
 
-function renderAnalysis(lc) {
+function renderAnalysis(card) {
+  var lc = card.learning_content || {};
   if (!lc.case_analysis) return '';
+  // R12-C: 제목은 analysis_type으로 분기 (코드가 확정한 값). 구 카드는 판례 수로 추정.
+  var rf = (card.law_info && card.law_info.resources_found) || {};
+  var atype = lc.analysis_type
+    || (((rf.admin_cases_count || 0) + (rf.court_cases_count || 0)) > 0 ? 'case' : 'commentary');
+  var title = atype === 'commentary'
+    ? '📘 핵심 학습 내용 (해설집·실무자료 기반)'
+    : '🔍 인용·기각 법리 분석';
+  // R12-E: formatTextBlock이 항목 분할을 전담 — 여기서 \n\n 추가 안 함(엔터 과다 방지)
+  var html = esc(formatTextBlock(lc.case_analysis)).replace(/\n/g, '<br>');
   return '<section class="section analysis">'
-    + '<h3>🔍 인용·기각 법리 분석</h3>'
-    + '<div class="section-body">' + esc(lc.case_analysis) + '</div>'
+    + '<h3>' + title + '</h3>'
+    + '<div class="section-body">' + html + '</div>'
     + '</section>';
 }
 
@@ -342,7 +383,10 @@ function renderCases(card) {
       : '';
     const fullText = full.full_text || '';
     const fullPanel = fullText
-      ? '<details class="case-full"><summary></summary><pre>' + esc(formatJudgment(fullText)) + '</pre></details>'
+      ? '<details class="case-full"><summary></summary><pre>' + esc(formatTextBlock(fullText)) + '</pre></details>'
+      : '';
+    const historyBox = c.history_note
+      ? '<div class="case-history">⏳ <strong>연혁 주의</strong> — ' + esc(c.history_note) + '</div>'
       : '';
     return '<div class="case-item">'
       + '<div class="case-head">'
@@ -352,6 +396,7 @@ function renderCases(card) {
       + courtDate
       + '</div>'
       + '<div class="case-title">' + esc(c.title) + '</div>'
+      + historyBox
       + (c.lesson ? '<div class="case-lesson">💡 ' + esc(c.lesson) + '</div>' : '')
       + fullPanel
       + '</div>';
@@ -372,32 +417,44 @@ function renderIssues(lc) {
     + '</section>';
 }
 
+// 참고자료 1건 — 짧으면 그대로, 길면 미리보기 + 접기/펼치기로 전문 노출
+function refBlock(srcLabel, titleHtml, fullText) {
+  const full = String(fullText == null ? '' : fullText).trim();
+  if (!full) return '';
+  const body = formatTextBlock(full);   // 문단 줄바꿈 정리 (B2)
+  const head = '<span class="refs-src">' + esc(srcLabel) + '</span>' + (titleHtml ? ' ' + titleHtml : '');
+  if (full.length <= 200) {
+    return '<div class="refs-item">' + head + '<div class="refs-text">' + esc(body) + '</div></div>';
+  }
+  const preview = esc(full.slice(0, 200)) + ' …';
+  return '<details class="refs-item refs-detail">'
+    + '<summary>' + head + ' <span class="refs-preview">' + preview + '</span></summary>'
+    + '<div class="refs-text refs-full">' + esc(body) + '</div></details>';
+}
+
 function renderRefs(card) {
   const sm = card.source_materials || {};
   const law = sm.law_comment;
   const topics = sm.topic_docs || [];
   if (!law && topics.length === 0) return '';
   let inner = '';
-  if (law) {
-    const txt = law.length > 420 ? law.slice(0, 420) + ' …' : law;
-    inner += '<div class="refs-item"><span class="refs-src">도로교통법 해설집</span> ' + esc(txt) + '</div>';
-  }
+  if (law) inner += refBlock('도로교통법 해설집', '', law);
   topics.forEach(function(t) {
-    const ex = t.excerpt || '';
-    const txt = ex.length > 340 ? ex.slice(0, 340) + ' …' : ex;
-    inner += '<div class="refs-item"><span class="refs-src">' + esc(t.doc_id) + '</span> '
-      + '<strong>' + esc(t.title) + '</strong><br>' + esc(txt) + '</div>';
+    inner += refBlock(t.doc_id || '실무자료', '<strong>' + esc(t.title || '') + '</strong>', t.excerpt);
   });
+  if (!inner) return '';
   return '<section class="section refs">'
-    + '<h3>📚 참고 자료 (해설집·실무연구)</h3>' + inner + '</section>';
+    + '<h3>📄 참고 자료 — 해설집·실무연구 PDF 원문 발췌 (정리 미완)</h3>' + inner + '</section>';
 }
 
-function renderRevisionRaw(card) {
-  const rev = card.law_info && card.law_info.recent_revision;
-  if (!rev || !rev.제개정이유_원본) return '';
-  return '<details class="section revision-raw">'
-    + '<summary>📄 제개정 이유 원문 (' + esc(rev.법령명 || '') + ' · 공포 ' + esc(fmtDate(rev.공포일자)) + ')</summary>'
-    + '<pre>' + esc(rev.제개정이유_원본) + '</pre>'
+function renderArticleText(card) {
+  const li = card.law_info || {};
+  const txt = li.article_text;
+  if (!txt) return '';
+  const jo = li.매핑법률조문 || '';
+  return '<details class="section article-raw">'
+    + '<summary>📜 도로교통법 제' + esc(jo) + '조 — 현행 조문 원문</summary>'
+    + '<pre>' + esc(txt) + '</pre>'
     + '</details>';
 }
 
@@ -408,17 +465,18 @@ function renderViewLaw(card) {
 }
 
 function renderCard(card) {
-  // 순서: 메인 → 인용이유분석 → 학습포인트 → 관련판례 → 핵심쟁점 → 제개정이유원문 → 법령본문보기
+  // 순서(R9): 메인 → 조문 원문 → 법리분석 → 학습포인트
+  //          → 관련판례 → 핵심쟁점 → 참고자료 → 법령본문보기
   const lc = card.learning_content || {};
   const llmOk = card.llm_status === 'ok';
   return [
     renderMainCard(card),
-    llmOk ? renderAnalysis(lc) : '',
+    renderArticleText(card),
+    llmOk ? renderAnalysis(card) : '',
     llmOk ? renderStudy(lc) : '',
     llmOk ? renderCases(card) : '',
     llmOk ? renderIssues(lc) : '',
     llmOk ? renderRefs(card) : '',
-    renderRevisionRaw(card),
     renderViewLaw(card)
   ].join('');
 }
@@ -433,9 +491,22 @@ function renderError(date, msg) {
     + '<p>' + esc(date) + ' 학습 자료를 찾을 수 없습니다.</p>'
     + '<p class="sub">' + esc(msg) + '</p></div>';
 }
+// A4: 주말은 카드 없음 — 위트있는 휴식 안내
+function renderWeekend(date) {
+  return '<div class="empty"><div class="icon">☕</div>'
+    + '<p><strong>주말엔 잠시 쉬어갑니다</strong></p>'
+    + '<p class="sub">출근길 법령 튜터는 평일(월~금)에만 찾아옵니다.<br>'
+    + '주말은 충전의 시간 — 월요일 아침에 다시 만나요! 🚗💤</p></div>';
+}
 
 async function render(date) {
   const el = document.getElementById('content');
+  // A4: 토·일은 fetch 없이 휴식 화면 (주말 daily JSON은 생성되지 않음)
+  const dow = new Date(date + 'T00:00:00').getDay();
+  if (dow === 0 || dow === 6) {
+    el.innerHTML = renderWeekend(date);
+    return;
+  }
   el.innerHTML = '<div class="loading">⏳ 학습 자료 로딩 중...</div>';
   try {
     const data = await loadDaily(date);

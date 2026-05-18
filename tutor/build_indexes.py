@@ -26,6 +26,7 @@ sources_config.json의 자료 레지스트리를 읽어 각 자료를 유형별 
 import argparse
 import json
 import math
+import os
 import re
 import sys
 from collections import defaultdict
@@ -38,12 +39,35 @@ CONFIG_PATH = SCRIPT_DIR / 'sources_config.json'
 RECENT_REVISIONS_PATH = SCRIPT_DIR.parent / 'alarm' / 'data' / 'recent_revisions.json'
 
 # 해설집 조문 헤더 — '### 제N조(제목)' 형태. 괄호 제목 필수 (본문 속 '제88조 4항' 같은 인용 오인 방지)
-ARTICLE_HEADER = re.compile(r'^#{0,4}\s*제\s*(\d+)\s*조(?:의\s*(\d+))?\s*\(([^)]+)\)')
+# 해설집 조문 헤더 — '제N조(제목)'만 있는 줄. 닫는 괄호 뒤에 본문 텍스트가 이어지면
+# 다른 법(한국도로교통공단법·시행령 등)을 인용한 것 → '\s*$'로 순수 헤더만 인식
+ARTICLE_HEADER = re.compile(r'^#{0,4}\s*제\s*(\d+)\s*조(?:의\s*(\d+))?\s*\(([^)]+)\)\s*$')
 # 판례 본문 내 도로교통법 조문 인용 — '도로교통법' 명시 필수 (다른 법 조문 오매핑 방지)
 # "도로교통법 시행령/시행규칙 제N조"는 사이에 '시행'이 끼어 매칭 안 됨 → 법률 조문만 추출
 ARTICLE_CITATION = re.compile(r'「?\s*도로교통법\s*」?\s*제\s*(\d+)\s*조(?:의\s*(\d+))?')
 
 COMMENT_CONTENT_MAX = 4000
+
+# 2005.5.31 도로교통법 전부개정(법률 제7545호) 시행일 — 조문 번호가 전면 재편된 기준점.
+# 이 날짜 이전 선고 판례의 "제N조"는 옛 번호 체계 → 현행 조문에 숫자로 매핑하면 오류
+# (예: 옛 제40조=무면허, 현행 제40조=정비불량차).
+RENUMBER_DATE = (2006, 6, 1)
+
+
+def parse_ymd(s):
+    """'2023.06.29' · '2004. 12. 10' 등 날짜 문자열 → (년, 월, 일) 튜플. 실패 시 None."""
+    if not s:
+        return None
+    m = re.search(r'(\d{4})\D{1,3}(\d{1,2})\D{1,3}(\d{1,2})', str(s))
+    if not m:
+        return None
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
+
+def is_pre_renumber(ymd):
+    """전부개정 시행일(2006-06-01) 이전이면 True — 옛 조문번호 체계."""
+    return ymd is not None and ymd < RENUMBER_DATE
+
 
 # 대법원 판례 사건명 죄명 → 도로교통법 조문 매핑
 CHARGE_TO_ARTICLE = {
@@ -120,6 +144,11 @@ def extract_road_law_articles(text):
     """
     result = set()
     for m in _ROAD_LAW_MARKER.finditer(text):
+        # "구 도로교통법"(옛 법 인용) 구간은 제외 — 옛 조문번호가 현행에 오매핑되는 것 차단.
+        # 한국 판결문은 폐지·개정 전 법을 인용할 때 반드시 "구 "를 붙이는 관례를 따른다.
+        prev = text[max(0, m.start() - 3):m.start()].replace('「', '').strip()
+        if prev.endswith('구'):
+            continue
         seg = text[m.end():m.end() + 200]
         cut = len(seg)
         # '시행령'·'시행규칙' 등장 → 그 이후 '제N조'는 하위법령 조문이므로 제외
@@ -134,11 +163,66 @@ def extract_road_law_articles(text):
                 cut = min(cut, lm.start())
                 break
         for jm in _JO_PAT.finditer(seg[:cut]):
+            # 이 '제N조' 인용 주변에 구법 표기가 있으면 옛 조문번호 → 제외 (R7-1 보강).
+            # 판결문은 옛 법을 '...개정되기 전의 것) 제N조', '제N조(현행 제M조 참조)'
+            # 처럼 표기한다 — "구 " 접두어 없이 괄호·참조구로만 표시하는 경우 대응.
+            ctx = seg[max(0, jm.start() - 80):jm.end() + 45]
+            if re.search(r'개정되기\s*전|전부\s*개정|전문\s*개정|현행\s*제\s*\d+\s*조', ctx):
+                continue
             result.add(jo_key(jm.group(1), jm.group(2)))
     return result
 
 
 # ─── 파서: 해설집 (law_comment) ──────────────────────────────────
+
+def clean_comment_text(text):
+    """해설집 텍스트 경량 정제 — 마크다운 표 + PDF 변환 잔재 제거 (R8 C2).
+    PDF→마크다운 변환 손상은 완전 복원 불가 — 규칙형 정제로 가독성만 높인다."""
+    text = re.sub(r'<br\s*/?>', '\n', text)               # <br> 태그 → 줄바꿈
+    out = []
+    for line in text.split('\n'):
+        s = line.strip()
+        if not s:
+            out.append('')
+            continue
+        if s.isdigit():                                   # 페이지 번호 등 숫자만 있는 줄 제거
+            continue
+        # 표 구분선(|---|---|, | :--- | ---: |) 제거
+        if '|' in s and s.count('-') >= 3 and re.fullmatch(r'[\s:\-|]+', s):
+            continue
+        # 표 데이터 행(| A | B | C |) → ' · ' 구분 평문
+        if s.startswith('|') and s.endswith('|') and s.count('|') >= 3:
+            cells = [c.strip() for c in s.strip('|').split('|')]
+            line = ' · '.join(c for c in cells if c)
+        # 표 잔재 — 파이프·공백뿐인 줄 제거, 줄 앞뒤 외톨이 파이프('과와 | | |', '| 관') 정리
+        if re.fullmatch(r'[\s|]+', s):
+            continue
+        line = re.sub(r'^\s*\|[\s|]*', '', line)
+        line = re.sub(r'\s*\|[\s|]*$', '', line)
+        # 흩어진 가운뎃점 잔재(" · ･ ") 정리 — 2개 이상 연속만 (단일 '·'는 보존)
+        line = re.sub(r'[·･]\s*(?:[·･]\s*)+', '·', line)
+        if line.strip():
+            out.append(line)
+        else:
+            out.append('')
+    return re.sub(r'\n{3,}', '\n\n', '\n'.join(out))
+
+
+# 문장 끝 — 한글/영문 한 글자 + 마침표류 + (선택)닫는 따옴표 + 공백/끝.
+# 숫자 뒤 마침표('4.5'·목록 '1.')는 글자 조건으로 자연히 제외 (R13-D 피드백 6).
+_SENT_END = re.compile(r'[가-힣A-Za-z][.?!。．][)\]」』”’]?(?=\s|$)')
+
+
+def clip_at_sentence(text, limit):
+    """해설집 청크를 한도 이내 마지막 '문장 끝'에서 매듭 — 중간에서 잘리는 것 방지."""
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    ends = list(_SENT_END.finditer(head))
+    if ends:
+        return head[:ends[-1].end()].rstrip()
+    return head.rstrip()
+
 
 def parse_law_comment(path):
     """해설집 마크다운 → 조문번호별 청크. '### 제N조' 헤더도 인식."""
@@ -163,7 +247,7 @@ def parse_law_comment(path):
         title, content = max(chunks, key=lambda c: len(c[1]))
         index[jo] = {
             'title': title.strip(),
-            'content': content[:COMMENT_CONTENT_MAX],
+            'content': clip_at_sentence(clean_comment_text(content), COMMENT_CONTENT_MAX),
             'occurrences': len(chunks),
         }
     return index
@@ -171,18 +255,37 @@ def parse_law_comment(path):
 
 # ─── 파서: 행정심판례 (admin_cases) ──────────────────────────────────
 
+# 행정심판 결정문 전처리 — 끝의 '참조 조문' 부록 제거 (R8 B4)
+_REF_APPENDIX = re.compile(r'참조\s*조문')
+
+
+def cut_reference_appendix(text):
+    """결정문 끝 '참조 조문' 부록 제거 — 가독성 + 색인 정확도(부록의 나열 조문 제외)."""
+    m = _REF_APPENDIX.search(text)
+    if m and m.start() > len(text) * 0.5:
+        return text[:m.start()].rstrip()
+    return text
+
+
 def parse_admin_cases(path):
     """행정심판례 JSON → 조문 매핑 + 전문 발췌 (한도 제거)."""
     cases = json.loads(path.read_text(encoding='utf-8'))
     index = defaultdict(list)
     excerpts = {}
+    pre_count = 0
 
     for case in cases:
         case_no = case.get('case_no')
         if not case_no:
             continue
-        reasoning = case.get('reasoning', '')
+        # B4: 끝의 '참조 조문' 부록 제거 — 표시·색인 모두 적용
+        reasoning = cut_reference_appendix(case.get('reasoning', ''))
 
+        # 전부개정(2006.6.1) 이전 행정심판례는 "제N조"가 옛 번호 체계 →
+        # 죄명 키워드 대체 수단이 없어 숫자 매핑 자체를 제외
+        if is_pre_renumber(parse_ymd(case.get('date'))):
+            pre_count += 1
+            continue
         article_set = extract_road_law_articles(reasoning)
         if not article_set:
             continue
@@ -197,9 +300,11 @@ def parse_admin_cases(path):
             'result': case.get('result', ''),
             'year': case.get('year', ''),
             'summary': case.get('summary', '')[:300],
-            'reasoning': reasoning,  # 전문 (피드백 ①: 생략 없음)
+            'reasoning': reasoning,  # 표시용 — 참조조문 부록만 제거(B4), 관계법령 절은 보존
         }
 
+    if pre_count:
+        print(f"   ⚖️ 구법(전부개정 이전) 행정심판례 {pre_count}건 — 숫자 매핑 제외")
     return {jo: sorted(set(v)) for jo, v in index.items()}, excerpts
 
 
@@ -212,6 +317,7 @@ def parse_court_cases(path):
 
     index = defaultdict(list)
     data = {}
+    pre_count = 0
 
     for block in blocks:
         block = block.strip()
@@ -243,10 +349,17 @@ def parse_court_cases(path):
         for charge, jo in CHARGE_TO_ARTICLE.items():
             if charge in case_name:
                 articles.add(jo)
-        articles |= extract_road_law_articles(ruling)
+        # 전부개정(2006.6.1) 이전 선고 판례는 "제N조"가 옛 번호 체계 →
+        # 숫자 추출 제외, 번호 재편과 무관한 죄명 키워드 매핑만 사용
+        if is_pre_renumber(parse_ymd(data[cid]['date'])):
+            pre_count += 1
+        else:
+            articles |= extract_road_law_articles(ruling)
         for jo in articles:
             index[jo].append(cid)
 
+    if pre_count:
+        print(f"   ⚖️ 구법(전부개정 이전 선고) 판례 {pre_count}건 — 죄명 키워드만 매핑")
     return {jo: sorted(set(v)) for jo, v in index.items()}, data
 
 
@@ -301,6 +414,7 @@ def parse_topic_doc(path, doc_id):
 
     result = []
     for idx, (title, content) in enumerate(chunks):
+        content = clean_comment_text(content)  # R9-4: 수사실무 등 PDF 변환 잔재 정제
         result.append({
             'doc_id': doc_id,
             'chunk_id': f"{doc_id}-{idx + 1}",
@@ -329,7 +443,11 @@ def load_recent_revised(path):
 
 
 def compute_weight(admin_count, court_count, categories, has_comment, has_recent, max_total):
-    """학습 가치 가중치 (0~1). 행정심판 + 대법원 판례 수 합산."""
+    """학습 가치 가중치 (0~1). 행정심판 + 대법원 판례 수 합산.
+
+    후보 풀은 이미 '해설집 보유' 게이트를 통과한 조문만 → comment_bonus는
+    풀 안에서 항상 1.0(상수)이라 순위에 영향 없음. 점수는 case/category/recent로만 산출.
+    """
     total = admin_count + court_count
     case_score = math.log(total + 1) / math.log(max_total + 1) if max_total > 0 else 0.0
     if categories:
@@ -338,7 +456,7 @@ def compute_weight(admin_count, court_count, categories, has_comment, has_recent
         cat_score = DEFAULT_CATEGORY_PRIORITY
     recent_score = 1.0 if has_recent else 0.0
     comment_bonus = 1.0 if has_comment else 0.0
-    score = 0.4 * case_score + 0.3 * cat_score + 0.2 * recent_score + 0.1 * comment_bonus
+    score = 0.45 * case_score + 0.35 * cat_score + 0.20 * recent_score
     return {
         'case_score': round(case_score, 3),
         'category_score': round(cat_score, 3),
@@ -349,14 +467,27 @@ def compute_weight(admin_count, court_count, categories, has_comment, has_recent
 
 
 def build_article_index(law_index, cases_index, court_index, recent_revised):
-    """현행 법령 후보 조문 풀."""
+    """현행 법령 후보 조문 풀 (R12-A 게이트).
+
+    후보 = 충실한 해설집(800자 이상)을 보유한 조문. 해설집은 경찰청이
+    교통경찰 교육용으로 만든 정식 자료이므로, 판례가 없어도 그것만으로
+    완결된 학습 카드가 된다. 판례 수는 게이트가 아니라 가중치에만 반영 —
+    판례가 풍부한 조문이 더 높은 순위를 받는다.
+    (해설이 빈약한 조문은 제외 — has_comment만으론 학습가치 보장 안 됨.)
+    """
+    MIN_COMMENT = 800
     all_jo = set(law_index) | set(cases_index) | set(court_index)
+    pool_jo = sorted(
+        jo for jo in all_jo
+        if len((law_index.get(jo) or {}).get('content', '')) >= MIN_COMMENT
+    )
+    print(f"   게이트: 전체 {len(all_jo)}개 → 후보 {len(pool_jo)}개 (충실한 해설집 보유)")
     max_total = max(
-        (len(cases_index.get(j, [])) + len(court_index.get(j, [])) for j in all_jo),
+        (len(cases_index.get(j, [])) + len(court_index.get(j, [])) for j in pool_jo),
         default=1,
     )
     result = {}
-    for jo in all_jo:
+    for jo in pool_jo:
         ac = len(cases_index.get(jo, []))
         cc = len(court_index.get(jo, []))
         cat = ARTICLE_CATEGORY.get(jo)
@@ -376,12 +507,79 @@ def build_article_index(law_index, cases_index, court_index, recent_revised):
     return result
 
 
+# ─── 현행 조문 원문 + 연혁 (R9-3) ──────────────────────────────────
+
+def _article_full_text(jo_data):
+    """조문 dict → 조문내용 + 항/호 합친 전문."""
+    parts = [(jo_data.get('조문내용') or '').strip()]
+    for hang in jo_data.get('항', []) or []:
+        ht = (hang.get('항내용') or '').strip()
+        if ht:
+            parts.append(ht)
+        for ho in hang.get('호', []) or []:
+            hot = (ho.get('호내용') or '').strip()
+            if hot:
+                parts.append('  ' + hot)
+    return '\n'.join(p for p in parts if p)
+
+
+def build_law_article_indexes(history_path):
+    """article_history.json → (현행 조문 원문, 조문별 실질 개정 시행일).
+    조문변경여부 메타데이터는 거짓양성이 많아 신뢰 불가 → 버전 간 조문 전문 텍스트를
+    직접 비교해 '실질 변경'만 연혁으로 인정한다 (Codex 설계검증 지적)."""
+    if not history_path or not Path(history_path).exists():
+        print(f"   ⚠️ article_history.json 없음 ({history_path}) — 조문원문·연혁 미생성")
+        return {}, {}
+    try:
+        data = json.loads(Path(history_path).read_text(encoding='utf-8'))
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"   ⚠️ article_history.json 읽기 실패 ({type(e).__name__})")
+        return {}, {}
+    today = datetime.now().strftime('%Y%m%d')
+    versions = data.get('법령', {}).get('법률', {}).get('버전', [])
+    # 시행일자 있고 이미 시행된 버전만 (미래 시행본 제외 — 현행 기준), 시행일 오름차순
+    versions = sorted((v for v in versions if v.get('시행일자') and v['시행일자'] <= today),
+                      key=lambda v: v['시행일자'])
+    if not versions:
+        print("   ⚠️ 시행된 버전 없음 — 조문원문·연혁 미생성")
+        return {}, {}
+    history, prev = {}, {}
+    for v in versions:
+        for key, jo in (v.get('조문') or {}).items():
+            text = _article_full_text(jo)
+            if not text:
+                continue
+            if key in prev and text != prev[key]:
+                history.setdefault(key, []).append(
+                    {'시행일자': v.get('시행일자', ''), '공포일자': v.get('공포일자', '')})
+            prev[key] = text
+    # 현행 조문 원문 = 최신(이미 시행된 마지막) 버전의 조문만 — 폐지·삭제 조문 잔류 방지
+    articles = {}
+    for key, jo in (versions[-1].get('조문') or {}).items():
+        text = _article_full_text(jo)
+        if text:
+            articles[key] = text
+    return articles, history
+
+
+def resolve_article_history_path(arg_value):
+    """article_history.json 경로 — 인자 > 환경변수 > 메인 프로젝트 기본 경로."""
+    if arg_value:
+        return arg_value
+    env = os.environ.get('ARTICLE_HISTORY_PATH')
+    if env:
+        return env
+    return str(SCRIPT_DIR.parent.parent / '도로교통법-한눈에' / 'data' / 'article_history.json')
+
+
 # ─── 메인 ──────────────────────────────────
 
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description='자료 레지스트리 기반 인덱스 빌더 (M2.6)')
     parser.add_argument('--config', type=str, default=str(CONFIG_PATH))
+    parser.add_argument('--article-history', type=str, default=None,
+                        help='article_history.json 경로 (미지정 시 환경변수·기본 경로)')
     args = parser.parse_args()
 
     config = json.loads(Path(args.config).read_text(encoding='utf-8'))
@@ -438,6 +636,12 @@ def main():
         print(f"   제{jo:>5s}조 — w={info['weight_score']:.3f} | "
               f"행정심판 {info['admin_case_count']:>4d} + 대법원 {info['court_case_count']:>3d} | {cats}")
 
+    print("\n📄 현행 조문 원문 + 연혁 (article_history.json)...")
+    law_articles, law_history = build_law_article_indexes(
+        resolve_article_history_path(args.article_history))
+    if law_articles:
+        print(f"   ✅ 현행 조문 {len(law_articles)}개 · 연혁 보유 {len(law_history)}개")
+
     OUTPUT_DIR.mkdir(exist_ok=True)
     ts = datetime.now().isoformat()
     outputs = [
@@ -448,6 +652,8 @@ def main():
         ('court_cases_data.json', {'생성일시': ts, '설명': 'cid → 대법원·하급심 판례 전문', '판례수': len(court_data), '데이터': court_data}),
         ('index_articles.json', {'생성일시': ts, '설명': '현행 법령 후보 풀 + 가중치', '조문수': len(article_index), '조문별': article_index}),
         ('index_topic_docs.json', {'생성일시': ts, '설명': '주제별 실무 문서 청크 (수사실무·사고판례집)', '청크수': len(topic_chunks), '청크': topic_chunks}),
+        ('index_law_articles.json', {'생성일시': ts, '설명': '현행 도로교통법 조문 원문', '조문수': len(law_articles), '조문별': law_articles}),
+        ('index_law_history.json', {'생성일시': ts, '설명': '조문별 실질 개정 시행일 (연혁 주의 판정용)', '조문수': len(law_history), '조문별': law_history}),
     ]
 
     print("\n💾 저장:")
