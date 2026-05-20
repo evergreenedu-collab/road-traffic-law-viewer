@@ -52,7 +52,7 @@ INDEX_LAW_HISTORY = OUTPUT_DIR / 'index_law_history.json'    # 조문별 실질 
 SCHEDULE_PATH = OUTPUT_DIR / 'schedule.json'                 # 날짜→조문 고정 (R8 E)
 INPUT_REVISIONS = SCRIPT_DIR.parent / 'alarm' / 'data' / 'recent_revisions.json'
 
-WEIGHT_POOL_SIZE = 40        # 가중치 상위 K개 풀
+WEIGHT_POOL_SIZE = 200       # 가중치 상위 K개 풀 (Phase 1: 풀 전체 활용 위해 충분히 크게)
 MAX_ADMIN_CASES = 2          # 카드에 최종 노출할 행정심판례 수 (관련성 필터 후)
 MAX_COURT_CASES = 2          # 카드에 최종 노출할 대법원 판례 수 (관련성 필터 후)
 CAND_ADMIN = 5               # 관련성 필터에 넘길 행정심판례 후보 수 (R10-4)

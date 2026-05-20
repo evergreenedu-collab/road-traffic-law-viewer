@@ -527,22 +527,34 @@ def compute_weight(admin_count, court_count, categories, has_comment, has_recent
     }
 
 
-def build_article_index(law_index, cases_index, court_index, recent_revised):
-    """현행 법령 후보 조문 풀 (R12-A 게이트).
+def build_article_index(law_index, cases_index, court_index, recent_revised, law_articles_index):
+    """현행 법령 후보 조문 풀 (R12-A + Phase 1 다중자료원 OR).
 
-    후보 = 충실한 해설집(800자 이상)을 보유한 조문. 해설집은 경찰청이
-    교통경찰 교육용으로 만든 정식 자료이므로, 판례가 없어도 그것만으로
-    완결된 학습 카드가 된다. 판례 수는 게이트가 아니라 가중치에만 반영 —
-    판례가 풍부한 조문이 더 높은 순위를 받는다.
-    (해설이 빈약한 조문은 제외 — has_comment만으론 학습가치 보장 안 됨.)
+    통과 조건 (OR):
+      1) 충실한 해설집(800자 이상) — 기존 R12-A. 해설집만으로 카드 완결.
+      2) 법령 원문 보유 + 판례 1건 이상 — Phase 1 신규. 해설집이
+         일부 벌칙 조문(제148의2 음주가중·제152 무면허처벌 등)을
+         다루지 않아 누락되던 강의 핵심 조문 복구.
+    판례 수는 게이트 후 가중치(weight_score)에 반영된다.
     """
     MIN_COMMENT = 800
-    all_jo = set(law_index) | set(cases_index) | set(court_index)
-    pool_jo = sorted(
-        jo for jo in all_jo
-        if len((law_index.get(jo) or {}).get('content', '')) >= MIN_COMMENT
-    )
-    print(f"   게이트: 전체 {len(all_jo)}개 → 후보 {len(pool_jo)}개 (충실한 해설집 보유)")
+    MIN_CASE_FALLBACK = 1
+    all_jo = set(law_index) | set(cases_index) | set(court_index) | set(law_articles_index)
+
+    def passes_gate(jo):
+        if len((law_index.get(jo) or {}).get('content', '')) >= MIN_COMMENT:
+            return True
+        if jo in law_articles_index:
+            case_total = len(cases_index.get(jo, [])) + len(court_index.get(jo, []))
+            if case_total >= MIN_CASE_FALLBACK:
+                return True
+        return False
+
+    pool_jo = sorted(jo for jo in all_jo if passes_gate(jo))
+    n_full = sum(1 for j in pool_jo if len((law_index.get(j) or {}).get('content', '')) >= MIN_COMMENT)
+    n_fallback = len(pool_jo) - n_full
+    print(f"   게이트: 전체 {len(all_jo)}개 → 후보 {len(pool_jo)}개"
+          f" (해설집 통과 {n_full} + 자료 폴백 {n_fallback})")
     max_total = max(
         (len(cases_index.get(j, [])) + len(court_index.get(j, [])) for j in pool_jo),
         default=1,
@@ -687,8 +699,14 @@ def main():
         else:
             print(f"   ⚠️ 알 수 없는 type: {src['type']}")
 
+    print("\n📄 현행 조문 원문 + 연혁 (article_history.json)...")
+    law_articles, law_history = build_law_article_indexes(
+        resolve_article_history_path(args.article_history))
+    if law_articles:
+        print(f"   ✅ 현행 조문 {len(law_articles)}개 · 연혁 보유 {len(law_history)}개")
+
     recent_revised = load_recent_revised(RECENT_REVISIONS_PATH)
-    article_index = build_article_index(law_index, cases_index, court_index, recent_revised)
+    article_index = build_article_index(law_index, cases_index, court_index, recent_revised, law_articles)
 
     print(f"\n📊 현행 법령 후보 풀: {len(article_index)}개 조문")
     top10 = sorted(article_index.items(), key=lambda kv: -kv[1]['weight_score'])[:10]
@@ -696,12 +714,6 @@ def main():
         cats = ','.join(info['categories']) or '-'
         print(f"   제{jo:>5s}조 — w={info['weight_score']:.3f} | "
               f"행정심판 {info['admin_case_count']:>4d} + 대법원 {info['court_case_count']:>3d} | {cats}")
-
-    print("\n📄 현행 조문 원문 + 연혁 (article_history.json)...")
-    law_articles, law_history = build_law_article_indexes(
-        resolve_article_history_path(args.article_history))
-    if law_articles:
-        print(f"   ✅ 현행 조문 {len(law_articles)}개 · 연혁 보유 {len(law_history)}개")
 
     OUTPUT_DIR.mkdir(exist_ok=True)
     ts = datetime.now().isoformat()
