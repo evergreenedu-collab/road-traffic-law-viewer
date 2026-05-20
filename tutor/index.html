@@ -451,7 +451,33 @@ function renderViewLaw(card) {
   return '<a href="' + esc(link) + '" class="view-law">📖 도로교통법 제' + esc(jo) + '조 본문·연혁 보기 →</a>';
 }
 
+function renderCaseCard(card) {
+  // Phase 2 — 판례 단위 카드. learning_content에 의존하지 않음.
+  const ci = card.case_info || {};
+  const courtClass = (ci.court === '대법원' || ci.court === '하급심') ? 'court' : '';
+  const headerBits = [
+    '<span class="case-no">' + esc(ci.case_no || ci.cid || '') + '</span>',
+    '<span class="case-type ' + courtClass + '">' + esc(ci.court || '판례') + '</span>',
+    ci.category ? '<span class="badge cat">' + esc(ci.category) + '</span>' : '',
+    ci.date ? '<span class="card-date">' + esc(ci.date) + '</span>' : ''
+  ].filter(Boolean).join('');
+  const truncNote = card.excerpt_is_truncated ? ' · 잘림' : '';
+  const link = ci.viewer_link
+    ? '<a href="' + esc(ci.viewer_link) + '" class="view-law" target="_blank">📖 전체 판례 보기 →</a>'
+    : '<span class="card-date">📖 전체 판례 원문은 추후 연동 예정</span>';
+  const preStyle = 'margin:8px 0 0; padding:14px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-size:13px; line-height:1.85; white-space:pre-wrap; word-break:keep-all; font-family:inherit; color:var(--text);';
+  return '<article class="card decree">'
+    + '<div class="card-header">' + headerBits + '</div>'
+    + '<div class="jo-label">⚖️ 판례 · ' + esc(card.case_name || '') + '</div>'
+    + '<div style="margin-top:8px;"><span class="source">📌 원문 일부 발췌 · ' + esc(card.excerpt_source || 'ruling') + truncNote + '</span></div>'
+    + '<pre style="' + preStyle + '">' + esc(card.ruling_excerpt || '') + '</pre>'
+    + '<div style="margin-top:12px;">' + link + '</div>'
+    + '</article>';
+}
+
 function renderCard(card) {
+  // Phase 2: case 카드는 별도 렌더링. card_type 없으면 article 폴백.
+  if (card && card.card_type === 'case') return renderCaseCard(card);
   // 순서(R9): 메인 → 조문 원문 → 법리분석 → 학습포인트
   //          → 관련판례 → 핵심쟁점 → 참고자료 → 법령본문보기
   const lc = card.learning_content || {};
@@ -501,7 +527,7 @@ async function render(date) {
       el.innerHTML = renderEmpty(date, data.reason);
       return;
     }
-    el.innerHTML = renderCard(data.cards[0]);
+    el.innerHTML = data.cards.map(renderCard).join('');
   } catch (e) {
     el.innerHTML = renderError(date, e.message);
   }
