@@ -16,7 +16,7 @@
 출력: tutor/data/daily_YYYY-MM-DD.json — 1건 카드
 
 환경변수:
-  GEMINI_API_KEY (필수), GEMINI_MODEL (기본 gemini-2.5-flash-lite)
+  GEMINI_API_KEY (필수), GEMINI_MODEL (기본 gemini-2.5-flash)
 
 사용법:
   py tutor/build_tutor_content.py --date 2026-05-14            # 1일치
@@ -62,7 +62,7 @@ CASE_CONTEXT_CHARS = 1400    # 판례 1건당 LLM에 넣을 본문 길이
 EPOCH = datetime(2026, 1, 1)
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite').strip()
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash').strip()
 GEMINI_URL = ('https://generativelanguage.googleapis.com/v1beta/'
               'models/{model}:generateContent?key={key}')
 GEMINI_TIMEOUT = 60
@@ -214,25 +214,33 @@ def find_resources(jo, indexes, category=None, jo_title=''):
         if len(court_cases) >= CAND_COURT:
             break
 
-    # 주제 실무자료(수사실무·사고판례집) 청크 매칭 (R13-C, Codex 반영):
-    # 조문을 직접 인용한 청크는 가장 강한 신호 → 무조건 채택. 직접 인용이 없는
-    # 청크는 카테고리·제목 키워드가 둘 다 맞을 때만 채택(점수 ≥2) — 조문과 무관한
-    # 실무자료가 카드에 인용되던 문제(05-15 음주 카드에 어린이보호구역) 차단.
-    title_words = [w for w in re.split(r'[\s·,()/-]+', jo_title or '') if len(w) >= 2]
+    # 주제 실무자료(수사실무·사고판례집) 청크 선정 — 점수식 (R14-1c, Codex 반영):
+    # 직접 인용 +2 / 청크 제목에 조문 제목어 +2 / 카테고리 일치 +1·충돌 -1 /
+    # keywords 3개 이상(여러 주제 잡탕 청크) -1. 합계 2점 이상만 채택(0개 허용).
+    # 범위 표기(range_articles)는 조문군 분류 언급일 뿐이라 가점하지 않는다.
+    # 카테고리는 조문별 품질이 불안정('미분류' 다수)해 보조 신호로만 쓴다.
+    # 임계값 2 — 평가셋 검증에서 3은 미분류 조문(어린이보호구역 등)의 관련
+    # 청크까지 탈락시켰다. 무관 청크는 2에서도 제외됨(피드백 7·8 차단 유지).
+    # 조문 제목어 — 법률 제목 형식어(금지·의무 등)는 너무 넓어 제외 (Codex 반영).
+    _TITLE_STOP = {'금지', '의무', '관리', '지정', '기준', '특례', '제한', '조치'}
+    title_words = [w for w in re.split(r'[\s·,()/-]+', jo_title or '')
+                   if len(w) >= 2 and w not in _TITLE_STOP]
     topic_refs = []
     for chunk in indexes.get('topic_docs', []):
-        if jo in chunk.get('articles', []):       # 조문 직접 인용 — 무조건 채택
-            topic_refs.append((3, chunk))
-            continue
         kws = chunk.get('keywords', []) or []
         ctitle = chunk.get('title', '') or ''
         score = 0
-        if category and category in kws:
-            score += 1
-        elif category and kws and category not in kws:
+        if jo in chunk.get('articles', []):              # 직접·단독 인용
+            score += 2
+        if title_words and any(w in ctitle for w in title_words):  # 제목에 조문 제목어
+            score += 2
+        if category and category != '미분류':            # 카테고리 — 보조 신호
+            if category in kws:
+                score += 1
+            elif kws:
+                score -= 1
+        if len(kws) >= 3:                                # 여러 주제 잡탕 청크 — 약한 감점
             score -= 1
-        if title_words and any(w in ctitle for w in title_words):
-            score += 1
         if score >= 2:
             topic_refs.append((score, chunk))
     topic_refs.sort(key=lambda x: -x[0])
@@ -265,7 +273,7 @@ def call_gemini_api(prompt, temperature=0.2, timeout=GEMINI_TIMEOUT,
     url = GEMINI_URL.format(model=GEMINI_MODEL, key=GEMINI_API_KEY)
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": temperature, "maxOutputTokens": 4096},
+        "generationConfig": {"temperature": temperature, "maxOutputTokens": 16384},
     }
     for attempt in range(max_retries + 1):
         try:
@@ -398,6 +406,14 @@ def generate_learning_content(jo, jo_title, version, resources):
 10. ★case_analysis는 통짜로 쓰지 않는다 — 의미 단위로 문단을 나누고 문단과 문단 사이를
    빈 줄(줄바꿈 2개)로 구분한다. 한 문단은 3~5문장을 넘지 않게 한다. 기간·요건처럼
    열거되는 내용(예: 결격기간 1년/2년/3년/5년 사유)은 각 항목을 줄바꿈해 나열한다.
+11. ★reference_digest — [원본 자료]의 해설집·실무 참고자료 중 이 조문 주제와 직접
+   관련된 자료를 출처별로 2~3문장(150~250자)으로 요약한다. ★단 oneliner·explanation
+   (조문의 기본 설명)과 겹치는 '조문 요약'을 되풀이하지 말고, 그것을 넘어선 추가·심화
+   학습 내용 — 구체적 판례·분쟁 사례·예외·세부 기준 등 — 을 담는다(해설집은 보통
+   조문 요약을 먼저 쓰고 그 뒤에 판례·쟁점을 서술하므로 그 뒷부분을 활용한다).
+   자료에 실제 판례번호가 나오면 요약에 포함한다(없으면 생략, 지어내지 말 것).
+   직접 관련 없는 자료는 배열에 넣지 말고 본문에서도 언급하지 않는다. 관련 자료가
+   없으면 빈 배열 []. 최대 3개. 원문을 그대로 베끼지 말고 읽기 쉽게 정리한다.
 
 [이 카드의 작성 경로]
 {path}
@@ -412,13 +428,16 @@ def generate_learning_content(jo, jo_title, version, resources):
   "oneliner": "조문 핵심 한 줄 (50자 이내, 의무·금지·기준 중심. 개정 내용을 단정 요약하지 말 것)",
   "explanation": "조문 해설 (200자 이내, 해설집 또는 조문 자체 기반. 근거 없는 서술 금지)",
   "source_article": "도로교통법 제{jo}조",
-  "case_analysis": "analysis_type=case면 판례 요약 분석 / commentary면 해설집 기반 학습 해설. 700~1000자. 의미 단위 문단으로 — 문단 사이 빈 줄, 통짜 금지",
+  "case_analysis": "analysis_type=case면 사건별 요약 분석(사건당 300~400자, 사건 수만큼) / commentary면 해설집 기반 학습 해설(600~900자). 의미 단위 문단으로 — 문단 사이 빈 줄, 통짜 금지",
   "teaching_application": "교통안전교육 적용 (150자 이내, 어떤 교육·강의에서 어떻게 활용할지. '교육'·'강의'·'수강생' 등 단어 포함)",
   "related_cases": [
     {{"case_no": "사건번호", "type": "admin 또는 court", "title": "사건 제목·사건명 요약", "result": "결과(인용/기각/유죄/무죄/파기 등)", "lesson": "이 사건의 학습 포인트 1줄 (60자 이내)"}}
   ],
   "key_issues": ["핵심 쟁점 1 (60자 이내)", "핵심 쟁점 2 (60자 이내)"],
-  "study_points": ["강의 활용 포인트 1 (80자 이내)", "강의 활용 포인트 2 (80자 이내)"]
+  "study_points": ["강의 활용 포인트 1 (80자 이내)", "강의 활용 포인트 2 (80자 이내)"],
+  "reference_digest": [
+    {{"source": "자료 출처(예: 도로교통법 해설집 / 교통범죄수사실무연구)", "summary": "이 조문 주제와 직접 관련된 핵심만 2~3문장(150~250자)으로 정리", "relevance": "조문 주제와의 관련성 한 줄"}}
+  ]
 }}
 
 자료가 학습 콘텐츠 작성에 부족하면: {{"status": "skip", "reason": "이유"}}
@@ -455,8 +474,9 @@ def verify_content(generated, jo, resources):
     if expected_jo not in generated['source_article']:
         return f'FAIL_source_article:expected={expected_jo}'
 
-    # case_analysis는 요약체 — 사건당 2~3문장. 한도 1000자 (R9-2)
-    limits = {'oneliner': 90, 'explanation': 320, 'case_analysis': 1000, 'teaching_application': 220}
+    # case_analysis 한도 2000자 — 카드 최대 4건(MAX_ADMIN+COURT) × 사건당 약 400~500자.
+    # flash는 사건별 문단으로 충실히 분석하므로 사건 수에 비례해 길어지는 게 정상.
+    limits = {'oneliner': 90, 'explanation': 320, 'case_analysis': 2000, 'teaching_application': 220}
     for f, lim in limits.items():
         if len(generated.get(f, '')) > lim:
             return f'FAIL_{f}_too_long:{len(generated.get(f, ""))}'
@@ -532,6 +552,28 @@ def verify_content(generated, jo, resources):
     if len(ca_text) >= 400 and '\n\n' not in ca_text:
         return 'FAIL_case_analysis_not_paragraphed'
 
+    # R16: reference_digest — 참고자료 요약(배열). 선택 필드라 None/누락은 빈 배열로
+    # 흡수, list가 아니면 FAIL. 출처(source)·요약(summary)이 없거나, source가 알려진
+    # 자료 종류(해설집·수사실무연구·사고조사판례집)가 아니면 그 항목 제외 — LLM이
+    # 원본에 없는 출처를 지어내는 것 차단. 3개 초과는 절단 (Codex 코드검증 반영).
+    rd = generated.get('reference_digest') or []
+    if not isinstance(rd, list):
+        return 'FAIL_reference_digest_not_list'
+    _SRC_KEYWORDS = ('해설', '수사실무', '실무연구', '사고조사', '판례집')
+    clean_rd = []
+    for item in rd:
+        if not isinstance(item, dict):
+            continue
+        summ = str(item.get('summary', '') or '').strip()
+        src = str(item.get('source', '') or '').strip()
+        if not summ or not src:
+            continue
+        if not any(kw in src for kw in _SRC_KEYWORDS):
+            continue   # 알려진 자료 출처가 아님 — 지어낸 출처로 보고 제외
+        clean_rd.append({'source': src, 'summary': summ[:400],
+                         'relevance': str(item.get('relevance', '') or '').strip()})
+    generated['reference_digest'] = clean_rd[:3]
+
     return 'PASS'
 
 
@@ -586,6 +628,7 @@ def enrich_card(card, jo, jo_title, version, resources):
         'analysis_type': 'case' if rc else 'commentary',
         'key_issues': generated.get('key_issues', []),
         'study_points': generated.get('study_points', []),
+        'reference_digest': generated.get('reference_digest', []),  # R16
     }
     card['llm_status'] = 'ok'
 
@@ -623,10 +666,18 @@ def inject_history_notes(card, jo, resources, law_history):
 
 
 def _case_relevance_score(jo, jo_title, case):
-    """코드 관련성 점수 — 사건명·본문에 조문번호/제목 키워드가 있으면 가점 (R9-5 fallback)."""
+    """코드 관련성 점수 — '도로교통법 … 제N조' 인접 인용 +2, 조문 제목어 +1씩 (R9-5 fallback).
+    R15-2: '도로교통법' 근접을 요구해 '헌법 제12조' 오인을 막고, 가지조문
+    (제N조의M)과 부모조문(제N조)을 정확히 구분한다 (Codex 코드검증 반영)."""
     text = (case.get('case_name', '') + ' ' + case.get('title', '')
             + ' ' + (case.get('full_text', '') or '')[:600])
-    score = 2 if f'제{jo}조' in text else 0
+    sjo = str(jo)
+    if '의' in sjo:
+        main, sub = sjo.split('의', 1)
+        jo_pat = rf'제\s*{main}\s*조의\s*{sub}'
+    else:
+        jo_pat = rf'제\s*{sjo}\s*조(?!의)'
+    score = 2 if re.search(rf'도로교통법.{{0,20}}{jo_pat}', text) else 0
     for word in re.findall(r'[가-힣]{2,}', jo_title or ''):
         if word in text:
             score += 1
@@ -662,12 +713,16 @@ def filter_relevant_cases(jo, jo_title, resources):
                else parsed if isinstance(parsed, list) else None)
         if isinstance(rel, list):
             keep = {str(x).strip() for x in rel}
-    if keep is None:  # LLM 실패·파싱오류 — 코드 점수 상위로 fallback
-        print("    ⚠️ 관련성 필터 실패 — 코드 점수 상위로 fallback")
-        admin = sorted(resources['admin_cases'],
+    if keep is None:  # LLM 실패·파싱오류 — strict fallback (R15-2, Codex 반영)
+        # LLM 필터 실패 시 recall보다 precision 우선 — 코드 점수가 충분한(≥3:
+        # 도교법 제N조 인접 인용 + 조문 제목어 1개 이상) 판례만 통과, 없으면 0건.
+        def _strong(c):
+            return _case_relevance_score(jo, jo_title, c) >= 3
+        admin = sorted([c for c in resources['admin_cases'] if _strong(c)],
                        key=lambda c: -_case_relevance_score(jo, jo_title, c))[:MAX_ADMIN_CASES]
-        court = sorted(resources['court_cases'],
+        court = sorted([c for c in resources['court_cases'] if _strong(c)],
                        key=lambda c: -_case_relevance_score(jo, jo_title, c))[:MAX_COURT_CASES]
+        print(f"    ⚠️ 관련성 필터 실패 — strict fallback: {len(admin) + len(court)}건 통과")
         return {**resources, 'admin_cases': admin, 'court_cases': court}
     # 관련 판례 중 코드 점수 상위로 최종 카드 노출 수만큼만
     admin = sorted([c for c in resources['admin_cases'] if c['case_no'] in keep],

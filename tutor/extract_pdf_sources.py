@@ -78,6 +78,49 @@ FIGURE_CAPTION = re.compile(
     r'\s*(그림\s*\d+\s*[-－–~]\s*\d+(?!\d))\s*'
     r'(?!(?:을|를|이|가|은|는|와|과|의|에|에서|에게|으로|로|도|만|까지|처럼|보다)'
     r'(?=[\s,.)\]」』]|$))')
+# 인라인 각주번호 — 한글/닫는괄호 바로 뒤(공백 없이) 1~3자리 숫자 + ')'.
+# 본문·캡션에 박힌 각주 참조 표기로, 그림 없는 .md에서는 잡음일 뿐 (R14-2).
+# 공백 없이 붙은 것만 — '다음 1)' 같은 번호 항목 오삭제 방지 (Codex 반영).
+INLINE_FOOTNOTE = re.compile(r'(?<=[가-힣)])\d{1,3}\)')
+# 그림 캡션으로 시작하는 줄 — 캡션 번호 뒤가 조사면(본문 참조 '그림 4-24를') 제외 (Codex 반영)
+FIG_LINE = re.compile(
+    r'^그림\s*\d+\s*[-－–~]\s*\d+(?!\d)\s*'
+    r'(?!(?:을|를|이|가|은|는|와|과|의|에|에서|에게|으로|로|도|만|까지|처럼|보다)(?=[\s,.)\]」』]|$))')
+
+
+def split_figure_caption_lines(para):
+    """그림 캡션 줄에서 캡션 제목과 그 뒤 본문을 분리하고 인라인 각주번호를 제거 (R14-2).
+    캡션 줄에 인라인 각주번호가 있으면 그 위치를 캡션|본문 경계로 본다 — PDF에서
+    캡션 뒤에 본문이 이어붙는 구조 대응. 캡션이 괄호 미완으로 다음 줄까지 쪼개진
+    경우(R15-3) 다음 줄을 병합한 뒤 분리한다. 경계 신호가 없으면 분리 못 함(한계)."""
+    fixed = []
+    lines = para.split('\n')
+    i = 0
+    while i < len(lines):
+        ln = lines[i]
+        if FIG_LINE.match(ln):
+            # R15-3: 캡션이 괄호 미완('(' 수 > ')' 수)이면 PDF 줄바꿈으로 쪼개진
+            # 것 — 닫는 괄호가 나올 때까지 다음 줄을 병합(최대 2줄 — OCR로 괄호가
+            # 안 닫히면 본문을 통째로 흡수하지 않게, Codex 반영).
+            merged = 0
+            while (ln.count('(') > ln.count(')')
+                   and i + 1 < len(lines) and merged < 2):
+                i += 1
+                ln += ' ' + lines[i].lstrip()
+                merged += 1
+            fm = INLINE_FOOTNOTE.search(ln)
+            if fm:
+                cap = ln[:fm.start()].rstrip()
+                rest = ln[fm.end():].lstrip()
+                if cap:
+                    fixed.append(cap)
+                if rest:
+                    fixed.append(rest)
+                i += 1
+                continue
+        fixed.append(INLINE_FOOTNOTE.sub('', ln))
+        i += 1
+    return '\n'.join(fixed)
 
 
 def doc_lines(page):
@@ -151,6 +194,7 @@ def extract(doc, kind, body, lh):
                            and re.match(r"\d+\)", para))
             if para and not is_footnote:
                 para = FIGURE_CAPTION.sub(r'\n\1 ', para).strip()
+                para = split_figure_caption_lines(para)   # R14-2
                 out.append(para)
             buf.clear()
         buf_size[0] = 0.0

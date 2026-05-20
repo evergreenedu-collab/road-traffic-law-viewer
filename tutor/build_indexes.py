@@ -46,7 +46,7 @@ ARTICLE_HEADER = re.compile(r'^#{0,4}\s*제\s*(\d+)\s*조(?:의\s*(\d+))?\s*\(([
 # "도로교통법 시행령/시행규칙 제N조"는 사이에 '시행'이 끼어 매칭 안 됨 → 법률 조문만 추출
 ARTICLE_CITATION = re.compile(r'「?\s*도로교통법\s*」?\s*제\s*(\d+)\s*조(?:의\s*(\d+))?')
 
-COMMENT_CONTENT_MAX = 4000
+COMMENT_CONTENT_MAX = 6000
 
 # 2005.5.31 도로교통법 전부개정(법률 제7545호) 시행일 — 조문 번호가 전면 재편된 기준점.
 # 이 날짜 이전 선고 판례의 "제N조"는 옛 번호 체계 → 현행 조문에 숫자로 매핑하면 오류
@@ -129,20 +129,37 @@ def jo_key(main, sub):
     return f"{main}의{sub}" if sub else main
 
 
-_OTHER_LAW = re.compile(r'[가-힣]{2,10}법(?:률)?')
+# 다른 법령 경계 — '법령명 + 제N조' 조합만 경계로 인정 (R15-1a, Codex 반영).
+# '헌법 제12조'는 경계가 되지만 '방법'·'위법' 같은 일반어 단독은 경계가 아니다.
+# 2글자 법령명('헌'이 1글자) + 공백 든 법률명(교통사고처리 특례법 등)은 명시한다 —
+# '[가-힣]{2,20}법'이 못 잡아 그 뒤 조문이 도로교통법 조문으로 오인되던 버그.
+_OTHER_LAW = re.compile(
+    r'(헌법|형법|민법|상법|세법'
+    r'|교통사고처리\s*특례법'
+    r'|특정범죄\s*가중처벌\s*등에\s*관한\s*법률'
+    r'|자동차관리법'
+    r'|[가-힣]{2,20}법(?:률)?)\s*제\s*\d+\s*조')
 _JO_PAT = re.compile(r'제\s*(\d+)\s*조(?:의\s*(\d+))?')
 _ROAD_LAW_MARKER = re.compile(r'「?\s*도로교통법\s*」?(?!\s*시행)')
+# 조문 범위 표기 — '제N조부터 제M조까지', '제N조~제M조', '제N조 내지 제M조'.
+# 범위는 조문군을 분류·언급한 것이지 그 조문을 주제로 다룬 게 아니다 (R14-1a).
+# 양끝이 모두 '조'여야 매칭 — '제N조제1항부터 제3항까지'(항 범위)는 걸리지 않는다.
+_RANGE_PAT = re.compile(
+    r'제\s*(\d+)\s*조(?:의\s*(\d+))?\s*(?:부터|~|∼|내지)\s*제\s*(\d+)\s*조(?:의\s*(\d+))?\s*(?:까지)?')
 
 
 def extract_road_law_articles(text):
-    """텍스트에서 도로교통법(법률) 조문번호만 추출.
+    """텍스트 → (direct, ranged) 도로교통법(법률) 조문번호 집합.
 
-    '도로교통법' 마커 뒤 최대 200자 구간(다른 법령명 등장 전까지)에서
-    '제N조'를 수집한다. 결정문이 법 이름을 한 번 쓰고 조문을 나열하는
-    패턴('「도로교통법」 제2조, 제44조, 제82조')에 대응.
+    direct: '제N조'로 직접·단독 인용된 조문.
+    ranged: '제N조부터 제M조까지' 등 범위 표기에만 등장한 조문(양끝).
+    범위·직접에 모두 나오면 direct 우선. 판례 매핑은 둘을 합쳐 쓰고(기존 동작
+    유지), topic_doc 선정만 direct/ranged를 구분해 가중치를 달리한다 (R14-1).
+
+    '도로교통법' 마커 뒤 최대 200자 구간(다른 법령명 등장 전까지)에서 수집한다.
     시행령·시행규칙 조문은 마커의 negative lookahead로 제외된다.
     """
-    result = set()
+    direct, ranged = set(), set()
     for m in _ROAD_LAW_MARKER.finditer(text):
         # "구 도로교통법"(옛 법 인용) 구간은 제외 — 옛 조문번호가 현행에 오매핑되는 것 차단.
         # 한국 판결문은 폐지·개정 전 법을 인용할 때 반드시 "구 "를 붙이는 관례를 따른다.
@@ -157,20 +174,32 @@ def extract_road_law_articles(text):
         sub = re.search(r'시행\s*(?:령|규칙)', seg)
         if sub:
             cut = min(cut, sub.start())
-        # 다른 법령명이 나오면 그 앞까지만 (도로교통법 자신은 경계 아님)
+        # 다른 법령 조문이 나오면 그 앞까지만 ('법령명 + 제N조' 조합, 도로교통법 제외)
         for lm in _OTHER_LAW.finditer(seg):
-            if not seg[lm.start():lm.end()].endswith('도로교통법'):
+            if lm.group(1) != '도로교통법':
                 cut = min(cut, lm.start())
                 break
-        for jm in _JO_PAT.finditer(seg[:cut]):
+        body = seg[:cut]
+        # 범위 표기 — 양끝 조문을 ranged에 넣고, 그 구간을 공백 마스킹해
+        # 직접 인용 수집(_JO_PAT)에서 제외한다. 가지번호(조의N)를 보존하고
+        # direct와 동일한 구법 문맥 검사를 거친다 (Codex 코드검증 반영).
+        for rm in _RANGE_PAT.finditer(body):
+            rctx = body[max(0, rm.start() - 80):rm.end() + 45]
+            if re.search(r'개정되기\s*전|전부\s*개정|전문\s*개정|현행\s*제\s*\d+\s*조', rctx):
+                continue
+            ranged.add(jo_key(rm.group(1), rm.group(2)))
+            ranged.add(jo_key(rm.group(3), rm.group(4)))
+        body = _RANGE_PAT.sub(lambda mm: ' ' * (mm.end() - mm.start()), body)
+        for jm in _JO_PAT.finditer(body):
             # 이 '제N조' 인용 주변에 구법 표기가 있으면 옛 조문번호 → 제외 (R7-1 보강).
             # 판결문은 옛 법을 '...개정되기 전의 것) 제N조', '제N조(현행 제M조 참조)'
             # 처럼 표기한다 — "구 " 접두어 없이 괄호·참조구로만 표시하는 경우 대응.
-            ctx = seg[max(0, jm.start() - 80):jm.end() + 45]
+            ctx = body[max(0, jm.start() - 80):jm.end() + 45]
             if re.search(r'개정되기\s*전|전부\s*개정|전문\s*개정|현행\s*제\s*\d+\s*조', ctx):
                 continue
-            result.add(jo_key(jm.group(1), jm.group(2)))
-    return result
+            direct.add(jo_key(jm.group(1), jm.group(2)))
+    ranged -= direct
+    return direct, ranged
 
 
 # ─── 파서: 해설집 (law_comment) ──────────────────────────────────
@@ -290,7 +319,8 @@ def parse_admin_cases(path):
         if is_pre_renumber(parse_ymd(case.get('date'))):
             pre_count += 1
             continue
-        article_set = extract_road_law_articles(reasoning)
+        _direct, _ranged = extract_road_law_articles(reasoning)
+        article_set = _direct | _ranged   # 판례 매핑은 직접+범위 합산 (기존 동작 유지)
         if not article_set:
             continue
 
@@ -314,6 +344,24 @@ def parse_admin_cases(path):
 
 # ─── 파서: 대법원·하급심 판례 (court_cases) ──────────────────────────────────
 
+_REF_MARKER = re.compile(r'[\[【]\s*참조\s*조문\s*[\]】]')
+
+
+def cut_court_appendix(ruling):
+    """대법원 판례 색인용 — [참조조문] 부록 이후를 제거 (R15-1b, Codex 반영).
+    [참조조문]은 판결 이유가 아니라 여러 법령 조문을 압축 나열한 메타데이터라
+    조문 매핑을 오염시킨다(타법 조문이 도로교통법 조문으로 오인). [참조조문] 뒤에
+    [판시사항]/[판결요지]가 또 나오면 한 블록에 여러 판례가 뭉친 데이터인데, 그
+    경우에도 [참조조문] 앞(첫 판례 본문)까지만 색인해 뒤 판례 오염을 막고 mixed로
+    알린다. 마커는 [참조 조문]·【참조조문】 등 표기 변형을 허용한다."""
+    m = _REF_MARKER.search(ruling)
+    if not m:
+        return ruling, False
+    pos = m.start()
+    mixed = '[판시사항]' in ruling[pos:] or '[판결요지]' in ruling[pos:]
+    return ruling[:pos].rstrip(), mixed
+
+
 def parse_court_cases(path):
     """판례 통합 텍스트 → 【N】 블록 파싱. 죄명·판결요지로 조문 매핑."""
     text = path.read_text(encoding='utf-8')
@@ -322,6 +370,7 @@ def parse_court_cases(path):
     index = defaultdict(list)
     data = {}
     pre_count = 0
+    mixed_count = 0
 
     for block in blocks:
         block = block.strip()
@@ -358,12 +407,18 @@ def parse_court_cases(path):
         if is_pre_renumber(parse_ymd(data[cid]['date'])):
             pre_count += 1
         else:
-            articles |= extract_road_law_articles(ruling)
+            idx_ruling, mixed = cut_court_appendix(ruling)
+            if mixed:
+                mixed_count += 1
+            _direct, _ranged = extract_road_law_articles(idx_ruling)
+            articles |= _direct | _ranged   # 판례 매핑은 직접+범위 합산
         for jo in articles:
             index[jo].append(cid)
 
     if pre_count:
         print(f"   ⚖️ 구법(전부개정 이전 선고) 판례 {pre_count}건 — 죄명 키워드만 매핑")
+    if mixed_count:
+        print(f"   ⚠️ [참조조문] 뒤 본문 마커 재출현 {mixed_count}건 — 여러 판례 뭉침, cut 보류")
     return {jo: sorted(set(v)) for jo, v in index.items()}, data
 
 
@@ -419,12 +474,14 @@ def parse_topic_doc(path, doc_id):
     result = []
     for idx, (title, content) in enumerate(chunks):
         content = clean_comment_text(content)  # R9-4: 수사실무 등 PDF 변환 잔재 정제
+        direct, ranged = extract_road_law_articles(content)
         result.append({
             'doc_id': doc_id,
             'chunk_id': f"{doc_id}-{idx + 1}",
             'title': title,
             'content': content,
-            'articles': sorted(extract_road_law_articles(content)),
+            'articles': sorted(direct),         # 직접·단독 인용 조문 (R14-1)
+            'range_articles': sorted(ranged),   # 범위 표기로만 등장한 조문
             'keywords': extract_topic_keywords(title + '\n' + content),
         })
     return result

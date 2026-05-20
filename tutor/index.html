@@ -158,22 +158,10 @@ header a { color: #ffe; text-decoration: underline; }
   font-size: 11px; font-weight: 600; color: var(--decree);
   background: #ede9fe; padding: 1px 7px; border-radius: 3px;
 }
-.refs-detail > summary {
-  cursor: pointer; list-style: none; font-size: 13px; line-height: 1.6;
-}
-.refs-detail > summary::-webkit-details-marker { display: none; }
-.refs-detail > summary::before { content: '▶ '; font-size: 10px; color: var(--law); }
-.refs-detail[open] > summary::before { content: '▼ '; }
-.refs-detail[open] > summary .refs-preview { display: none; }
-.refs-preview { color: var(--sub); }
+.refs-rel { font-size: 11px; color: var(--sub); }
 .refs-text {
   margin-top: 6px; font-size: 13px; line-height: 1.75;
   white-space: pre-wrap; word-break: keep-all; color: var(--text);
-}
-.refs-full {
-  margin-top: 8px; padding: 10px 12px; background: var(--bg);
-  border: 1px solid var(--border); border-radius: 6px;
-  max-height: 360px; overflow-y: auto;
 }
 
 .article-raw { border-left-color: var(--sub); }
@@ -267,7 +255,8 @@ function resultClass(r) {
   return 'etc';
 }
 
-// 판례·해설 문단 정리 (판례·참고자료 공용). PDF 변환으로 깨진 줄바꿈을 한 줄로 합친 뒤
+// 문단 정리 — 판례 전문·case_analysis 렌더용 (R16 이후 참고자료엔 미사용).
+// PDF 변환으로 깨진 줄바꿈을 한 줄로 합친 뒤
 // 문장(~다.)·항목 기호 단위로 다시 나눈다. 날짜는 보호 후 복원.
 function formatTextBlock(text) {
   // R12-B: '~다.'마다 자르던 과분할을 폐지. 원본 줄바꿈(문단)은 보존하고,
@@ -282,6 +271,9 @@ function formatTextBlock(text) {
     return '@@D' + (saved.length - 1) + '@@';
   });
   t = t.replace(/[ \t]+/g, ' ');                  // 가로 공백만 정리 (줄바꿈 보존)
+  // 마크다운 헤더(## N. 제목)를 독립 문단으로, '#' 기호 제거 (R14-3: 수사실무 헤더 분리)
+  // 줄 시작 + '#' 뒤 공백 요구 — 본문 중간 '#'를 헤더로 오인하지 않게 (Codex 반영)
+  t = t.replace(/(^|\n)[ \t]*#{1,6}[ \t]+([^\n]+)/g, '\n\n$2\n');
   // 섹션 머리표 — 독립 줄로, 내용은 다음 줄
   t = t.replace(/ *(\[(?:참조조문|참조판례|판시사항|판결요지)\]) */g, '\n\n$1\n');
   t = t.replace(/ +(\[\d{1,2}\] )/g, '\n\n$1');  // [1] [2] 항목 (앞뒤 공백 — 인라인 참조 회피)
@@ -417,34 +409,29 @@ function renderIssues(lc) {
     + '</section>';
 }
 
-// 참고자료 1건 — 짧으면 그대로, 길면 미리보기 + 접기/펼치기로 전문 노출
-function refBlock(srcLabel, titleHtml, fullText) {
-  const full = String(fullText == null ? '' : fullText).trim();
-  if (!full) return '';
-  const body = formatTextBlock(full);   // 문단 줄바꿈 정리 (B2)
-  const head = '<span class="refs-src">' + esc(srcLabel) + '</span>' + (titleHtml ? ' ' + titleHtml : '');
-  if (full.length <= 200) {
-    return '<div class="refs-item">' + head + '<div class="refs-text">' + esc(body) + '</div></div>';
-  }
-  const preview = esc(full.slice(0, 200)) + ' …';
-  return '<details class="refs-item refs-detail">'
-    + '<summary>' + head + ' <span class="refs-preview">' + preview + '</span></summary>'
-    + '<div class="refs-text refs-full">' + esc(body) + '</div></details>';
-}
-
+// 참고자료 요약 — LLM이 해설집·실무자료를 학습용으로 정리한 출처별 요지 (R16).
+// PDF 원문 발췌를 정규식으로 정리해 날것 노출하던 방식을 폐기 — 원문은
+// source_materials에 보존하되 화면에는 LLM 정리본만 쓴다. reference_digest가
+// 없는 구버전 카드는 섹션을 조용히 숨긴다(후방 호환).
 function renderRefs(card) {
-  const sm = card.source_materials || {};
-  const law = sm.law_comment;
-  const topics = sm.topic_docs || [];
-  if (!law && topics.length === 0) return '';
+  const lc = card.learning_content || {};
+  const rd = lc.reference_digest;
+  if (!Array.isArray(rd) || rd.length === 0) return '';
   let inner = '';
-  if (law) inner += refBlock('도로교통법 해설집', '', law);
-  topics.forEach(function(t) {
-    inner += refBlock(t.doc_id || '실무자료', '<strong>' + esc(t.title || '') + '</strong>', t.excerpt);
+  rd.forEach(function(item) {
+    if (!item) return;
+    const summary = String(item.summary == null ? '' : item.summary).trim();
+    if (!summary) return;
+    const src = String(item.source == null ? '' : item.source).trim();
+    const rel = String(item.relevance == null ? '' : item.relevance).trim();
+    inner += '<div class="refs-item">'
+      + (src ? '<span class="refs-src">' + esc(src) + '</span>' : '')
+      + (rel ? ' <span class="refs-rel">' + esc(rel) + '</span>' : '')
+      + '<div class="refs-text">' + esc(summary).replace(/\n/g, '<br>') + '</div></div>';
   });
   if (!inner) return '';
   return '<section class="section refs">'
-    + '<h3>📄 참고 자료 — 해설집·실무연구 PDF 원문 발췌 (정리 미완)</h3>' + inner + '</section>';
+    + '<h3>📚 참고자료 요약</h3>' + inner + '</section>';
 }
 
 function renderArticleText(card) {
