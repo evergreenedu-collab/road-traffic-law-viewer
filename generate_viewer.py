@@ -34,7 +34,7 @@ GROUP_LABELS = {
     "road": "도로교통법 (시행령·시행규칙)",
     "tlspc": "교통사고처리 특례법 (시행령)",
 }
-GROUP_ENABLED = {"road", "tlspc"}   # disabled 해제된 그룹
+GROUP_ENABLED = {"road"}   # disabled 해제된 그룹. tlspc는 viewer JS 단일/2단 분기 보강(S3-1-b-4) 후 활성화
 
 
 import re as _re

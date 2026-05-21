@@ -243,7 +243,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <label>법령</label>
   <select id="lawSel" onchange="onLawChange()" autocomplete="off" title="Phase 3 — 다중 법령">
     <option value="road" selected>도로교통법 (시행령·시행규칙)</option>
-    <option value="tlspc">교통사고처리 특례법 (시행령)</option>
+    <option value="tlspc" disabled>교통사고처리 특례법 (시행령)</option>
     <option value="tkga" disabled>특정범죄 가중처벌법 (준비 중)</option>
     <option value="car_mgmt" disabled>자동차관리법 (준비 중)</option>
     <option value="passenger_transport" disabled>여객자동차 운수사업법 (준비 중)</option>
@@ -303,12 +303,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core.js?v=20260521220549"></script>
-<script src="web_data/data_timeline.js?v=20260521220549"></script>
-<script src="web_data/data_tbl_diff_decree.js?v=20260521220549"></script>
-<script src="web_data/data_tbl_diff_rule.js?v=20260521220549"></script>
-<script src="web_data/data_tbl_pdf.js?v=20260521220549"></script>
-<script src="web_data/data_tbl_history.js?v=20260521220549"></script>
+<script src="web_data/data_core.js?v=20260521221556"></script>
+<script src="web_data/data_timeline.js?v=20260521221556"></script>
+<script src="web_data/data_tbl_diff_decree.js?v=20260521221556"></script>
+<script src="web_data/data_tbl_diff_rule.js?v=20260521221556"></script>
+<script src="web_data/data_tbl_pdf.js?v=20260521221556"></script>
+<script src="web_data/data_tbl_history.js?v=20260521221556"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
