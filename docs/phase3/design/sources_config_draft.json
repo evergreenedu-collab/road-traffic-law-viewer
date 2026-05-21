@@ -1,0 +1,103 @@
+{
+  "_설명": "Phase 3 sources_config.json 초안. 튜터 학습 대상 조문 화이트리스트.",
+  "_위치_권장": "도로교통법-한눈에-tutor/tutor/data/sources_config.json (Stage 4·5에서 통합)",
+  "_정책": "viewer는 법령 전체를 표시. 튜터는 이 화이트리스트의 조문만 학습 카드 생성 대상.",
+
+  "road": {
+    "name": "도로교통법",
+    "law_code": "road",
+    "law_id": "001706",
+    "has_subordinate": true,
+    "study_mode": "all",
+    "_주석": "현행 162개 조문 풀 전체. Phase 2까지 사용된 그대로."
+  },
+
+  "tlspc": {
+    "name": "교통사고처리 특례법",
+    "law_code": "tlspc",
+    "law_id": "(수집 후 확정)",
+    "has_subordinate": false,
+    "study_mode": "all",
+    "_주석": "조문 약 12개로 짧아 전체 학습 대상. 공소권 유무 판정과 12개 중대법규 위반이 핵심."
+  },
+
+  "tkga": {
+    "name": "특정범죄 가중처벌 등에 관한 법률",
+    "law_code": "tkga",
+    "law_id": "001676",
+    "has_subordinate": false,
+    "study_mode": "whitelist",
+    "articles": [
+      {"article": "5의3", "title": "도주차량 운전자의 가중처벌", "topic": "뺑소니"},
+      {"article": "5의11", "title": "위험운전 등 치사상", "topic": "음주·약물 운전 사상"},
+      {"article": "5의13", "title": "어린이보호구역에서의 어린이 치사상", "topic": "민식이법"}
+    ],
+    "_주석": "교통사고 관련 조문 3개만. 나머지 특가법 조문은 비교통이라 학습 제외."
+  },
+
+  "car_mgmt": {
+    "name": "자동차관리법",
+    "law_code": "car_mgmt",
+    "law_id": "001747",
+    "has_subordinate": true,
+    "study_mode": "whitelist",
+    "articles": [
+      {"article": "26", "title": "자동차의 강제 처리", "topic": "방치차량"},
+      {"article": "34", "title": "튜닝의 승인", "topic": "튜닝"},
+      {"article": "35", "title": "튜닝 자동차의 안전 검사", "topic": "튜닝"},
+      {"article": "43", "title": "자동차의 검사", "topic": "정기검사"},
+      {"article": "57", "title": "자동차 정비업자의 의무", "topic": "정비"},
+      {"article": "80", "title": "벌칙", "topic": "처벌"}
+    ],
+    "_주석": "교통안전교육과 연계 가능한 6개 조문 후보. 사용자 확인 필요."
+  },
+
+  "passenger_transport": {
+    "name": "여객자동차 운수사업법",
+    "law_code": "passenger_transport",
+    "has_subordinate": true,
+    "study_mode": "whitelist",
+    "articles": [
+      {"article": "21", "title": "운송사업자의 준수사항", "topic": "사업자 의무"},
+      {"article": "24", "title": "운전업무 종사자격", "topic": "택시·버스 운전자격"},
+      {"article": "26", "title": "운수종사자의 준수사항", "topic": "종사자 의무"},
+      {"article": "87", "title": "사업의 정지·취소", "topic": "행정처분"}
+    ],
+    "_주석": "사업용 운전자 교육 관련 4개 조문 후보."
+  },
+
+  "cargo_transport": {
+    "name": "화물자동차 운수사업법",
+    "law_code": "cargo_transport",
+    "has_subordinate": true,
+    "study_mode": "whitelist",
+    "articles": [
+      {"article": "8", "title": "운송사업자의 준수사항", "topic": "사업자 의무"},
+      {"article": "9", "title": "운수종사자의 준수사항", "topic": "종사자 의무"},
+      {"article": "70", "title": "벌칙", "topic": "처벌"}
+    ],
+    "_주석": "화물운송업 관련 3개 조문 후보."
+  },
+
+  "crim_proc": {
+    "name": "형사소송법",
+    "law_code": "crim_proc",
+    "law_id": "001671",
+    "has_subordinate": false,
+    "study_mode": "whitelist",
+    "articles": [
+      {"article": "199", "title": "수사와 필요한 조사", "topic": "수사 일반"},
+      {"article": "200", "title": "피의자의 출석요구", "topic": "임의수사"},
+      {"article": "200의2", "title": "영장에 의한 체포", "topic": "체포"},
+      {"article": "200의3", "title": "긴급체포", "topic": "긴급체포 (음주 현장)"},
+      {"article": "200의4", "title": "긴급체포와 영장청구기간", "topic": "긴급체포"},
+      {"article": "212", "title": "현행범인의 체포", "topic": "현행범 (음주 단속)"},
+      {"article": "214의2", "title": "체포·구속의 적부심사", "topic": "구속적부심"},
+      {"article": "244의3", "title": "진술거부권 등의 고지", "topic": "피의자 권리"},
+      {"article": "246", "title": "국가소추주의", "topic": "검사의 공소권"},
+      {"article": "247", "title": "기소편의주의", "topic": "기소 재량"},
+      {"article": "258", "title": "고소인 등에 대한 처분고지", "topic": "처분 통지"}
+    ],
+    "_주석": "공소권 있는 사고 처리과정 학습용 11개 조문 후보. 사용자 검증 필요."
+  }
+}
