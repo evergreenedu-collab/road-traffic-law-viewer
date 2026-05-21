@@ -476,7 +476,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 .toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
 .toolbar label{font-size:13px;font-weight:600;color:var(--law);flex-shrink:0}
-.toolbar select{flex:1;min-width:180px;max-width:500px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit}
+.toolbar select{flex:1;min-width:180px;max-width:500px;padding:7px 28px 7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;text-overflow:ellipsis}
 .toolbar select:focus{border-color:var(--law);outline:none}
 .toolbar input{flex:1;min-width:120px;max-width:250px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit}
 .toolbar input:focus{border-color:var(--law);outline:none}
@@ -616,6 +616,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   .toolbar{padding:8px 10px;gap:6px}
   .toolbar label{display:none}
   .toolbar select,.toolbar input{min-width:100px;max-width:none;font-size:14px;padding:8px 10px}
+  .toolbar select{padding-right:28px}
   .tab-switch{width:100%;order:99}
   .tab-btn{flex:1;text-align:center}
   .main{padding:10px}
@@ -730,6 +731,23 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="main" id="content"></div>
 <div class="main" id="historyContent" style="display:none"></div>
+
+<!-- 위로 올라가기 FAB (모바일/긴 페이지에서 유용) — 스크롤 300px 이상이면 표시 -->
+<button id="scrollTopFab" type="button" aria-label="맨 위로" title="맨 위로 (단축키: Home)" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;right:20px;bottom:max(24px,env(safe-area-inset-bottom,0px));width:44px;height:44px;border-radius:50%;border:none;background:var(--law);color:#fff;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.22);z-index:150;opacity:0;pointer-events:none;transition:opacity .22s ease">↑</button>
+<script>
+(function(){
+  const btn=document.getElementById('scrollTopFab');
+  if(!btn) return;
+  const onScroll=()=>{
+    const y = window.pageYOffset || document.documentElement.scrollTop;
+    const show = y > 300;
+    btn.style.opacity = show ? '1' : '0';
+    btn.style.pointerEvents = show ? 'auto' : 'none';
+  };
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+})();
+</script>
 <script>
 // 깜빡임 방지 — URL의 ?tab=history면 첫 페인트 전에 탭 즉시 전환
 (function(){
@@ -780,6 +798,8 @@ let currentTab='compare';
 let currentLawType='법률';
 // 시행령 조키 → [위임받은 법률 조키 목록], 시행규칙 동일 (init에서 1회 빌드)
 let decreeToLaw={}, ruleToLaw={};
+// 시행령·시행규칙 공포일자 → 부칙_시행일 객체 (cascadeData 매칭으로 init에서 1회 빌드)
+let subLawAddendaByPub={시행령:{}, 시행규칙:{}};
 
 // URL의 law 파라미터를 내부 lawType으로 매핑
 //   없음 / 'law' / 'L' → 법률 (기존 ?jo=50 호환)
@@ -831,6 +851,26 @@ function buildReverseIndex(){
       for(const r of (pm.시행규칙_직접||[])) addUnique(ruleToLaw, r.조키, lawJo);
     }
   }
+}
+
+// 시행령·시행규칙 공포일자별 부칙 정보 인덱스 (cascadeData 매칭)
+// 시행령 직접 진입 시 자체 부칙 별도 시행일을 표시하려는 목적
+// 매칭 자료 우선 — 미매칭은 같은 공포일자가 매칭에 없을 때만 추가 (Codex 권장)
+function buildSubLawAddendaIndex(){
+  subLawAddendaByPub={시행령:{}, 시행규칙:{}};
+  const ingest=(arr, lawType, allowOverride)=>{
+    for(const v of (arr||[])){
+      if(!v || !v.공포일자 || !v.부칙_시행일) continue;
+      if(!allowOverride && subLawAddendaByPub[lawType][v.공포일자]) continue;
+      subLawAddendaByPub[lawType][v.공포일자]=v.부칙_시행일;
+    }
+  };
+  for(const ev of (cascadeData.이벤트||[])){
+    ingest(ev.시행령||[], '시행령', false);
+    ingest(ev.시행규칙||[], '시행규칙', false);
+  }
+  ingest(cascadeData.미매칭_시행령||[], '시행령', false);
+  ingest(cascadeData.미매칭_시행규칙||[], '시행규칙', false);
 }
 
 // 주어진 lawType의 모든 조문 옵션을 만든다.
@@ -903,8 +943,40 @@ function switchLawType(newType){
     else render();
   }
 }
+
+// Phase 3 S3-1-b-4-b 후속: 법률 화면의 시행령·시행규칙 카드에서 직접 그 조문 화면으로 점프
+function goToSubArticle(lawType, joKey){
+  if(lawType!=='시행령' && lawType!=='시행규칙'){
+    // 안전망: 알 수 없는 type이면 법률 그대로
+    if(currentLawType!=='법률') switchLawType('법률');
+    const sel=document.getElementById('sel');
+    sel.value=joKey;
+    if(currentTab==='history') renderHistory(); else render();
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  if(!hasLawTypeData(lawType)){
+    showToast('이 법령에는 '+lawType+' 자료가 없습니다');
+    return;
+  }
+  // 사전 확인: 자료에 해당 조문이 있는가? (Codex H 권장 — switchLawType 호출 전에 검사해 실패 시 현재 화면 유지)
+  const _map=getArtMap(lawType);
+  if(!_map[joKey]){
+    showToast('해당 '+lawType+' 조문을 찾을 수 없습니다 (제'+joKey+'조)');
+    return;
+  }
+  // switchLawType이 첫 조문으로 렌더한 뒤, sel.value를 원하는 조문으로 다시 설정해 렌더
+  if(currentLawType!==lawType){
+    switchLawType(lawType);
+  }
+  const sel=document.getElementById('sel');
+  sel.value=joKey;
+  if(currentTab==='history') renderHistory(); else render();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 (function init(){
   buildReverseIndex();
+  buildSubLawAddendaIndex();
   // URL ?law=enf|enr 파라미터로 초기 lawType 결정 (없으면 법률 — 기존 ?jo=50 호환)
   const _initUrl = new URL(window.location.href);
   const _lawParam = _initUrl.searchParams.get('law');
@@ -1014,7 +1086,8 @@ function showToast(msg){
   if(!t){
     t = document.createElement('div');
     t.id = 'toast';
-    t.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 20px;border-radius:6px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:1000;opacity:0;transition:opacity .3s;max-width:90vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    // 모바일에서 우측하단 FAB과 시각적 겹침 회피 — bottom 80px로 올림 (FAB 24+44=68 위)
+    t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 20px;border-radius:6px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:1000;opacity:0;transition:opacity .3s;max-width:90vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
     document.body.appendChild(t);
   }
   t.textContent = msg;
@@ -1184,6 +1257,7 @@ function render(){
           <span class="gd-title">${esc(gArt.조문제목||'')}</span>
           <div class="gd-btns">
             <button class="sub-btn" onclick="togFull('${gid}_full','${lawType}','${g.조키}','${g.항||''}')">전체보기</button>
+            <button class="sub-btn" onclick="goToSubArticle('${lawType}','${g.조키}')" title="이 ${lawType} 조문 화면으로 이동">📂 조문 화면</button>
           </div>
         </div>
         <div class="gd-body">${esc(gText)}</div>
@@ -1375,19 +1449,55 @@ function renderSubLawHistory(lawType){
     html+=`<div style="color:var(--sub);padding:20px;font-size:13px;text-align:center;border:1px dashed var(--border);border-radius:8px">이 조문의 전후비교 자료가 없습니다.</div>`;
     el.innerHTML=html; return;
   }
-  html+=`<div style="font-size:13px;color:var(--sub);margin-bottom:12px">총 ${diffs.length}건의 전후비교</div>`;
+  html+=`<div style="font-size:13px;color:var(--sub);margin-bottom:12px">총 ${diffs.length}건의 전후비교 — 카드를 클릭하면 펼쳐집니다</div>`;
   // 최신 공포일 우선
   const sorted=[...diffs].sort((a,b)=>(b.공포일자||'').localeCompare(a.공포일자||''));
   for(let i=0;i<sorted.length;i++){
     const d=sorted[i];
+    const eid=`subev_${i}`;
+    const addenda=subLawAddendaByPub[lawType] && subLawAddendaByPub[lawType][d.공포일자] || null;
+    const addCnt=countAddendaExceptions(addenda);
     html+=`<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)">`;
-    html+=`<div style="padding:10px 14px;background:${lawTypeColor};color:#fff">`;
-    html+=`<span style="font-size:14px;font-weight:700">${fmtD(d.공포일자||'')}</span>`;
-    if(d.시행일자) html+=`<span style="font-size:12px;opacity:.85;margin-left:10px">시행 ${fmtD(d.시행일자)}</span>`;
+    // 헤더 (클릭 토글) — 법률 renderHistory와 동일 패턴
+    html+=`<div style="padding:12px 16px;background:${lawTypeColor};color:#fff;cursor:pointer" onclick="tog('${eid}_detail')">`;
+    html+=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
+    html+=`<span style="font-size:15px;font-weight:700">${fmtD(d.공포일자||'')}</span>`;
+    if(d.변경유형) html+=`<span style="font-size:13px;opacity:.9">${esc(d.변경유형)}</span>`;
+    if(d.시행일자) html+=`<span style="font-size:12px;opacity:.7">시행 ${fmtD(d.시행일자)}</span>`;
+    if(addCnt) html+=`<span style="font-size:11px;padding:1px 6px;background:rgba(254,215,170,.95);color:#9a3412;border-radius:3px;font-weight:600" title="이 개정안 중 일부 조문은 부칙에 의해 별도 시행일을 가집니다">⏰ 부칙 별도시행 ${addCnt}건</span>`;
     html+=`</div>`;
+    html+=`</div>`;
+    // 상세 (펼침)
+    html+=`<div id="${eid}_detail" style="display:none">`;
+    // 부칙 별도 시행 요약 (법률 패턴)
+    if(addenda && (addenda.exceptions||[]).length){
+      const adExs=addenda.exceptions;
+      html+=`<div style="padding:10px 14px;background:#fff7ed;border-left:4px solid #fb923c;border-bottom:1px solid var(--border)">`;
+      html+=`<div style="font-size:12px;font-weight:700;color:#9a3412;margin-bottom:6px">⏰ 이 개정안의 부칙 별도 시행 (${adExs.length}건)</div>`;
+      for(const ex of adExs){
+        const targets=[];
+        for(const a of (ex.articles||[])){
+          const items=(ex.article_items||{})[a]||[];
+          targets.push(items.length?`제${a}조 ${items.join('·')}`:`제${a}조`);
+        }
+        for(const t of (ex.tables||[])) targets.push(`별표 ${t}`);
+        const phr=(ex.raw_phrase||'').replace(/</g,'&lt;');
+        html+=`<div style="font-size:12px;margin:3px 0;color:#7c2d12"><strong>${targets.join(', ')||'(파싱 실패 — 원문 참조)'}</strong> → ${fmtD(ex.effective_date)} 시행`;
+        if(phr) html+=` <details style="display:inline-block;margin-left:6px;vertical-align:middle"><summary style="font-size:11px;color:#9a3412;cursor:pointer">원문</summary><div style="margin-top:4px;padding:6px 8px;background:#fff;border-radius:3px;font-size:11px;color:#451a03;max-width:600px">${phr}</div></details>`;
+        html+=`</div>`;
+      }
+      if(addenda.raw_text){
+        const rt=addenda.raw_text.replace(/</g,'&lt;').replace(/\n/g,'<br>');
+        html+=`<details style="margin-top:6px"><summary style="font-size:11px;color:#9a3412;cursor:pointer;font-weight:500">부칙 전체 원문 보기</summary><div style="margin-top:4px;padding:8px;background:#fff;border-radius:3px;font-size:11px;line-height:1.6;color:#451a03;max-height:300px;overflow-y:auto">${rt}</div></details>`;
+      }
+      html+=`</div>`;
+    }
+    // 전후비교 본문
     html+=`<div style="padding:10px 14px">`;
     html+=renderDiffView(d.이전||'', d.이후||'');
-    html+=`</div></div>`;
+    html+=`</div>`;
+    html+=`</div>`;  // _detail close
+    html+=`</div>`;  // card close
   }
   el.innerHTML=html;
 }
@@ -1413,7 +1523,7 @@ function renderSubLaws(pid,decrees,rulesDirect){
       <span class="sub-title-text">${esc(dArt.조문제목||'')}</span>
       <div class="sub-btns">
         <button class="sub-btn" onclick="event.stopPropagation();togFull('${did}_full','시행령','${d.조키}','${d.항||''}')">전체보기</button>
-
+        <button class="sub-btn" onclick="event.stopPropagation();goToSubArticle('시행령','${d.조키}')" title="이 시행령 조문 화면으로 이동 (연혁·전후비교 확인)">📂 조문 화면</button>
       </div>
     </div>`;
     html+=`<div class="sub-content d-bg" id="${did}_c">${esc(dText)}</div>`;
@@ -1436,7 +1546,7 @@ function renderSubLaws(pid,decrees,rulesDirect){
           <span class="sub-title-text">${esc(rArt.조문제목||'')}</span>
           <div class="sub-btns">
             <button class="sub-btn" onclick="event.stopPropagation();togFull('${rid}_full','시행규칙','${r.조키}','${r.항||''}')">전체보기</button>
-
+            <button class="sub-btn" onclick="event.stopPropagation();goToSubArticle('시행규칙','${r.조키}')" title="이 시행규칙 조문 화면으로 이동">📂 조문 화면</button>
           </div>
         </div>`;
         html+=`<div class="sub-content r-bg" id="${rid}_c">${esc(rText)}</div>`;
@@ -1463,6 +1573,7 @@ function renderSubLaws(pid,decrees,rulesDirect){
       <span class="sub-title-text">${esc(rArt.조문제목||'')} (법률 직접 위임)</span>
       <div class="sub-btns">
         <button class="sub-btn" onclick="event.stopPropagation();togFull('${rid}_full','시행규칙','${r.조키}','${r.항||''}')">전체보기</button>
+        <button class="sub-btn" onclick="event.stopPropagation();goToSubArticle('시행규칙','${r.조키}')" title="이 시행규칙 조문 화면으로 이동">📂 조문 화면</button>
       </div>
     </div>`;
     html+=`<div class="sub-content r-bg" id="${rid}_c">${esc(rText)}</div>`;
