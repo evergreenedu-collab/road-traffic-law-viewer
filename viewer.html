@@ -303,12 +303,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core.js?v=20260521221556"></script>
-<script src="web_data/data_timeline.js?v=20260521221556"></script>
-<script src="web_data/data_tbl_diff_decree.js?v=20260521221556"></script>
-<script src="web_data/data_tbl_diff_rule.js?v=20260521221556"></script>
-<script src="web_data/data_tbl_pdf.js?v=20260521221556"></script>
-<script src="web_data/data_tbl_history.js?v=20260521221556"></script>
+<script src="web_data/data_core.js?v=20260521222525"></script>
+<script src="web_data/data_timeline.js?v=20260521222525"></script>
+<script src="web_data/data_tbl_diff_decree.js?v=20260521222525"></script>
+<script src="web_data/data_tbl_diff_rule.js?v=20260521222525"></script>
+<script src="web_data/data_tbl_pdf.js?v=20260521222525"></script>
+<script src="web_data/data_tbl_history.js?v=20260521222525"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -557,7 +557,9 @@ function render(){
   html+=`<button onclick="copyArticleLink('${jo}')" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" title="이 조문 URL 복사">🔗 링크 복사</button>`;
   html+=`<button onclick="window.print()" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" title="현재 화면 인쇄">🖨️ 인쇄</button>`;
   // 한글 path 전체 인코딩 — 모바일 브라우저는 한글 URL을 자동 인코딩하지 않아 law.go.kr 오류 발생
-  const lawSrcUrl = encodeURI(`https://www.law.go.kr/법령/도로교통법/제${jo}조`);
+  // Phase 3 S3-1-b-4-a: 법령명 동적 (mapData.기준법령.법률.법령명, 없으면 도교법 폴백)
+  const _lawName = (mapData.기준법령 && mapData.기준법령.법률 && mapData.기준법령.법률.법령명) || '도로교통법';
+  const lawSrcUrl = encodeURI(`https://www.law.go.kr/법령/${_lawName}/제${jo}조`);
   html+=`<a href="${lawSrcUrl}" target="_blank" rel="noopener" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);text-decoration:none">📖 원문</a>`;
   html+=`</div>`;
   html+=`</div>`;
@@ -1850,9 +1852,10 @@ function esc(s){
   t=t.replace(/영\s*제(\d+)조(?:의(\d+))?(?:\s*제(\d+)항)?/g, function(match,joNum,joBranch,hangNum){
     const idx=placeholders.length;
     const display=match.trim();
-    // 시행령은 법령정보센터 링크로
+    // 시행령은 법령정보센터 링크로 (Phase 3 S3-1-b-4-a: 시행령 명 동적)
     const joRef='제'+joNum+'조'+(joBranch?'의'+joBranch:'');
-    const url='https://www.law.go.kr/법령/도로교통법+시행령/'+encodeURIComponent(joRef);
+    const _decreeName = (mapData.기준법령 && mapData.기준법령.시행령 && mapData.기준법령.시행령.법령명) || '도로교통법 시행령';
+    const url='https://www.law.go.kr/법령/'+encodeURIComponent(_decreeName)+'/'+encodeURIComponent(joRef);
     placeholders.push('<a href="'+url+'" target="_blank" style="color:var(--decree);text-decoration:underline" title="시행령 '+joRef+'">'+display+'</a>');
     return '___PH'+idx+'___';
   });
