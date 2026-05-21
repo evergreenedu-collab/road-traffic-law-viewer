@@ -679,25 +679,68 @@ def main():
         if not matches:
             print(f"⚠️ {src['id']}: 매칭 파일 없음 (glob: {src['glob']})")
             continue
-        path = matches[-1]  # 이름순 최신
-        print(f"📄 {src['id']} [{src['type']}]: {path.name}")
 
-        if src['type'] == 'law_comment':
-            law_index = parse_law_comment(path)
-            print(f"   ✅ 조문 청크 {len(law_index)}개")
-        elif src['type'] == 'admin_cases':
-            cases_index, cases_excerpts = parse_admin_cases(path)
-            print(f"   ✅ 조문 매핑 {len(cases_index)}개 · 발췌 {len(cases_excerpts)}건")
-        elif src['type'] == 'court_cases':
-            court_index, court_data = parse_court_cases(path)
-            print(f"   ✅ 조문 매핑 {len(court_index)}개 · 판례 {len(court_data)}건")
-        elif src['type'] == 'topic_doc':
-            chunks = parse_topic_doc(path, src['id'])
-            topic_chunks.extend(chunks)
-            with_article = sum(1 for c in chunks if c['articles'])
-            print(f"   ✅ 주제 청크 {len(chunks)}개 (조문 인용 포함 {with_article}개)")
+        # Phase 3 확장: court_cases는 모든 매칭 파일 누적 (신규 자료 별도 파일로 추가 가능).
+        # 그 외 type은 단일 파일 가정 — 여러 매칭이면 마지막만 사용하되 경고.
+        if src['type'] == 'court_cases':
+            files_to_process = matches
         else:
-            print(f"   ⚠️ 알 수 없는 type: {src['type']}")
+            if len(matches) > 1:
+                print(f"   ⚠️ {src['id']}: 여러 파일 매칭 ({len(matches)}개) — 마지막만 사용: {matches[-1].name}")
+            files_to_process = [matches[-1]]
+
+        for path in files_to_process:
+            print(f"📄 {src['id']} [{src['type']}]: {path.name}")
+
+            if src['type'] == 'law_comment':
+                law_index = parse_law_comment(path)
+                print(f"   ✅ 조문 청크 {len(law_index)}개")
+            elif src['type'] == 'admin_cases':
+                cases_index, cases_excerpts = parse_admin_cases(path)
+                print(f"   ✅ 조문 매핑 {len(cases_index)}개 · 발췌 {len(cases_excerpts)}건")
+            elif src['type'] == 'court_cases':
+                new_index, new_data = parse_court_cases(path)
+                added = 0
+                skipped = 0
+                for cid, item in new_data.items():
+                    if cid in court_data:
+                        skipped += 1
+                        continue
+                    court_data[cid] = item
+                    added += 1
+                # 조문별 cid는 누적 (충돌 스킵된 cid 제외)
+                for jo, cids in new_index.items():
+                    valid = [c for c in cids if c in court_data]
+                    court_index.setdefault(jo, []).extend(valid)
+                msg = f"조문 매핑 {len(new_index)}개 · 판례 +{added}건"
+                if skipped:
+                    msg += f" ({skipped}건 사건번호 중복 스킵)"
+                msg += f" (누적 {len(court_data)}건)"
+                print(f"   ✅ {msg}")
+            elif src['type'] == 'topic_doc':
+                chunks = parse_topic_doc(path, src['id'])
+                topic_chunks.extend(chunks)
+                with_article = sum(1 for c in chunks if c['articles'])
+                print(f"   ✅ 주제 청크 {len(chunks)}개 (조문 인용 포함 {with_article}개)")
+            else:
+                print(f"   ⚠️ 알 수 없는 type: {src['type']}")
+
+    # F6 해결 — court_index를 date desc 정렬. 같은 날짜는 cid 오름차순(결정성).
+    # 튜터 build_tutor_content.py:202가 [:CAND_COURT*3]=18건만 후보로 가져가므로,
+    # 최신 판례가 학습 후보에 우선 진입.
+    def _court_date_key(cid):
+        """date를 YYYYMMDD 8자리로 정규화. '2025.7.8'·'2025-07-18T...'·'2025년 7월 8일'
+        같은 변형 형식도 처리 (Codex 권장 — 데이터 형식 변동에 대비)."""
+        date = (court_data.get(cid, {}) or {}).get('date', '')
+        m = re.search(r'(\d{4})\D*(\d{1,2})\D*(\d{1,2})', str(date))
+        if not m:
+            return '00000000'
+        y, mo, d = m.groups()
+        return f"{y}{mo.zfill(2)}{d.zfill(2)}"
+    court_index = {
+        jo: sorted(sorted(set(cids)), key=_court_date_key, reverse=True)
+        for jo, cids in court_index.items()
+    }
 
     print("\n📄 현행 조문 원문 + 연혁 (article_history.json)...")
     law_articles, law_history = build_law_article_indexes(

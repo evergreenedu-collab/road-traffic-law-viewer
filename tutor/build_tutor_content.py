@@ -37,6 +37,15 @@ from pathlib import Path
 
 import requests
 
+# Phase 2 2b-γ: 판례 페어링 + LLM 정리 (case 카드용)
+from case_pairing import select_paired_case
+from case_llm import generate_case_learning_content
+
+# 평일 운영 모델 (메모리 — 일 단위 인접 페어):
+# 월=조문A · 화=조문A 관련 판례 · 수=조문B · 목=조문B 관련 판례 · 금=조문C 단독
+WEEKDAY_CASE = (1, 3)        # 화·목 — 전날 조문에 페어링된 case 카드
+WEEKDAY_ARTICLE = (0, 2, 4)  # 월·수·금 — 조문 카드
+
 SCRIPT_DIR = Path(__file__).parent
 OUTPUT_DIR = SCRIPT_DIR / 'data'
 
@@ -49,6 +58,7 @@ INDEX_ARTICLES = OUTPUT_DIR / 'index_articles.json'
 INDEX_TOPIC = OUTPUT_DIR / 'index_topic_docs.json'
 INDEX_LAW_ARTICLES = OUTPUT_DIR / 'index_law_articles.json'  # 현행 조문 본문
 INDEX_LAW_HISTORY = OUTPUT_DIR / 'index_law_history.json'    # 조문별 실질 개정 시행일 (R9-3)
+MEANINGFUL_DIFFS = OUTPUT_DIR / 'meaningful_diffs.json'      # F2 적용된 의미 변경 자료 (S7)
 SCHEDULE_PATH = OUTPUT_DIR / 'schedule.json'                 # 날짜→조문 고정 (R8 E)
 INPUT_REVISIONS = SCRIPT_DIR.parent / 'alarm' / 'data' / 'recent_revisions.json'
 
@@ -59,6 +69,8 @@ CAND_ADMIN = 5               # 관련성 필터에 넘길 행정심판례 후보
 CAND_COURT = 6               # 관련성 필터에 넘길 대법원 판례 후보 수 (R10-4)
 MAX_TOPIC_CHUNKS = 2         # LLM 컨텍스트에 넣을 주제 실무자료 청크 수
 CASE_CONTEXT_CHARS = 1400    # 판례 1건당 LLM에 넣을 본문 길이
+MAX_HISTORY_CHANGES = 5      # S7: 카드에 넣을 조문 연혁 변화 수 (최신순)
+HISTORY_KEYWORD_LIMIT = 4    # S7: 변화당 추가/삭제 키워드 수
 EPOCH = datetime(2026, 1, 1)
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
@@ -108,6 +120,17 @@ def load_indexes():
             return json.loads(path.read_text(encoding='utf-8')).get(root, default)
         print(f"  ⚠️ {path.name} 없음")
         return default
+    # S7: 의미 변경 자료 로드 — meaningful_diffs.json의 '법률' 섹션. 없으면 {} fallback.
+    meaningful_diffs = {}
+    if MEANINGFUL_DIFFS.exists():
+        try:
+            md = json.loads(MEANINGFUL_DIFFS.read_text(encoding='utf-8'))
+            meaningful_diffs = md.get('법률', {}) or {}
+        except (json.JSONDecodeError, OSError):
+            print("  ⚠️ meaningful_diffs.json 손상 — 연혁 변화 컨텍스트 미사용")
+    else:
+        print("  ℹ️ meaningful_diffs.json 없음 — 연혁 변화 컨텍스트 미사용")
+
     idx = {
         'law': _load(INDEX_LAW, '조문별', {}),
         'cases': _load(INDEX_CASES, '조문별', {}),
@@ -118,6 +141,7 @@ def load_indexes():
         'topic_docs': _load(INDEX_TOPIC, '청크', []),
         'law_articles': _load(INDEX_LAW_ARTICLES, '조문별', {}),
         'law_history': _load(INDEX_LAW_HISTORY, '조문별', {}),
+        'meaningful_diffs': meaningful_diffs,   # S7
         'revisions': None,
     }
     if INPUT_REVISIONS.exists():
@@ -142,27 +166,98 @@ def save_schedule(schedule):
 
 # ─── 선정 (하루 1건) ──────────────────────────────────────────────
 
-def select_card_for_date(articles, target_date, schedule, pool_size=WEIGHT_POOL_SIZE):
-    """날짜→조문 선정 (R8 E). schedule.json에 한 번 배정되면 인덱스가 바뀌어도 고정.
+def _select_article_stride(articles, target_date, schedule, pool_size=WEIGHT_POOL_SIZE):
+    """가중치 상위 풀에서 보폭 순회로 결정론적 article 선정 (Phase 1 기존 로직)."""
+    pool = sorted(articles.items(), key=lambda kv: -kv[1].get('weight_score', 0))[:pool_size]
+    n = len(pool)
+    days = (target_date - EPOCH).days
+    stride = 7
+    while stride > 1 and math.gcd(stride, n) != 1:
+        stride -= 1
+    return pool[(days * stride) % n][0]
 
-    신규 날짜는 가중치 상위 풀에서 보폭(stride) 순회로 결정론적 배정 —
-    연속한 날짜가 가중치 인접 조문에 쏠리지 않게 흩어 순회.
-    """
-    if not articles:
+
+def _extract_prev_jo(target_date, articles, schedule, pool_size):
+    """전날 article의 jo. 전날 schedule에 없으면 deterministic resolve (단 schedule엔 저장 안 함)."""
+    prev_date = target_date - timedelta(days=1)
+    prev_key = prev_date.strftime('%Y-%m-%d')
+    existing = schedule.get(prev_key)
+    if isinstance(existing, str) and existing in articles:
+        return existing
+    if isinstance(existing, dict):
+        jo = existing.get('article')
+        if jo and jo in articles:
+            return jo
+    # 전날 미배정 — stride 알고리즘으로 deterministic resolve
+    jo = _select_article_stride(articles, prev_date, schedule, pool_size)
+    if jo in articles:
+        return jo
+    return None
+
+
+def _extract_recent_case_history(schedule, target_date, lookback_days=14):
+    """recent_history: 최근 N일 case 카드의 (source, case_no) 튜플 set.
+    case_pairing.select_paired_case가 중복 회피용으로 사용."""
+    history = []
+    for d in range(1, lookback_days + 1):
+        prev = (target_date - timedelta(days=d)).strftime('%Y-%m-%d')
+        entry = schedule.get(prev)
+        if isinstance(entry, dict) and entry.get('type') == 'case':
+            source = entry.get('source')
+            case_no = entry.get('case_no')
+            if source and case_no:
+                history.append((source, case_no))
+    return history
+
+
+def _try_case_selection(target_date, articles, schedule, indexes, pool_size):
+    """화·목 — 전날 조문에 페어링된 case 선정. 실패 시 None (호출부에서 article fallback)."""
+    prev_jo = _extract_prev_jo(target_date, articles, schedule, pool_size)
+    if not prev_jo:
         return None
-    key = target_date.strftime('%Y-%m-%d')
-    jo = schedule.get(key)
-    if not jo or jo not in articles:
-        pool = sorted(articles.items(), key=lambda kv: -kv[1].get('weight_score', 0))[:pool_size]
-        n = len(pool)
-        days = (target_date - EPOCH).days
-        stride = 7
-        while stride > 1 and math.gcd(stride, n) != 1:
-            stride -= 1
-        jo = pool[(days * stride) % n][0]
-        schedule[key] = jo  # 신규 배정 — 이후 인덱스가 바뀌어도 이 날짜는 이 조문 고정
+    jo_entry = articles.get(prev_jo, {})
+    jo_title_entry = indexes['law'].get(prev_jo, {})
+    jo_title = jo_title_entry.get('title', '') if isinstance(jo_title_entry, dict) else ''
+
+    # case_pairing이 받는 자료 형식 준비
+    excerpts = indexes['excerpts']
+    court_data = indexes['court_data']
+    admin_cases = []
+    for cn in (indexes['cases'].get(prev_jo, []) or []):
+        ex = excerpts.get(cn)
+        if not ex:
+            continue
+        admin_cases.append({**ex, 'case_no': cn})
+    court_cases_dict = {cid: court_data[cid]
+                        for cid in (indexes['court_index'].get(prev_jo, []) or [])
+                        if cid in court_data}
+
+    recent_history = _extract_recent_case_history(schedule, target_date)
+    case_result = select_paired_case(prev_jo, target_date.strftime('%Y-%m-%d'),
+                                     admin_cases, court_cases_dict, recent_history)
+    if not case_result:
+        return None
+    return {
+        'card_type': 'case',
+        'jo': prev_jo,
+        'jo_title': jo_title,
+        'info': jo_entry,
+        'case': case_result,
+        'basis': {
+            'weight_score': jo_entry.get('weight_score', 0) if isinstance(jo_entry, dict) else 0,
+            'category': case_result.get('category', '미분류'),
+            'paired_article': prev_jo,
+            'priority_matched': case_result.get('priority_matched', False),
+            'admin_case_count': jo_entry.get('admin_case_count', 0) if isinstance(jo_entry, dict) else 0,
+            'court_case_count': jo_entry.get('court_case_count', 0) if isinstance(jo_entry, dict) else 0,
+        },
+    }
+
+
+def _make_article_selection(jo, articles):
     info = articles[jo]
     return {
+        'card_type': 'article',
         'jo': jo,
         'info': info,
         'basis': {
@@ -172,6 +267,54 @@ def select_card_for_date(articles, target_date, schedule, pool_size=WEIGHT_POOL_
             'court_case_count': info.get('court_case_count', 0),
         },
     }
+
+
+def select_card_for_date(articles, target_date, schedule, indexes=None, pool_size=WEIGHT_POOL_SIZE):
+    """Phase 2 2b-γ: 평일 5장 운영 모델.
+    월·수·금 = article, 화·목 = case 페어링 (실패 시 article fallback).
+    기존 schedule 형식(string jo)·신규 형식(dict {type, article, source, case_no}) 둘 다 호환."""
+    if not articles:
+        return None
+    key = target_date.strftime('%Y-%m-%d')
+    existing = schedule.get(key)
+
+    # 기존 dict (이미 case 또는 article로 지정)
+    if isinstance(existing, dict):
+        if existing.get('type') == 'case' and indexes is not None:
+            sel = _try_case_selection(target_date, articles, schedule, indexes, pool_size)
+            if sel:
+                return sel
+            # case 자료가 사라진 경우 fallback to article (jo는 그대로)
+            jo = existing.get('article')
+            if jo and jo in articles:
+                return _make_article_selection(jo, articles)
+        elif existing.get('type') == 'article':
+            jo = existing.get('article')
+            if jo and jo in articles:
+                return _make_article_selection(jo, articles)
+
+    # 기존 string 형식 (Phase 1·R8 E 호환)
+    if isinstance(existing, str) and existing in articles:
+        return _make_article_selection(existing, articles)
+
+    # 신규 배정 — 요일에 따라 case 또는 article
+    weekday = target_date.weekday()
+    if weekday in WEEKDAY_CASE and indexes is not None:
+        sel = _try_case_selection(target_date, articles, schedule, indexes, pool_size)
+        if sel:
+            schedule[key] = {
+                'type': 'case',
+                'article': sel['jo'],
+                'source': sel['case']['source'],
+                'case_no': sel['case']['case_no'],
+            }
+            return sel
+        # 페어링 실패 → article로 fallback (조용히)
+
+    # 월·수·금 또는 case fallback → article 신규 배정
+    jo = _select_article_stride(articles, target_date, schedule, pool_size)
+    schedule[key] = jo   # 기존 형식 호환 — string으로 저장
+    return _make_article_selection(jo, articles)
 
 
 def find_resources(jo, indexes, category=None, jo_title=''):
@@ -246,22 +389,89 @@ def find_resources(jo, indexes, category=None, jo_title=''):
     topic_refs.sort(key=lambda x: -x[0])
     topic_docs = [c for _, c in topic_refs[:MAX_TOPIC_CHUNKS]]
 
+    # S7: 조문 연혁 변화 — meaningful_diffs.json에서 해당 조문의 의미 있는 변화 추출.
+    # F2 적용된 자료라 옛 의미는 이미 제외됨. 최신 MAX_HISTORY_CHANGES건만 선택.
+    history_changes = []
+    md_entries = indexes.get('meaningful_diffs', {}).get(jo, [])
+    if md_entries:
+        sorted_md = sorted(md_entries, key=lambda r: r.get('공포일자', ''), reverse=True)
+        def _meaningful_kw(kws):
+            out = []
+            for k in kws or []:
+                if re.fullmatch(r'\d+', str(k)):
+                    continue
+                if k in ('개정', '신설', '삭제', '본조'):
+                    continue
+                out.append(str(k))
+                if len(out) >= HISTORY_KEYWORD_LIMIT:
+                    break
+            return out
+        # Codex 권장 3: 키워드 비어있는 항목은 후순위 — 학습 가치 낮은 라인 회피.
+        # 1차로 충분한 키워드 있는 변화부터 채우고, 부족하면 빈 키워드 변화로 채움.
+        candidates = []
+        for r in sorted_md:
+            added_kw = _meaningful_kw(r.get('주요추가', []))
+            removed_kw = _meaningful_kw(r.get('주요삭제', []))
+            candidates.append({
+                '공포일자': r.get('공포일자', ''),
+                '변경유형': r.get('변경유형', ''),
+                '추가어': added_kw,
+                '삭제어': removed_kw,
+                '_has_kw': bool(added_kw or removed_kw),
+            })
+        with_kw = [c for c in candidates if c['_has_kw']][:MAX_HISTORY_CHANGES]
+        if len(with_kw) < MAX_HISTORY_CHANGES:
+            without = [c for c in candidates if not c['_has_kw']]
+            with_kw.extend(without[:MAX_HISTORY_CHANGES - len(with_kw)])
+        for c in with_kw:
+            c.pop('_has_kw', None)
+            history_changes.append(c)
+
     return {
         'law_comment': law_comment,
         'admin_cases': admin_cases,
         'court_cases': court_cases,
         'topic_docs': topic_docs,
+        'history_changes': history_changes,   # S7
     }
 
 
-def find_recent_revision(jo, revisions):
+def _normalize_date(d):
+    """날짜를 YYYYMMDD 8자리로 정규화. 형식 깨지면 None (조용히 통과 방지)."""
+    if d is None:
+        return None
+    if not isinstance(d, str):
+        try:
+            return d.strftime('%Y%m%d')
+        except AttributeError:
+            return None
+    s = re.sub(r'\D', '', d)   # 숫자만 추출
+    return s if re.fullmatch(r'\d{8}', s) else None
+
+
+def find_recent_revision(jo, revisions, target_date=None):
+    """target_date 시점 기준 이미 시행된 개정 중 가장 최근 것을 반환 (F1).
+    조문시행일자 우선(부칙별도시행일 대응), 없으면 버전 시행일자.
+    Codex 권장: 후보 모아 eff 내림차순 정렬해서 첫 항목 — 정렬 전제 안전화."""
     if not revisions:
         return None, None
+    target_str = _normalize_date(target_date)
+    candidates = []
     for v in revisions.get('버전들', []):
+        v_eff = v.get('시행일자', '') or ''
         for art in v.get('변경조문', []):
-            if art.get('매핑법률조문') == jo:
-                return v, art
-    return None, None
+            if art.get('매핑법률조문') != jo:
+                continue
+            eff = (art.get('조문시행일자') or v_eff or '').strip()
+            eff_norm = _normalize_date(eff)
+            if target_str and eff_norm and eff_norm > target_str:
+                continue   # 미래 시행 예정 — 카드 날짜엔 아직 적용되지 않음
+            candidates.append((eff_norm or '00000000', v, art))
+    if not candidates:
+        return None, None
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    _, v, art = candidates[0]
+    return v, art
 
 
 # ─── Gemini API ──────────────────────────────────────────────
@@ -313,6 +523,22 @@ def _strip_codeblock(text):
     return re.sub(r'^```(?:json)?\s*|\s*```$', '', text.strip(), flags=re.MULTILINE).strip()
 
 
+def _trim_to_sentence(text, max_len):
+    """max_len 초과 시 마지막 문장 종결 부호(. ? ! 。)까지만 보존.
+    종결 부호가 max_len의 절반(50%) 이전에만 있으면 그냥 max_len에서 자름 — 너무 짧게 자르지 않기."""
+    if not isinstance(text, str) or len(text) <= max_len:
+        return text
+    trimmed = text[:max_len]
+    best = -1
+    for ch in ('.', '。', '!', '?', '?'):
+        idx = trimmed.rfind(ch)
+        if idx > best:
+            best = idx
+    if best >= max_len * 0.5:
+        return trimmed[:best + 1]
+    return trimmed
+
+
 # ─── 콘텐츠 생성 (보수화 프롬프트) ──────────────────────────────────────────────
 
 def _build_context(jo, jo_title, version, resources):
@@ -361,6 +587,26 @@ def _build_context(jo, jo_title, version, resources):
             "[실무 참고자료 (수사실무연구·사고조사판례집)]\n"
             "(실무 쟁점·사례 참고용. 사건번호 인용 대상 아님)\n"
             + '\n\n'.join(blocks)
+        )
+
+    # S7: 조문 연혁 변화 — 현행 의미 시점 이후의 의미 있는 변화만 (F2 적용 자료)
+    if resources.get('history_changes'):
+        change_lines = []
+        for h in resources['history_changes']:
+            date = h.get('공포일자', '?')
+            # YYYYMMDD → YYYY.MM.DD
+            if isinstance(date, str) and len(date) == 8 and date.isdigit():
+                date = f"{date[:4]}.{date[4:6]}.{date[6:8]}"
+            line = f"- {date} {h.get('변경유형', '')}"
+            if h.get('추가어'):
+                line += f" / 추가: {', '.join(h['추가어'])}"
+            if h.get('삭제어'):
+                line += f" / 삭제: {', '.join(h['삭제어'])}"
+            change_lines.append(line)
+        parts.append(
+            "[조문 연혁 변화 — 현행 의미 시점 이후의 의미 있는 개정]\n"
+            "(아래 변화 중에서만 history_evolution을 작성. 다른 시점·다른 조문 인용 금지)\n"
+            + '\n'.join(change_lines)
         )
 
     return '\n\n'.join(parts)
@@ -414,6 +660,11 @@ def generate_learning_content(jo, jo_title, version, resources):
    자료에 실제 판례번호가 나오면 요약에 포함한다(없으면 생략, 지어내지 말 것).
    직접 관련 없는 자료는 배열에 넣지 말고 본문에서도 언급하지 않는다. 관련 자료가
    없으면 빈 배열 []. 최대 3개. 원문을 그대로 베끼지 말고 읽기 쉽게 정리한다.
+12. ★history_evolution — [조문 연혁 변화] 섹션이 제공된 경우에만 작성한다.
+   그 섹션에 제시된 변경 중 학습 가치가 가장 높은 1~2개를 골라
+   "언제 무엇이 어떻게 바뀌었는지" 200자 이내로 요약한다. 예: "2018-12-24
+   혈중알코올농도 처벌기준이 0.05%→0.03%로 강화(윤창호법)". 섹션에 없는 시점·다른
+   조문 개정은 절대 인용하지 않는다. 섹션이 없거나 비어 있으면 빈 문자열 "".
 
 [이 카드의 작성 경로]
 {path}
@@ -437,7 +688,8 @@ def generate_learning_content(jo, jo_title, version, resources):
   "study_points": ["강의 활용 포인트 1 (80자 이내)", "강의 활용 포인트 2 (80자 이내)"],
   "reference_digest": [
     {{"source": "자료 출처(예: 도로교통법 해설집 / 교통범죄수사실무연구)", "summary": "이 조문 주제와 직접 관련된 핵심만 2~3문장(150~250자)으로 정리", "relevance": "조문 주제와의 관련성 한 줄"}}
-  ]
+  ],
+  "history_evolution": "조문 연혁 변화 섹션이 있을 때만 200자 이내 — 학습 가치 큰 1~2개 변화 (언제·무엇이·어떻게). 섹션 없거나 비어 있으면 \"\""
 }}
 
 자료가 학습 콘텐츠 작성에 부족하면: {{"status": "skip", "reason": "이유"}}
@@ -570,9 +822,47 @@ def verify_content(generated, jo, resources):
             continue
         if not any(kw in src for kw in _SRC_KEYWORDS):
             continue   # 알려진 자료 출처가 아님 — 지어낸 출처로 보고 제외
-        clean_rd.append({'source': src, 'summary': summ[:400],
+        # 길이 초과 시 마지막 문장 종결 부호까지만 — 문장 중간 잘림 방지 (피드백 2026-05-21)
+        trimmed = _trim_to_sentence(summ, 400)
+        clean_rd.append({'source': src, 'summary': trimmed,
                          'relevance': str(item.get('relevance', '') or '').strip()})
     generated['reference_digest'] = clean_rd[:3]
+
+    # S7: history_evolution 검증 — 신규 필드. 누락은 ''로 보정 (graceful).
+    # 길이 250자 한도. 자료에 없는 날짜 인용 차단.
+    he = generated.get('history_evolution')
+    if he is None or not isinstance(he, str):
+        he = ''
+    he = he.strip()
+    if len(he) > 250:
+        return f'FAIL_history_evolution_too_long:{len(he)}'
+    if he and resources.get('history_changes'):
+        # 허용 날짜를 YYYYMMDD 8자리로 통일
+        allowed = set()
+        for h in resources['history_changes']:
+            d = re.sub(r'\D', '', str(h.get('공포일자', '')))[:8]
+            if len(d) == 8:
+                allowed.add(d)
+        # he에서 날짜 형식 추출 (비제로패딩·한글 날짜·구분자 변형 모두 처리)
+        cited_raw = re.findall(
+            r'(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})|\b(\d{8})\b', he)
+        cited_norm = set()
+        for tup in cited_raw:
+            if tup[3]:
+                cited_norm.add(tup[3])
+            elif tup[0]:
+                y, mo, d = tup[0], tup[1].zfill(2), tup[2].zfill(2)
+                cited_norm.add(f"{y}{mo}{d}")
+        # Codex 권장 2: he가 채워졌으면 최소 1개 날짜 인용 요구
+        if not cited_norm:
+            return 'FAIL_history_evolution_no_date'
+        for c in cited_norm:
+            if c not in allowed:
+                return f'FAIL_history_evolution_uncited_date:{c}'
+    elif he and not resources.get('history_changes'):
+        # 연혁 변화 자료 없는데 history_evolution이 채워졌으면 의심 → 비우기
+        he = ''
+    generated['history_evolution'] = he
 
     return 'PASS'
 
@@ -629,6 +919,7 @@ def enrich_card(card, jo, jo_title, version, resources):
         'key_issues': generated.get('key_issues', []),
         'study_points': generated.get('study_points', []),
         'reference_digest': generated.get('reference_digest', []),  # R16
+        'history_evolution': generated.get('history_evolution', ''),  # S7
     }
     card['llm_status'] = 'ok'
 
@@ -733,12 +1024,64 @@ def filter_relevant_cases(jo, jo_title, resources):
     return {**resources, 'admin_cases': admin, 'court_cases': court}
 
 
-def build_card(selection, indexes, use_llm=True):
+def build_case_card(selection, indexes, target_date=None, use_llm=True):
+    """Phase 2 2b-γ: 판례 카드 빌드. case_llm으로 6필드 학습 콘텐츠 생성.
+    페어링된 article 조문 정보(jo, jo_title)를 같이 노출 — '하루 주제 통일'."""
+    case = selection['case']
+    paired_jo = selection['jo']
+    paired_title = selection.get('jo_title', '')
+    source = case['source']
+    case_no = case['case_no']
+    case_data = case['case_data']
+
+    card = {
+        'card_id': 'card-1',
+        'rank': 1,
+        'card_type': 'case',
+        'selection_basis': selection['basis'],
+        'paired_article': {
+            '매핑법률조문': paired_jo,
+            '매핑법률조문제목': paired_title,
+            'viewer_link': f'../viewer.html?jo={paired_jo}',
+            'article_text': indexes['law_articles'].get(paired_jo, ''),
+        },
+        'case_info': {
+            'source': source,
+            'case_no': case_no,
+            'category': case.get('category'),
+            'priority_matched': case.get('priority_matched', False),
+            'court': case_data.get('court', ''),
+            'date': case_data.get('date', ''),
+            'case_name': case_data.get('case_name') or case_data.get('title', ''),
+            'result': case_data.get('result', ''),
+        },
+        'case_full_text': (case_data.get('ruling') or case_data.get('reasoning') or ''),
+    }
+
+    if use_llm and GEMINI_API_KEY:
+        print(f"  🤖 case 카드 LLM 호출 (제{paired_jo}조 페어링: {source} {case_no})", flush=True)
+        lc = generate_case_learning_content(case_data, source, paired_jo, paired_title)
+        if lc:
+            card['learning_content'] = lc
+            card['llm_status'] = 'ok'
+            print(f"    ✅ 6필드 생성 완료", flush=True)
+        else:
+            card['llm_status'] = 'skip_call_failed'
+    else:
+        card['llm_status'] = 'skipped_by_flag' if not use_llm else 'skip_no_api_key'
+    return card
+
+
+def build_card(selection, indexes, target_date=None, use_llm=True):
+    # Phase 2 2b-γ: card_type 분기. case 카드는 별도 빌드.
+    if selection.get('card_type') == 'case':
+        return build_case_card(selection, indexes, target_date, use_llm)
+
     jo = selection['jo']
     jo_entry = indexes['law'].get(jo)
     jo_title = jo_entry.get('title', '') if isinstance(jo_entry, dict) else ''
 
-    version, changed = find_recent_revision(jo, indexes['revisions'])
+    version, changed = find_recent_revision(jo, indexes['revisions'], target_date)
     resources = find_resources(jo, indexes, selection['basis'].get('category'), jo_title)
 
     # R9-5: 관련성 사전 필터 — 조문과 직접 관련된 판례만 남김
@@ -766,11 +1109,14 @@ def build_card(selection, indexes, use_llm=True):
         },
     }
     if version:
+        # F1 권장 2: 조문시행일자 우선 (부칙별도시행일 케이스 정확화)
+        effective_date = (changed.get('조문시행일자') if changed else None) or version.get('시행일자')
         card['law_info']['recent_revision'] = {
             '법령유형': version.get('법령유형'),
             '법령명': version.get('법령명'),
             '공포일자': version.get('공포일자'),
-            '시행일자': version.get('시행일자'),
+            '시행일자': effective_date,
+            '버전시행일자': version.get('시행일자'),   # 참조용
             '제개정구분': version.get('제개정구분'),
             '제개정이유_원본': version.get('제개정이유', '').strip(),
         }
@@ -818,7 +1164,7 @@ def build_daily(target_date, indexes, schedule, use_llm=True):
         'date': target_date.strftime('%Y-%m-%d'),
         'generated_at': datetime.now().isoformat(),
         'milestone': 'M2.6',
-        'version': 5,
+        'version': 6,
     }
     # A4: 주말(토·일)은 카드 생성 안 함 — 주말엔 휴식
     if target_date.weekday() >= 5:
@@ -829,18 +1175,26 @@ def build_daily(target_date, indexes, schedule, use_llm=True):
         base['reason'] = 'index_articles.json 없음'
         return base
 
-    selection = select_card_for_date(indexes['articles'], target_date, schedule)
+    selection = select_card_for_date(indexes['articles'], target_date, schedule, indexes=indexes)
     if not selection:
         base['status'] = 'skip'
         base['reason'] = '선정 후보 없음'
         return base
 
     b = selection['basis']
-    print(f"\n📅 {target_date.strftime('%Y-%m-%d')} → 제{selection['jo']}조 "
-          f"(w={b['weight_score']:.3f}, {b['category']}, "
-          f"행정심판 {b['admin_case_count']}·대법원 {b['court_case_count']})")
+    card_type = selection.get('card_type', 'article')
+    if card_type == 'case':
+        ci = selection['case']
+        print(f"\n📅 {target_date.strftime('%Y-%m-%d')} → 판례 카드 (제{selection['jo']}조 페어링) "
+              f"| {ci['source']} {ci['case_no']} | priority_matched={ci.get('priority_matched')}")
+    else:
+        print(f"\n📅 {target_date.strftime('%Y-%m-%d')} → 제{selection['jo']}조 "
+              f"(w={b['weight_score']:.3f}, {b['category']}, "
+              f"행정심판 {b['admin_case_count']}·대법원 {b['court_case_count']})")
 
-    card = build_card(selection, indexes, use_llm=use_llm)
+    card = build_card(selection, indexes,
+                      target_date=target_date.strftime('%Y%m%d'),
+                      use_llm=use_llm)
     base['status'] = 'ok'
     base['cards'] = [card]
     return base
@@ -910,12 +1264,22 @@ def main():
     for target, content in results:
         if content.get('status') == 'ok' and content.get('cards'):
             card = content['cards'][0]
-            jo = card['law_info']['매핑법률조문']
             status = card.get('llm_status', '?')
             mark = '✅' if status == 'ok' else '⚠️'
-            line = f"  {mark} {target.strftime('%Y-%m-%d')} 제{jo}조 — {status}"
-            if status == 'ok':
-                line += f" — {card['learning_content']['oneliner']}"
+            # Phase 2 2b-γ: card_type 분기
+            if card.get('card_type') == 'case':
+                ci = card.get('case_info', {})
+                pa = card.get('paired_article', {})
+                line = (f"  {mark} {target.strftime('%Y-%m-%d')} 판례 "
+                        f"제{pa.get('매핑법률조문', '?')}조 페어링 "
+                        f"({ci.get('source')} {ci.get('case_no')}) — {status}")
+            else:
+                jo = card.get('law_info', {}).get('매핑법률조문', '?')
+                line = f"  {mark} {target.strftime('%Y-%m-%d')} 제{jo}조 — {status}"
+            if status == 'ok' and isinstance(card.get('learning_content'), dict):
+                oneliner = card['learning_content'].get('oneliner', '')
+                if oneliner:
+                    line += f" — {oneliner[:80]}"
             print(line)
         else:
             print(f"  ⚠️ {target.strftime('%Y-%m-%d')} — {content.get('status')}")

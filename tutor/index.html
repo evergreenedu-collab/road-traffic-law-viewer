@@ -451,27 +451,92 @@ function renderViewLaw(card) {
   return '<a href="' + esc(link) + '" class="view-law">📖 도로교통법 제' + esc(jo) + '조 본문·연혁 보기 →</a>';
 }
 
+// 카테고리 코드 → 한글 라벨 (case_pairing.py의 ARTICLE_CATEGORY_MAP과 1:1)
+const CATEGORY_KO = {
+  drunk: '음주운전',
+  unlicensed: '무면허',
+  accident: '교통사고',
+  refuse: '음주측정거부',
+  points: '면허·벌점',
+  aptitude: '적성검사',
+  medical: '신체조건',
+  commercial: '사업용',
+  other: '기타'
+};
+
 function renderCaseCard(card) {
-  // Phase 2 — 판례 단위 카드. learning_content에 의존하지 않음.
+  // Phase 2 2b-γ — 판례 단위 카드. learning_content(6필드) 있으면 학습 섹션 + 원문발췌 접힘.
+  // 없으면 발췌 펼침 (뒤로 호환).
   const ci = card.case_info || {};
+  const pa = card.paired_article || {};
+  const lc = card.learning_content || {};
+  const llmOk = card.llm_status === 'ok' && lc.oneliner;
+
   const courtClass = (ci.court === '대법원' || ci.court === '하급심') ? 'court' : '';
+  const catLabel = ci.category ? (CATEGORY_KO[ci.category] || ci.category) : '';
   const headerBits = [
-    '<span class="case-no">' + esc(ci.case_no || ci.cid || '') + '</span>',
+    '<span class="case-no">' + esc(ci.case_no || '') + '</span>',
     '<span class="case-type ' + courtClass + '">' + esc(ci.court || '판례') + '</span>',
-    ci.category ? '<span class="badge cat">' + esc(ci.category) + '</span>' : '',
+    catLabel ? '<span class="badge cat">' + esc(catLabel) + '</span>' : '',
     ci.date ? '<span class="card-date">' + esc(ci.date) + '</span>' : ''
   ].filter(Boolean).join('');
-  const truncNote = card.excerpt_is_truncated ? ' · 잘림' : '';
-  const link = ci.viewer_link
-    ? '<a href="' + esc(ci.viewer_link) + '" class="view-law" target="_blank">📖 전체 판례 보기 →</a>'
-    : '<span class="card-date">📖 전체 판례 원문은 추후 연동 예정</span>';
-  const preStyle = 'margin:8px 0 0; padding:14px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-size:13px; line-height:1.85; white-space:pre-wrap; word-break:keep-all; font-family:inherit; color:var(--text);';
+
+  const pairedJo = pa.매핑법률조문 || '';
+  const pairedTitle = pa.매핑법률조문제목 || '';
+  const pairLabel = pairedJo
+    ? '<div class="jo-label">⚖️ 오늘의 판례 — 어제 학습한 <strong>도로교통법 제' + esc(pairedJo) + '조</strong>「' + esc(pairedTitle) + '」와 관련된 사건</div>'
+    : '<div class="jo-label">⚖️ 오늘의 판례</div>';
+
+  // 6필드 학습 섹션
+  let learning = '';
+  if (llmOk) {
+    const f = function(label, content, cls) {
+      if (!content) return '';
+      const safe = esc(String(content)).replace(/\n/g, '<br>');
+      return '<section class="section ' + (cls || '') + '"><h3>' + label + '</h3>'
+        + '<div style="line-height:1.85; word-break:keep-all;">' + safe + '</div></section>';
+    };
+    // oneliner는 카드 상단 강조
+    learning += '<div style="margin:10px 0 14px; padding:12px 14px; background:#f7f4ed; border-left:4px solid #c89b3c; border-radius:4px; font-size:14.5px; font-weight:600; line-height:1.7; word-break:keep-all;">'
+      + esc(lc.oneliner) + '</div>';
+    learning += f('📋 사실관계', lc.fact_summary, 'main');
+    learning += f('⚖️ 법적 쟁점', lc.legal_issue, 'main');
+    learning += f('✅ 결론·판시', lc.conclusion, 'main');
+    learning += f('🎓 학습 적용', lc.teaching_application, 'apply');
+    // reference_digest는 6필드 중 본문 인용 조문·법리. 짧은 텍스트
+    if (lc.reference_digest) {
+      learning += '<section class="section refs"><h3>📚 본문 인용 조문·법리</h3>'
+        + '<div style="font-size:13px; color:var(--sub);">' + esc(String(lc.reference_digest)) + '</div></section>';
+    }
+  }
+
+  // 판례 본문 발췌 — learning_content 있으면 접힘, 없으면 펼침
+  const fullText = card.case_full_text || '';
+  const truncStyle = 'margin:8px 0 0; padding:14px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-size:13px; line-height:1.85; white-space:pre-wrap; word-break:keep-all; font-family:inherit; color:var(--text);';
+  let rulingBlock = '';
+  if (fullText) {
+    if (llmOk) {
+      rulingBlock = '<details class="case-full" style="margin-top:14px;">'
+        + '<summary style="cursor:pointer; padding:8px 12px; background:#f3f4f6; border-radius:6px; font-size:13px; font-weight:600;">📜 판례 원문 보기 (' + fullText.length + '자)</summary>'
+        + '<pre style="' + truncStyle + '">' + esc(fullText) + '</pre></details>';
+    } else {
+      rulingBlock = '<div style="margin-top:12px;"><span class="source">📌 판례 원문 발췌</span></div>'
+        + '<pre style="' + truncStyle + '">' + esc(fullText) + '</pre>';
+    }
+  }
+
+  // 관련 조문으로 이동 링크
+  const pairLink = pairedJo
+    ? '<a href="' + esc(pa.viewer_link || ('../viewer.html?jo=' + pairedJo)) + '" class="view-law" target="_blank">📖 관련 조문(도로교통법 제' + esc(pairedJo) + '조) 본문·연혁 보기 →</a>'
+    : '';
+
   return '<article class="card decree">'
     + '<div class="card-header">' + headerBits + '</div>'
-    + '<div class="jo-label">⚖️ 판례 · ' + esc(card.case_name || '') + '</div>'
-    + '<div style="margin-top:8px;"><span class="source">📌 원문 일부 발췌 · ' + esc(card.excerpt_source || 'ruling') + truncNote + '</span></div>'
-    + '<pre style="' + preStyle + '">' + esc(card.ruling_excerpt || '') + '</pre>'
-    + '<div style="margin-top:12px;">' + link + '</div>'
+    + pairLabel
+    + '<div style="margin-top:6px; font-size:13px; color:var(--sub);">📑 ' + esc(ci.case_name || '') + '</div>'
+    + learning
+    + rulingBlock
+    + (pairLink ? '<div style="margin-top:14px;">' + pairLink + '</div>' : '')
     + '</article>';
 }
 
