@@ -29,7 +29,7 @@
 | **F2** | ✅ **2026-05-21 해결** — `filter_meaningful_diffs.py` 보강: 현행 조문 제목(`index_law_articles`) 인덱스 + 변화 제목 정규화 비교(괄호 제거·한자→한글·공백 정리) + 신설·본조신설도 적용. 법률 1,209건 옛 의미 제외(법률만, 시행령·규칙은 별도 인덱스 필요). 제50·25·12·44조 채택 결과가 현행 의미만으로 깨끗. Codex 사전·사후 검증 거침. 출력: `data/meaningful_diffs.json` + `_diff_excluded_old_meaning.json` | Stage 7 정밀화 | ✅ 완료 (법률) |
 | **F3** | ✅ **2026-05-21 결정** — commentary 카드 대체 (조문 + 해설집 + 수사실무 자료로 학습). 코드는 이미 `analysis_type='commentary'` 자동 전환 구현돼 있음. 별도 작업 불필요. 향후 어린이 보호구역 판례 자료가 확보되면 그때 보강 | 어린이 보호구역 학습 카드 | ✅ 완료 (commentary 모드) |
 | **F4** | ✅ **2026-05-21 해결** — `generate_viewer.py` main()에 `build_ts = time.strftime("%Y%m%d%H%M%S")` + `re.sub`로 6개 script src에 `?v=빌드시각` 자동 주입. 시크릿 창 없이도 새 데이터 인식. 매주 월 자동 갱신 시 작동 | UX | ✅ 완료 |
-| **F8** | viewer.html JavaScript가 도교법 3단 구조 가정 — 단일/2단 법령(tlspc) 모드에서 4가지 깨짐 발견 (외부 링크 '도로교통법' 하드코딩 · 시행령 카드 미렌더링 · 연혁 패널 비어 있음 · 조문 클릭 무반응). S3-1-b-3 시범 후 일시 롤백. **S3-1-b-4가 본격 보강 단계** (1-2시간 추정) | viewer multi-law 활성화 | 🔴 높음 (S3 진행 전 필수) |
+| **F8** | 🟡 **S3-1-b-4-a 완료, b·c 남음** — 도교법 3단 가정 4가지 깨짐 중 #1·#4 처리: ✅ 외부 링크 동적 (mapData.기준법령.법률.법령명) + title·h1 placeholder. #4 진단 결과 render()는 정상, 시행령 카드 빈약(데이터 차원)으로 화면 변화 작게 보였음. **남은**: S3-1-b-4-b 시행령 조문 자체 표시 (드롭다운 UX 재설계, 40분) + S3-1-b-4-c 연혁 안내 메시지 (10분). 끝나면 GROUP_ENABLED tlspc 재활성화 | viewer multi-law 활성화 | 🟡 부분 완료 (S3-1-b-4-a) |
 | **F5** | ✅ **2026-05-21 확정** — `tutor/data/study_whitelist.json` 신규. 7개 법령 / 화이트리스트 27개 조문(자관법 6·여객 4·화물 3·특가법 3·형소법 11) + all 모드 2개(도교법·교특법). Stage 1·4·8 작업 시 build_tutor_content가 활용 | 튜터 학습 콘텐츠 품질 | ✅ 완료 |
 | **F6** | ✅ **2026-05-21 해결** — `build_indexes.py:721-732` `_court_date_key` 헬퍼 + `sorted(sorted(set(cids)), key=_court_date_key, reverse=True)`. date desc + cid asc(결정성). 6가지 날짜 형식 정규식 보강(`YYYY.MM.DD`·`YYYY.M.DD`·`YYYY-MM-DDTHH:MM:SS`·`YYYY년 M월 D일`·`YYYYMMDD`·빈 값). 제44·54·43·148의2 조문 앞 6건이 모두 최신(2026·2025년) 사건으로 확인. Codex 사전·사후 검증 거침 | S6 효과 발휘 | ✅ 완료 |
 | **F7** | `case_no#num` 패턴(같은 사건번호 다중 cid)이 `build_tutor_content.py:208`에서 case_no로 다시 합쳐짐. 현재 충돌 0이라 무해. 미래 판례 자료 추가 시 주의 | 미래 위험 | 🟢 낮음 |
@@ -58,9 +58,11 @@
 - **F4** + **S3-1-a** + **S3-1-b** (1·2·3 모두 코드 완료, tlspc 시범 후 롤백)
 
 ### 🥇 다음 세션 진입점
-- **S3-1-b-4** (1-2시간) — **viewer.html JavaScript multi-law 분기 보강**
-  - F8 4가지 깨짐 해결: 외부 링크 동적 / 시행령 카드 렌더 / 조문 클릭 / 연혁 안내
-  - 완료 시: `GROUP_ENABLED = {"road", "tlspc"}` 활성화 + `py build_3tier_map.py --group tlspc` + `py generate_viewer.py --group tlspc` 재실행 → viewer_tlspc.html 정상 동작
+- **S3-1-b-4-b** (40분) — **viewer 드롭다운에 시행령 조문 추가** (시행령 자체 진입점)
+  - 현재 viewer는 "법률 조문 → 위임 받은 시행령 카드" UX. 위임 매핑 적은 법령(교특법)은 시행령 자료 있어도 안 보임.
+  - 드롭다운 UI 재설계: 법률 조문 + 시행령 조문 + 시행규칙 조문 모두 선택 가능하게.
+- **S3-1-b-4-c** (10분) — 연혁 패널 자료 없을 때 안내 메시지
+- 완료 시: `GROUP_ENABLED = {"road", "tlspc"}` 재활성화 → viewer_tlspc.html 정상 동작
 
 ### 🥈 그 다음 (Phase 3 마무리)
 - **S5 + S8** (튜터 multi-law, 3-4시간) — schedule 마이그레이션 + B3 슬롯
