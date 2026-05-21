@@ -1,0 +1,2546 @@
+{
+  "생성일시": "2026-05-21T17:53:04.764082",
+  "설명": "현행 법령 후보 풀 + 가중치",
+  "조문수": 165,
+  "조문별": {
+    "1": {
+      "admin_case_count": 0,
+      "court_case_count": 2,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.369,
+      "score_breakdown": {
+        "case_score": 0.141,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.369
+      }
+    },
+    "10": {
+      "admin_case_count": 1,
+      "court_case_count": 2,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.385,
+      "score_breakdown": {
+        "case_score": 0.178,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.385
+      }
+    },
+    "100": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "101": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "102": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "103": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "104": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "105": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "106": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "107": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "108": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "109": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "11": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "110": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [
+        "사업용면허"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.34,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.4,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.34
+      }
+    },
+    "111": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "112": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "113": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "114": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "115": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "116": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "117": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "118": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "119": {
+      "admin_case_count": 0,
+      "court_case_count": 2,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.369,
+      "score_breakdown": {
+        "case_score": 0.141,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.369
+      }
+    },
+    "12": {
+      "admin_case_count": 0,
+      "court_case_count": 2,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.369,
+      "score_breakdown": {
+        "case_score": 0.141,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.369
+      }
+    },
+    "120": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "121": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "122": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "123": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "125": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "12의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "13": {
+      "admin_case_count": 3,
+      "court_case_count": 5,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.432,
+      "score_breakdown": {
+        "case_score": 0.283,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.432
+      }
+    },
+    "130": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "134": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "136": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "137": {
+      "admin_case_count": 4,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.398,
+      "score_breakdown": {
+        "case_score": 0.207,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.398
+      }
+    },
+    "138": {
+      "admin_case_count": 1,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "139": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "13의2": {
+      "admin_case_count": 0,
+      "court_case_count": 4,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.398,
+      "score_breakdown": {
+        "case_score": 0.207,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.398
+      }
+    },
+    "14": {
+      "admin_case_count": 0,
+      "court_case_count": 4,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.398,
+      "score_breakdown": {
+        "case_score": 0.207,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.398
+      }
+    },
+    "141": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "142": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "143": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "144": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "145": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "146": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "147": {
+      "admin_case_count": 16,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.469,
+      "score_breakdown": {
+        "case_score": 0.364,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.469
+      }
+    },
+    "147의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "148": {
+      "admin_case_count": 0,
+      "court_case_count": 15,
+      "categories": [],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.465,
+      "score_breakdown": {
+        "case_score": 0.357,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.465
+      }
+    },
+    "148의2": {
+      "admin_case_count": 3,
+      "court_case_count": 31,
+      "categories": [
+        "음주운전"
+      ],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.756,
+      "score_breakdown": {
+        "case_score": 0.457,
+        "category_score": 1.0,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.756
+      }
+    },
+    "15": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "150": {
+      "admin_case_count": 0,
+      "court_case_count": 11,
+      "categories": [],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.449,
+      "score_breakdown": {
+        "case_score": 0.32,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.449
+      }
+    },
+    "151": {
+      "admin_case_count": 1,
+      "court_case_count": 4,
+      "categories": [],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.409,
+      "score_breakdown": {
+        "case_score": 0.23,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.409
+      }
+    },
+    "151의2": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.345
+      }
+    },
+    "152": {
+      "admin_case_count": 1,
+      "court_case_count": 28,
+      "categories": [],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.502,
+      "score_breakdown": {
+        "case_score": 0.437,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.502
+      }
+    },
+    "154": {
+      "admin_case_count": 0,
+      "court_case_count": 3,
+      "categories": [],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.385,
+      "score_breakdown": {
+        "case_score": 0.178,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.385
+      }
+    },
+    "156": {
+      "admin_case_count": 13,
+      "court_case_count": 11,
+      "categories": [],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.491,
+      "score_breakdown": {
+        "case_score": 0.414,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.491
+      }
+    },
+    "157": {
+      "admin_case_count": 2,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.369,
+      "score_breakdown": {
+        "case_score": 0.141,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.369
+      }
+    },
+    "159": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "15의2": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "16": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "161": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "161의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "161의3": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "162": {
+      "admin_case_count": 19,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.481,
+      "score_breakdown": {
+        "case_score": 0.392,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.481
+      }
+    },
+    "163": {
+      "admin_case_count": 19,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.478,
+      "score_breakdown": {
+        "case_score": 0.385,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.478
+      }
+    },
+    "164": {
+      "admin_case_count": 19,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.478,
+      "score_breakdown": {
+        "case_score": 0.385,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.478
+      }
+    },
+    "165": {
+      "admin_case_count": 8,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.432,
+      "score_breakdown": {
+        "case_score": 0.283,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.432
+      }
+    },
+    "166": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "17": {
+      "admin_case_count": 1,
+      "court_case_count": 4,
+      "categories": [
+        "제한속도"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.531,
+      "score_breakdown": {
+        "case_score": 0.23,
+        "category_score": 0.65,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.531
+      }
+    },
+    "18": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "19": {
+      "admin_case_count": 0,
+      "court_case_count": 2,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.369,
+      "score_breakdown": {
+        "case_score": 0.141,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.369
+      }
+    },
+    "2": {
+      "admin_case_count": 56,
+      "court_case_count": 20,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.556,
+      "score_breakdown": {
+        "case_score": 0.559,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.556
+      }
+    },
+    "20": {
+      "admin_case_count": 1,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "21": {
+      "admin_case_count": 3,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.398,
+      "score_breakdown": {
+        "case_score": 0.207,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.398
+      }
+    },
+    "22": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "24": {
+      "admin_case_count": 1,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.369,
+      "score_breakdown": {
+        "case_score": 0.141,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.369
+      }
+    },
+    "25": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [
+        "교차로통행"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.45,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.6,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.45
+      }
+    },
+    "25의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "26": {
+      "admin_case_count": 6,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.418,
+      "score_breakdown": {
+        "case_score": 0.25,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.418
+      }
+    },
+    "27": {
+      "admin_case_count": 1,
+      "court_case_count": 10,
+      "categories": [
+        "보행자보호"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.589,
+      "score_breakdown": {
+        "case_score": 0.32,
+        "category_score": 0.7,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.589
+      }
+    },
+    "28": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "28의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "29": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "3": {
+      "admin_case_count": 4,
+      "court_case_count": 5,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.438,
+      "score_breakdown": {
+        "case_score": 0.296,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.438
+      }
+    },
+    "30": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "31": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "32": {
+      "admin_case_count": 1,
+      "court_case_count": 1,
+      "categories": [
+        "주정차"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.404,
+      "score_breakdown": {
+        "case_score": 0.141,
+        "category_score": 0.4,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.404
+      }
+    },
+    "33": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "34": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "34의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "35": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "36": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "37": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "38": {
+      "admin_case_count": 1,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "39": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "4": {
+      "admin_case_count": 0,
+      "court_case_count": 8,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.432,
+      "score_breakdown": {
+        "case_score": 0.283,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.432
+      }
+    },
+    "40": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "41": {
+      "admin_case_count": 1,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "42": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "43": {
+      "admin_case_count": 23,
+      "court_case_count": 118,
+      "categories": [
+        "무면허·결격기간"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.767,
+      "score_breakdown": {
+        "case_score": 0.637,
+        "category_score": 0.8,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.767
+      }
+    },
+    "44": {
+      "admin_case_count": 201,
+      "court_case_count": 166,
+      "categories": [
+        "음주운전"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.892,
+      "score_breakdown": {
+        "case_score": 0.76,
+        "category_score": 1.0,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.892
+      }
+    },
+    "45": {
+      "admin_case_count": 12,
+      "court_case_count": 6,
+      "categories": [
+        "약물·질병"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.703,
+      "score_breakdown": {
+        "case_score": 0.379,
+        "category_score": 0.95,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.703
+      }
+    },
+    "46": {
+      "admin_case_count": 1,
+      "court_case_count": 2,
+      "categories": [
+        "난폭운전"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.56,
+      "score_breakdown": {
+        "case_score": 0.178,
+        "category_score": 0.8,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.56
+      }
+    },
+    "46의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "46의3": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [
+        "난폭운전"
+      ],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.52,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.8,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.52
+      }
+    },
+    "47": {
+      "admin_case_count": 1,
+      "court_case_count": 1,
+      "categories": [
+        "음주측정거부"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.596,
+      "score_breakdown": {
+        "case_score": 0.141,
+        "category_score": 0.95,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.596
+      }
+    },
+    "48": {
+      "admin_case_count": 2,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.385,
+      "score_breakdown": {
+        "case_score": 0.178,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.385
+      }
+    },
+    "49": {
+      "admin_case_count": 2,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.385,
+      "score_breakdown": {
+        "case_score": 0.178,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.385
+      }
+    },
+    "4의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "5": {
+      "admin_case_count": 2,
+      "court_case_count": 10,
+      "categories": [
+        "신호위반"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.558,
+      "score_breakdown": {
+        "case_score": 0.33,
+        "category_score": 0.6,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.558
+      }
+    },
+    "50": {
+      "admin_case_count": 2,
+      "court_case_count": 9,
+      "categories": [
+        "운전자의무"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.606,
+      "score_breakdown": {
+        "case_score": 0.32,
+        "category_score": 0.75,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.606
+      }
+    },
+    "50의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "51": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [
+        "운전자의무"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.462,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.75,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.462
+      }
+    },
+    "52": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [
+        "운전자의무"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.462,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.75,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.462
+      }
+    },
+    "53": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [
+        "운전자의무"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.462,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.75,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.462
+      }
+    },
+    "53의3": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "53의4": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "54": {
+      "admin_case_count": 44,
+      "court_case_count": 40,
+      "categories": [
+        "교통사고"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.772,
+      "score_breakdown": {
+        "case_score": 0.571,
+        "category_score": 0.9,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.772
+      }
+    },
+    "56": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "57": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "58": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "5의3": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": false,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 0.0,
+        "total": 0.345
+      }
+    },
+    "6": {
+      "admin_case_count": 2,
+      "court_case_count": 5,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.425,
+      "score_breakdown": {
+        "case_score": 0.267,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.425
+      }
+    },
+    "60": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "61": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "62": {
+      "admin_case_count": 0,
+      "court_case_count": 5,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.409,
+      "score_breakdown": {
+        "case_score": 0.23,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.409
+      }
+    },
+    "63": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "64": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "66": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "68": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "69": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "7": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "70": {
+      "admin_case_count": 2,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.369,
+      "score_breakdown": {
+        "case_score": 0.141,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.369
+      }
+    },
+    "71": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "73": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "74": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "75": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "76": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "77": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "78": {
+      "admin_case_count": 5,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.409,
+      "score_breakdown": {
+        "case_score": 0.23,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.409
+      }
+    },
+    "79": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "8": {
+      "admin_case_count": 2,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.369,
+      "score_breakdown": {
+        "case_score": 0.141,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.369
+      }
+    },
+    "80": {
+      "admin_case_count": 12,
+      "court_case_count": 9,
+      "categories": [
+        "면허일반"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.519,
+      "score_breakdown": {
+        "case_score": 0.397,
+        "category_score": 0.4,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.519
+      }
+    },
+    "81": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "82": {
+      "admin_case_count": 51,
+      "court_case_count": 1,
+      "categories": [
+        "무면허·결격기간"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.71,
+      "score_breakdown": {
+        "case_score": 0.511,
+        "category_score": 0.8,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.71
+      }
+    },
+    "83": {
+      "admin_case_count": 5,
+      "court_case_count": 0,
+      "categories": [
+        "면허취득"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.444,
+      "score_breakdown": {
+        "case_score": 0.23,
+        "category_score": 0.4,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.444
+      }
+    },
+    "84": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [
+        "면허시험"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.375,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.5,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.375
+      }
+    },
+    "85": {
+      "admin_case_count": 0,
+      "court_case_count": 3,
+      "categories": [
+        "면허종류"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.42,
+      "score_breakdown": {
+        "case_score": 0.178,
+        "category_score": 0.4,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.42
+      }
+    },
+    "86": {
+      "admin_case_count": 1,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "87": {
+      "admin_case_count": 8,
+      "court_case_count": 0,
+      "categories": [
+        "적성검사·갱신"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.52,
+      "score_breakdown": {
+        "case_score": 0.283,
+        "category_score": 0.55,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.52
+      }
+    },
+    "87의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "88": {
+      "admin_case_count": 21,
+      "court_case_count": 0,
+      "categories": [
+        "적성검사·갱신"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.571,
+      "score_breakdown": {
+        "case_score": 0.397,
+        "category_score": 0.55,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.571
+      }
+    },
+    "89": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [
+        "벌점"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.445,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.7,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.445
+      }
+    },
+    "9": {
+      "admin_case_count": 0,
+      "court_case_count": 1,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.345,
+      "score_breakdown": {
+        "case_score": 0.089,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.345
+      }
+    },
+    "90": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [
+        "면허취소·정지"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.497,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.85,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.497
+      }
+    },
+    "91": {
+      "admin_case_count": 3,
+      "court_case_count": 0,
+      "categories": [
+        "면허취소·정지"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.578,
+      "score_breakdown": {
+        "case_score": 0.178,
+        "category_score": 0.85,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.578
+      }
+    },
+    "92": {
+      "admin_case_count": 3,
+      "court_case_count": 1,
+      "categories": [
+        "면허취소·정지"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.591,
+      "score_breakdown": {
+        "case_score": 0.207,
+        "category_score": 0.85,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.591
+      }
+    },
+    "93": {
+      "admin_case_count": 2380,
+      "court_case_count": 3,
+      "categories": [
+        "면허취소·정지"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.948,
+      "score_breakdown": {
+        "case_score": 1.0,
+        "category_score": 0.85,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.948
+      }
+    },
+    "94": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [
+        "벌점"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.445,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.7,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.445
+      }
+    },
+    "94의2": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": false,
+      "weight_score": 0.105,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 0.0,
+        "comment_bonus": 1.0,
+        "total": 0.105
+      }
+    },
+    "95": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [
+        "면허재취득"
+      ],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.375,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.5,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.375
+      }
+    },
+    "96": {
+      "admin_case_count": 6,
+      "court_case_count": 3,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.438,
+      "score_breakdown": {
+        "case_score": 0.296,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.438
+      }
+    },
+    "97": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "98": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    },
+    "99": {
+      "admin_case_count": 0,
+      "court_case_count": 0,
+      "categories": [],
+      "has_comment": true,
+      "has_recent_revision": true,
+      "weight_score": 0.305,
+      "score_breakdown": {
+        "case_score": 0.0,
+        "category_score": 0.3,
+        "recent_score": 1.0,
+        "comment_bonus": 1.0,
+        "total": 0.305
+      }
+    }
+  }
+}

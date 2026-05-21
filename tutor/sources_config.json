@@ -1,0 +1,42 @@
+{
+  "_설명": "자료 소스 레지스트리. 새 자료로 교체할 때 glob 패턴이 자동 인식하므로 코드 수정 불필요. 자료 교체 후 'py tutor/build_indexes.py' 재실행하면 인덱스가 갱신된다.",
+  "_갱신방법": "1) source_dir 폴더에 새 자료 파일을 넣거나 기존 파일 교체 (파일명이 glob 패턴에 맞으면 됨, 연도 무관). 2) py tutor/build_indexes.py 재실행. 3) 다음 daily 빌드부터 새 자료 반영.",
+  "source_dir": "C:/Users/user/projects/판례조회-AI도구",
+  "sources": [
+    {
+      "id": "해설집",
+      "type": "law_comment",
+      "glob": "*도로교통법해설*.md",
+      "enabled": true,
+      "_설명": "경찰청 도로교통법 해설서. 조문별 해설."
+    },
+    {
+      "id": "대법원판례",
+      "type": "court_cases",
+      "glob": "판례_통합*.txt",
+      "enabled": true,
+      "_설명": "대법원·하급심 판례 통합본. 형사 판결요지."
+    },
+    {
+      "id": "행정심판례",
+      "type": "admin_cases",
+      "glob": "cases.json",
+      "enabled": true,
+      "_설명": "운전면허 행정심판례 (행정처분 불복)."
+    },
+    {
+      "id": "수사실무연구",
+      "type": "topic_doc",
+      "glob": "*수사실무*.md",
+      "enabled": true,
+      "_설명": "교통범죄 수사실무 연구. 주제별(절 단위) 실무 쟁점."
+    },
+    {
+      "id": "사고조사판례집",
+      "type": "topic_doc",
+      "glob": "*사고조사판례집*.md",
+      "enabled": false,
+      "_설명": "교통사고 조사 판례집(2012). 비활성화 — 본문이 '도로교통법 제N조'를 거의 명시하지 않아(64회 중 2회) 조문 매핑이 안 되고, 오래된 PDF라 띄어쓰기 손상이 심함. 더 나은 원본 확보 시 enabled=true로 복구."
+    }
+  ]
+}
