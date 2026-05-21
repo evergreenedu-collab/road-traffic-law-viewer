@@ -240,6 +240,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <div class="toolbar">
+  <label>법령</label>
+  <select id="lawSel" onchange="onLawChange()" autocomplete="off" title="Phase 3 — 다중 법령 진입 준비 중">
+    <option value="road" selected>도로교통법 (시행령·시행규칙)</option>
+    <option value="tlspc" disabled>교통사고처리 특례법 (곧 추가)</option>
+    <option value="tkga" disabled>특정범죄 가중처벌법 (곧 추가)</option>
+    <option value="car_mgmt" disabled>자동차관리법 (곧 추가)</option>
+    <option value="passenger_transport" disabled>여객자동차 운수사업법 (곧 추가)</option>
+    <option value="cargo_transport" disabled>화물자동차 운수사업법 (곧 추가)</option>
+    <option value="crim_proc" disabled>형사소송법 (곧 추가)</option>
+  </select>
   <label>조문</label>
   <select id="sel" onchange="onArticleChange()" autocomplete="off"></select>
   <input type="text" id="q" placeholder="🔍 조문/키워드 검색 (예: 안전띠)" oninput="filter()" onkeydown="if(event.key==='Escape'){this.value='';filter();}">
@@ -293,12 +303,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core.js"></script>
-<script src="web_data/data_timeline.js"></script>
-<script src="web_data/data_tbl_diff_decree.js"></script>
-<script src="web_data/data_tbl_diff_rule.js"></script>
-<script src="web_data/data_tbl_pdf.js"></script>
-<script src="web_data/data_tbl_history.js"></script>
+<script src="web_data/data_core.js?v=20260521213123"></script>
+<script src="web_data/data_timeline.js?v=20260521213123"></script>
+<script src="web_data/data_tbl_diff_decree.js?v=20260521213123"></script>
+<script src="web_data/data_tbl_diff_rule.js?v=20260521213123"></script>
+<script src="web_data/data_tbl_pdf.js?v=20260521213123"></script>
+<script src="web_data/data_tbl_history.js?v=20260521213123"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -919,6 +929,17 @@ function switchTab(tab){
 function onArticleChange(){
   if(currentTab==='compare') render();
   else renderHistory();
+}
+
+// Phase 3 S3-1-a — 법령 선택 (현재는 도교법만, 다른 법령은 disabled).
+// 향후 S3-1-b 이후 다른 법령 자료 로드·렌더링 분기 추가 예정.
+function onLawChange(){
+  const law = document.getElementById('lawSel').value;
+  if (law !== 'road') {
+    // disabled라 도달 안 함. 안전망.
+    alert('이 법령은 Phase 3 작업 중입니다. 곧 추가됩니다.');
+    document.getElementById('lawSel').value = 'road';
+  }
 }
 
 function goArticle(joKey){

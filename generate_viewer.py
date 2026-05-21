@@ -14,6 +14,7 @@
 
 import json
 import os
+import time
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data")
@@ -368,8 +369,13 @@ def main():
         warn = " ⚠️ 100MB 한도 초과!" if sz > 100 else ""
         print(f"  {name}: {sz:.1f}MB{warn}")
 
-    # HTML 빌드
-    html = HTML_TEMPLATE
+    # HTML 빌드 — F4: web_data/*.js 캐시버스팅 (?v=빌드시각). 시크릿 창 없이도 새 데이터 인식.
+    build_ts = time.strftime("%Y%m%d%H%M%S")
+    html = _re.sub(
+        r'(web_data/data_\w+\.js)(["\'])',
+        lambda m: f'{m.group(1)}?v={build_ts}{m.group(2)}',
+        HTML_TEMPLATE,
+    )
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
 
@@ -620,6 +626,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <div class="toolbar">
+  <label>법령</label>
+  <select id="lawSel" onchange="onLawChange()" autocomplete="off" title="Phase 3 — 다중 법령 진입 준비 중">
+    <option value="road" selected>도로교통법 (시행령·시행규칙)</option>
+    <option value="tlspc" disabled>교통사고처리 특례법 (곧 추가)</option>
+    <option value="tkga" disabled>특정범죄 가중처벌법 (곧 추가)</option>
+    <option value="car_mgmt" disabled>자동차관리법 (곧 추가)</option>
+    <option value="passenger_transport" disabled>여객자동차 운수사업법 (곧 추가)</option>
+    <option value="cargo_transport" disabled>화물자동차 운수사업법 (곧 추가)</option>
+    <option value="crim_proc" disabled>형사소송법 (곧 추가)</option>
+  </select>
   <label>조문</label>
   <select id="sel" onchange="onArticleChange()" autocomplete="off"></select>
   <input type="text" id="q" placeholder="🔍 조문/키워드 검색 (예: 안전띠)" oninput="filter()" onkeydown="if(event.key==='Escape'){this.value='';filter();}">
@@ -1299,6 +1315,17 @@ function switchTab(tab){
 function onArticleChange(){
   if(currentTab==='compare') render();
   else renderHistory();
+}
+
+// Phase 3 S3-1-a — 법령 선택 (현재는 도교법만, 다른 법령은 disabled).
+// 향후 S3-1-b 이후 다른 법령 자료 로드·렌더링 분기 추가 예정.
+function onLawChange(){
+  const law = document.getElementById('lawSel').value;
+  if (law !== 'road') {
+    // disabled라 도달 안 함. 안전망.
+    alert('이 법령은 Phase 3 작업 중입니다. 곧 추가됩니다.');
+    document.getElementById('lawSel').value = 'road';
+  }
 }
 
 function goArticle(joKey){
