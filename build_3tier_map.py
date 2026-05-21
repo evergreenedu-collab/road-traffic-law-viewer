@@ -12,6 +12,7 @@
     - data/three_tier_articles.json  (전체 조문 원문 데이터)
 """
 
+import argparse
 import requests
 import xml.etree.ElementTree as ET
 import json
@@ -36,8 +37,14 @@ LAW_GROUPS = {
         "시행령":   {"법령명": "도로교통법 시행령",   "MST": "269989", "약칭": "영"},
         "시행규칙": {"법령명": "도로교통법 시행규칙", "MST": "285317", "약칭": "규칙"},
     },
+    # Phase 3 S3-1-b-2: 교통사고처리 특례법 — 현재 법률만 등록.
+    # ⚠️ 교특법 시행령은 별도 존재(법령ID 002616). 향후 단계에서 MST 조회 후 추가.
+    "tlspc": {
+        "법률": {"법령명": "교통사고처리 특례법", "MST": "268077", "약칭": "법"},
+        # TODO: 시행령 MST 조회 후 추가 — Codex 사후 검증 발견 (시행령 미수집은 우리 측 누락)
+    },
 }
-LAWS = LAW_GROUPS["road"]   # S1-A: 호환성 alias (기존 사용처 그대로)
+LAWS = LAW_GROUPS["road"]   # S1-A: 호환성 alias (기존 사용처 그대로 + main()에서 --group으로 재바인딩)
 
 # Phase 3 S3-1-b-1: 단일 법률 모드(시행령·시행규칙 없는 법령) 안전 폴백.
 # 시행령/시행규칙 부재 시 빈 구조 반환 — 기존 3단 처리 코드가 KeyError 안 나도록.
@@ -565,9 +572,19 @@ def build_final_map(all_data, reverse_map, decree_reverse, other_law_hints=None)
     decree_articles = all_data.get("시행령", EMPTY_LAW).get("조문", {})
     rule_articles = all_data.get("시행규칙", EMPTY_LAW).get("조문", {})
 
+    law_name = all_data["법률"]["기본정보"].get("법령명", "법률")
+    # 시행령 OR 시행규칙 둘 중 하나라도 조문 있으면 하위법령 존재 (Codex 권장)
+    has_decree = bool(all_data.get("시행령", {}).get("조문"))
+    has_rule = bool(all_data.get("시행규칙", {}).get("조문"))
+    if has_decree and has_rule:
+        desc = f"{law_name} 3단 비교 매핑 (법률 조·항 → 시행령 → 시행규칙)"
+    elif has_decree or has_rule:
+        desc = f"{law_name} 2단 매핑 (법률 + {'시행령' if has_decree else '시행규칙'})"
+    else:
+        desc = f"{law_name} 법률-only 출력 (시행령·시행규칙 미수집)"
     result = {
         "생성일시": datetime.now().isoformat(),
-        "설명": "도로교통법 3단 비교 매핑 (법률 조·항 → 시행령 → 시행규칙)",
+        "설명": desc,
         "기준법령": {
             "법률": all_data["법률"]["기본정보"],
             "시행령": all_data.get("시행령", EMPTY_LAW).get("기본정보", {}),
@@ -764,8 +781,23 @@ def save_json(data, path):
 
 
 def main():
-    map_path = os.path.join(DATA_DIR, "three_tier_map.json")
-    articles_path = os.path.join(DATA_DIR, "three_tier_articles.json")
+    # Phase 3 S3-1-b-2: --group 인자 추가. road는 기존 파일명 유지(viewer 호환),
+    # 그 외(tlspc 등)는 _{group} suffix.
+    parser = argparse.ArgumentParser(description="법령 3단(또는 단일) 매핑 빌더")
+    parser.add_argument("--group", default="road", choices=list(LAW_GROUPS.keys()),
+                        help="법령 그룹 코드 (기본 road = 도로교통법)")
+    args = parser.parse_args()
+
+    # 전역 LAWS 재바인딩 — fetch_all_articles 등이 module-level LAWS를 직접 참조
+    global LAWS
+    LAWS = LAW_GROUPS[args.group]
+    group_label = LAWS["법률"]["법령명"]
+    print(f"\n🏷️  법령 그룹: {args.group} ({group_label})")
+
+    # road는 기존 파일명, 그 외는 suffix
+    suffix = "" if args.group == "road" else f"_{args.group}"
+    map_path = os.path.join(DATA_DIR, f"three_tier_map{suffix}.json")
+    articles_path = os.path.join(DATA_DIR, f"three_tier_articles{suffix}.json")
 
     # 1단계: 전체 조문 수집
     all_data = fetch_all_articles()
@@ -773,6 +805,8 @@ def main():
     # 조문 원문 데이터 저장 (단일 법률 모드: 시행령·시행규칙 없으면 EMPTY_LAW)
     save_json({
         "생성일시": datetime.now().isoformat(),
+        "법령그룹": args.group,
+        "법령명": group_label,
         "법률": all_data["법률"],
         "시행령": all_data.get("시행령", EMPTY_LAW),
         "시행규칙": all_data.get("시행규칙", EMPTY_LAW),
