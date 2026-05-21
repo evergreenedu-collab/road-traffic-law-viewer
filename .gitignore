@@ -30,3 +30,9 @@ desktop.ini
 *.swp
 .vscode/
 .idea/
+
+# 빌드·런 로그·자동 백업 (2026-05-21 추가)
+*.log
+*.bak
+*.bak.*.json
+_backup_*/

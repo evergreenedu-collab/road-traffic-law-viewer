@@ -29,12 +29,16 @@ HISTORY_LIST_URL = "https://www.law.go.kr/LSW/lsHstListR.do"
 REQUEST_DELAY = 0.6  # API 요청 간격 (초)
 SAVE_INTERVAL = 10   # 중간 저장 간격 (건)
 
-# 수집 대상 법령 — 법령ID는 법제처 고유 식별자
-LAW_GROUP = [
-    {"유형": "법률",     "법령명": "도로교통법",         "법령ID": "001638"},
-    {"유형": "시행령",   "법령명": "도로교통법 시행령",   "법령ID": "003395"},
-    {"유형": "시행규칙", "법령명": "도로교통법 시행규칙", "법령ID": "007079"},
-]
+# Phase 3 S1-A: 법령 그룹 dict로 래핑. 향후 신규 그룹("tlspc" 등) 추가 시 키만 추가.
+# 기존 LAW_GROUP 변수는 alias로 유지 (S1 범위 minimal).
+LAW_GROUPS = {
+    "road": [
+        {"유형": "법률",     "법령명": "도로교통법",         "법령ID": "001638"},
+        {"유형": "시행령",   "법령명": "도로교통법 시행령",   "법령ID": "003395"},
+        {"유형": "시행규칙", "법령명": "도로교통법 시행규칙", "법령ID": "007079"},
+    ],
+}
+LAW_GROUP = LAW_GROUPS["road"]   # S1-A: 호환성 alias
 
 # 스크립트 위치 기준 경로
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

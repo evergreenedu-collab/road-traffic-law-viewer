@@ -28,12 +28,16 @@ API_KEY = "evergreen_edu"
 DETAIL_URL = "http://www.law.go.kr/DRF/lawService.do"
 REQUEST_DELAY = 0.6
 
-# 현행 법령 MST (법령일련번호)
-LAWS = {
-    "법률":     {"법령명": "도로교통법",         "MST": "281875", "약칭": "법"},
-    "시행령":   {"법령명": "도로교통법 시행령",   "MST": "269989", "약칭": "영"},
-    "시행규칙": {"법령명": "도로교통법 시행규칙", "MST": "285317", "약칭": "규칙"},
+# Phase 3 S1-A: 법령 그룹 dict-of-dict로 래핑. 향후 신규 그룹("tlspc" 등) 추가 시 키만 추가.
+# 기존 LAWS 변수는 alias로 유지해 호출부 호환성 보장 (S1 범위 minimal).
+LAW_GROUPS = {
+    "road": {
+        "법률":     {"법령명": "도로교통법",         "MST": "281875", "약칭": "법"},
+        "시행령":   {"법령명": "도로교통법 시행령",   "MST": "269989", "약칭": "영"},
+        "시행규칙": {"법령명": "도로교통법 시행규칙", "MST": "285317", "약칭": "규칙"},
+    },
 }
+LAWS = LAW_GROUPS["road"]   # S1-A: 호환성 alias (기존 사용처 그대로)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data")

@@ -1,0 +1,14 @@
+{
+  "crim_proc": {
+    "name": "형사소송법",
+    "requested": 54,
+    "success": 54,
+    "failed": 0
+  },
+  "cargo_transport": {
+    "name": "화물자동차 운수사업법",
+    "requested": 74,
+    "success": 74,
+    "failed": 0
+  }
+}
