@@ -13,7 +13,8 @@
 
   "tlspc": {
     "name": "교통사고처리 특례법",
-    "has_subordinate": false,
+    "has_subordinate": true,
+    "_주석_보정": "2026-05-21 Codex 발견 — 시행령 존재(법령ID 002616, MST 227259). 시행규칙은 없음. has_subordinate true로 보정.",
     "study_mode": "all",
     "_주석": "조문 12개 내외로 짧아 전체 학습. 공소권 유무 판정·12개 중대법규 위반이 핵심."
   },
