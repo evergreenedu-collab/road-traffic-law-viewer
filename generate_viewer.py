@@ -12,6 +12,7 @@
     python generate_viewer.py
 """
 
+import argparse
 import json
 import os
 import time
@@ -21,10 +22,19 @@ DATA_DIR = os.path.join(SCRIPT_DIR, "data")
 OUTPUT_PATH = os.path.join(SCRIPT_DIR, "viewer.html")  # GitHub Pages 호스팅용 (데이터 분리)
 WEB_DATA_DIR = os.path.join(SCRIPT_DIR, "web_data")    # 분리된 데이터 JS 파일
 
+# Phase 3 S3-1-b-3: 기본은 road. main()에서 --group 인자로 override.
 MAP_PATH = os.path.join(DATA_DIR, "three_tier_map.json")
 ART_PATH = os.path.join(DATA_DIR, "three_tier_articles.json")
 TABLE_PATH = os.path.join(DATA_DIR, "attached_tables.json")
 TIMELINE_PATH = os.path.join(DATA_DIR, "article_timeline.json")
+
+# Phase 3 S3-1-b-3: 그룹 활성화 옵션 — viewer 드롭다운에서 selectable
+# (road는 항상 활성, tlspc는 시행령까지 빌드되면 활성). 향후 다른 법령 추가 시 키 추가.
+GROUP_LABELS = {
+    "road": "도로교통법 (시행령·시행규칙)",
+    "tlspc": "교통사고처리 특례법 (시행령)",
+}
+GROUP_ENABLED = {"road", "tlspc"}   # disabled 해제된 그룹
 
 
 import re as _re
@@ -236,13 +246,44 @@ def load_table_data_with_fallback():
     return table_data
 
 
+def _load_json_or_empty(path, default):
+    """파일 없으면 default 반환 — multi-law 단일 법률(tlspc 등)에서 timeline·diff 등 부재 대응."""
+    if not os.path.exists(path):
+        print(f"  ℹ️ {os.path.basename(path)} 없음 — 빈 값으로 진행")
+        return default
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 def main():
+    # Phase 3 S3-1-b-3: --group 인자. road는 기존 파일명 유지 (viewer 호환).
+    parser = argparse.ArgumentParser(description="viewer.html 빌더 (다중 법령 지원)")
+    parser.add_argument("--group", default="road", choices=list(GROUP_LABELS.keys()),
+                        help="법령 그룹 (기본 road = 도로교통법)")
+    args = parser.parse_args()
+    group = args.group
+    suffix = "" if group == "road" else f"_{group}"
+    print(f"🏷️  법령 그룹: {group} ({GROUP_LABELS[group]})")
+
+    # 입력 파일 경로 (group별 suffix)
+    map_path = os.path.join(DATA_DIR, f"three_tier_map{suffix}.json")
+    art_path = os.path.join(DATA_DIR, f"three_tier_articles{suffix}.json")
+    timeline_path = os.path.join(DATA_DIR, f"article_timeline{suffix}.json")
+    cascade_path = os.path.join(DATA_DIR, f"cascade_events{suffix}.json")
+    diff_path = os.path.join(DATA_DIR, f"text_diff{suffix}.json")
+    tbl_diff_path = os.path.join(DATA_DIR, f"attached_tables_diff{suffix}.json")
+    tbl_hist_path = os.path.join(DATA_DIR, f"attached_tables_history{suffix}.json")
+
+    # 출력 파일 경로
+    output_path = os.path.join(SCRIPT_DIR, f"viewer{suffix}.html")
+
     print("📖 데이터 로딩...")
-    with open(MAP_PATH, "r", encoding="utf-8") as f:
+    with open(map_path, "r", encoding="utf-8") as f:
         map_data = json.load(f)
-    with open(ART_PATH, "r", encoding="utf-8") as f:
+    with open(art_path, "r", encoding="utf-8") as f:
         art_data = json.load(f)
-    table_data = load_table_data_with_fallback()
+    # attached_tables는 road 전용 폴백 로직 있음. tlspc는 빈값 처리.
+    table_data = load_table_data_with_fallback() if group == "road" else {"시행령": {}, "시행규칙": {}}
 
     # 뷰어 크기 최적화: 텍스트 내용은 PDF가 있으면 제거
     for law_type in ["시행령", "시행규칙"]:
@@ -251,9 +292,8 @@ def main():
                 val.pop("내용", None)
                 val.pop("내용HTML", None)
 
-    # 타임라인 데이터
-    with open(TIMELINE_PATH, "r", encoding="utf-8") as f:
-        timeline_data = json.load(f)
+    # 타임라인 데이터 (graceful — multi-law에서 없을 수 있음)
+    timeline_data = _load_json_or_empty(timeline_path, {"조문별연혁": {}})
     for law_type in ["법률", "시행령", "시행규칙"]:
         for jo_key, entries in timeline_data.get("조문별연혁", {}).get(law_type, {}).items():
             for e in entries:
@@ -263,27 +303,19 @@ def main():
                     if p.get("항내용"):
                         p["항내용"] = p["항내용"][:150]
 
-    # 캐스케이드 이벤트 데이터
-    cascade_path = os.path.join(DATA_DIR, "cascade_events.json")
-    with open(cascade_path, "r", encoding="utf-8") as f:
-        cascade_data = json.load(f)
+    # 캐스케이드 이벤트 데이터 (graceful)
+    cascade_data = _load_json_or_empty(cascade_path, {})
 
-    # 전후비교 데이터
-    diff_path = os.path.join(DATA_DIR, "text_diff.json")
-    with open(diff_path, "r", encoding="utf-8") as f:
-        diff_data = json.load(f)
+    # 전후비교 데이터 (graceful)
+    diff_data = _load_json_or_empty(diff_path, {})
 
     # 별표 전후비교 (선택적 — 없으면 빈값)
-    tbl_diff_path = os.path.join(DATA_DIR, "attached_tables_diff.json")
-    tbl_diff_data = {"시행령": {}, "시행규칙": {}}
-    if os.path.exists(tbl_diff_path):
-        with open(tbl_diff_path, "r", encoding="utf-8") as f:
-            tbl_diff_data = json.load(f)
+    tbl_diff_data = _load_json_or_empty(tbl_diff_path, {"시행령": {}, "시행규칙": {}})
 
     # 별표/서식 history 슬림판 — 옛 시점 본문에서 폐지/번호변경된 별지를 폴백 매칭하기 위한 인덱스.
     # 본문 텍스트(약 215MB)는 제외하고 (제목, PDF_URL, 공포일자) 만 추출 → 약 3MB.
+    # tbl_hist_path는 main 초반에서 group별로 정의됨.
     tbl_hist_slim = {"시행령": {}, "시행규칙": {}}
-    tbl_hist_path = os.path.join(DATA_DIR, "attached_tables_history.json")
     if os.path.exists(tbl_hist_path):
         with open(tbl_hist_path, "r", encoding="utf-8") as f:
             _full_hist = json.load(f)
@@ -336,51 +368,77 @@ def main():
     # ─────────────────────────────────────────────────────
     os.makedirs(WEB_DATA_DIR, exist_ok=True)
 
-    def write_data(filename, var_name, data):
-        """window.{var_name} = {data}; 형태로 저장"""
+    # Phase 3 S3-1-b-3: group별 파일명 (road는 기존명, tlspc는 _tlspc suffix)
+    def write_data(stem, var_name, data):
+        """window.{var_name} = {data}; 형태로 저장. stem='data_core' → 'data_core{suffix}.js'."""
+        filename = f"{stem}{suffix}.js"
         path = os.path.join(WEB_DATA_DIR, filename)
         with open(path, "w", encoding="utf-8") as f:
             f.write(f"window.{var_name}=")
             json.dump(data, f, ensure_ascii=False)
             f.write(";")
-        return os.path.getsize(path) / (1024 * 1024)
+        return filename, os.path.getsize(path) / (1024 * 1024)
 
-    print("\n📦 데이터 분리 저장 (web_data/):")
+    print(f"\n📦 데이터 분리 저장 (web_data/, group={group}):")
     sizes = []
-    sizes.append(("data_core.js", write_data("data_core.js", "_DATA_CORE", {
+    sizes.append(write_data("data_core", "_DATA_CORE", {
         "mapData": map_data,
         "artData": art_data,
         "cascadeData": cascade_data,
         "diffData": diff_data,
         "tableData": table_data_lite,
-    })))
-    sizes.append(("data_timeline.js", write_data("data_timeline.js", "_DATA_TIMELINE", timeline_data)))
-    # 별표 전후비교 — 시행령/시행규칙 분할 (큰 파일 100MB 한도 대응)
-    sizes.append(("data_tbl_diff_decree.js",
-                  write_data("data_tbl_diff_decree.js", "_DATA_TBL_DIFF_DECREE", tbl_diff_data.get("시행령", {}))))
-    sizes.append(("data_tbl_diff_rule.js",
-                  write_data("data_tbl_diff_rule.js", "_DATA_TBL_DIFF_RULE", tbl_diff_data.get("시행규칙", {}))))
-    # 별표 PDF base64
-    sizes.append(("data_tbl_pdf.js", write_data("data_tbl_pdf.js", "_DATA_TBL_PDF", tbl_pdf_data)))
-    # 별표/서식 history 슬림판 (폐지/번호변경된 옛 시점 별지 폴백 매칭용)
-    sizes.append(("data_tbl_history.js", write_data("data_tbl_history.js", "_DATA_TBL_HISTORY", tbl_hist_slim)))
+    }))
+    sizes.append(write_data("data_timeline", "_DATA_TIMELINE", timeline_data))
+    sizes.append(write_data("data_tbl_diff_decree", "_DATA_TBL_DIFF_DECREE", tbl_diff_data.get("시행령", {})))
+    sizes.append(write_data("data_tbl_diff_rule", "_DATA_TBL_DIFF_RULE", tbl_diff_data.get("시행규칙", {})))
+    sizes.append(write_data("data_tbl_pdf", "_DATA_TBL_PDF", tbl_pdf_data))
+    sizes.append(write_data("data_tbl_history", "_DATA_TBL_HISTORY", tbl_hist_slim))
 
     for name, sz in sizes:
         warn = " ⚠️ 100MB 한도 초과!" if sz > 100 else ""
         print(f"  {name}: {sz:.1f}MB{warn}")
 
-    # HTML 빌드 — F4: web_data/*.js 캐시버스팅 (?v=빌드시각). 시크릿 창 없이도 새 데이터 인식.
+    # HTML 빌드
+    # F4: web_data/*.js 캐시버스팅 (?v=빌드시각). 시크릿 창 없이도 새 데이터 인식.
+    # S3-1-b-3: group별 web_data 파일명 + 드롭다운 selected 상태 + tlspc 활성화.
     build_ts = time.strftime("%Y%m%d%H%M%S")
+    html = HTML_TEMPLATE
+
+    # 1) script src에 group suffix + 캐시버스팅
     html = _re.sub(
-        r'(web_data/data_\w+\.js)(["\'])',
-        lambda m: f'{m.group(1)}?v={build_ts}{m.group(2)}',
-        HTML_TEMPLATE,
+        r'(web_data/data_\w+)(\.js)(["\'])',
+        lambda m: f'{m.group(1)}{suffix}{m.group(2)}?v={build_ts}{m.group(3)}',
+        html,
     )
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+
+    # 2) 드롭다운 selected 상태 — 현재 group의 옵션이 selected가 되도록
+    if group != "road":
+        # road의 selected 제거 → tlspc 등 현재 그룹에 selected 부여
+        html = html.replace(
+            '<option value="road" selected>',
+            '<option value="road">',
+        )
+        html = html.replace(
+            f'<option value="{group}" disabled>',
+            f'<option value="{group}" selected>',
+        )
+
+    # 3) 활성화된 그룹들의 disabled 해제 (GROUP_ENABLED에 있는 것)
+    for enabled_group in GROUP_ENABLED:
+        if enabled_group == "road":
+            continue   # road는 selected라 별도 처리
+        if enabled_group == group:
+            continue   # 이미 위에서 selected로 처리
+        html = html.replace(
+            f'<option value="{enabled_group}" disabled>',
+            f'<option value="{enabled_group}">',
+        )
+
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
 
-    size_kb = os.path.getsize(OUTPUT_PATH) / 1024
-    print(f"\n💾 뷰어 생성: {OUTPUT_PATH} ({size_kb:.1f}KB)")
+    size_kb = os.path.getsize(output_path) / 1024
+    print(f"\n💾 뷰어 생성: {output_path} ({size_kb:.1f}KB)")
     print(f"💾 데이터 분리: {WEB_DATA_DIR}/ (총 {sum(s for _,s in sizes):.1f}MB)")
 
 
@@ -627,14 +685,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="toolbar">
   <label>법령</label>
-  <select id="lawSel" onchange="onLawChange()" autocomplete="off" title="Phase 3 — 다중 법령 진입 준비 중">
+  <select id="lawSel" onchange="onLawChange()" autocomplete="off" title="Phase 3 — 다중 법령">
     <option value="road" selected>도로교통법 (시행령·시행규칙)</option>
-    <option value="tlspc" disabled>교통사고처리 특례법 (곧 추가)</option>
-    <option value="tkga" disabled>특정범죄 가중처벌법 (곧 추가)</option>
-    <option value="car_mgmt" disabled>자동차관리법 (곧 추가)</option>
-    <option value="passenger_transport" disabled>여객자동차 운수사업법 (곧 추가)</option>
-    <option value="cargo_transport" disabled>화물자동차 운수사업법 (곧 추가)</option>
-    <option value="crim_proc" disabled>형사소송법 (곧 추가)</option>
+    <option value="tlspc" disabled>교통사고처리 특례법 (시행령)</option>
+    <option value="tkga" disabled>특정범죄 가중처벌법 (준비 중)</option>
+    <option value="car_mgmt" disabled>자동차관리법 (준비 중)</option>
+    <option value="passenger_transport" disabled>여객자동차 운수사업법 (준비 중)</option>
+    <option value="cargo_transport" disabled>화물자동차 운수사업법 (준비 중)</option>
+    <option value="crim_proc" disabled>형사소송법 (준비 중)</option>
   </select>
   <label>조문</label>
   <select id="sel" onchange="onArticleChange()" autocomplete="off"></select>
@@ -1317,15 +1375,15 @@ function onArticleChange(){
   else renderHistory();
 }
 
-// Phase 3 S3-1-a — 법령 선택 (현재는 도교법만, 다른 법령은 disabled).
-// 향후 S3-1-b 이후 다른 법령 자료 로드·렌더링 분기 추가 예정.
+// Phase 3 S3-1-b-3 — 법령 선택 시 group별 별도 HTML 페이지로 이동.
+// road → viewer.html, 그 외 → viewer_{group}.html
 function onLawChange(){
   const law = document.getElementById('lawSel').value;
-  if (law !== 'road') {
-    // disabled라 도달 안 함. 안전망.
-    alert('이 법령은 Phase 3 작업 중입니다. 곧 추가됩니다.');
-    document.getElementById('lawSel').value = 'road';
+  const target = law === 'road' ? 'viewer.html' : `viewer_${law}.html`;
+  if (location.pathname.endsWith('/' + target) || location.pathname.endsWith(target)) {
+    return;   // 이미 같은 페이지
   }
+  location.href = target;
 }
 
 function goArticle(joKey){
