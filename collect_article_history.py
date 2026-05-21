@@ -26,12 +26,15 @@ HISTORY_LIST_URL = "https://www.law.go.kr/LSW/lsHstListR.do"
 REQUEST_DELAY = 0.6
 SAVE_INTERVAL = 20  # 중간 저장 간격
 
-# 법령ID → MST 목록 조회용
-LAW_GROUP = [
-    {"유형": "법률",     "법령명": "도로교통법",         "법령ID": "001638"},
-    {"유형": "시행령",   "법령명": "도로교통법 시행령",   "법령ID": "003395"},
-    {"유형": "시행규칙", "법령명": "도로교통법 시행규칙", "법령ID": "007079"},
-]
+# Phase 3 S1-A: 법령 그룹 dict로 래핑 (build_3tier_map과 동일 패턴).
+LAW_GROUPS = {
+    "road": [
+        {"유형": "법률",     "법령명": "도로교통법",         "법령ID": "001638"},
+        {"유형": "시행령",   "법령명": "도로교통법 시행령",   "법령ID": "003395"},
+        {"유형": "시행규칙", "법령명": "도로교통법 시행규칙", "법령ID": "007079"},
+    ],
+}
+LAW_GROUP = LAW_GROUPS["road"]   # S1-A: 호환성 alias
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data")
