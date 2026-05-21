@@ -250,6 +250,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <option value="cargo_transport" disabled>화물자동차 운수사업법 (준비 중)</option>
     <option value="crim_proc" disabled>형사소송법 (준비 중)</option>
   </select>
+  <!-- Phase 3 S3-1-b-4-b: 법령유형 토글 (법률·시행령·시행규칙 직접 진입) -->
+  <div id="lawTypeToggle" style="display:inline-flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff" role="group" aria-label="법령유형 선택">
+    <button type="button" class="lt-btn active" data-lawtype="법률" onclick="switchLawType('법률')" style="padding:6px 10px;border:none;background:var(--law);color:#fff;cursor:pointer;font-size:12px;font-weight:600">법률</button>
+    <button type="button" class="lt-btn" data-lawtype="시행령" onclick="switchLawType('시행령')" style="padding:6px 10px;border:none;border-left:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-size:12px">시행령</button>
+    <button type="button" class="lt-btn" data-lawtype="시행규칙" onclick="switchLawType('시행규칙')" style="padding:6px 10px;border:none;border-left:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-size:12px">시행규칙</button>
+  </div>
   <label>조문</label>
   <select id="sel" onchange="onArticleChange()" autocomplete="off"></select>
   <input type="text" id="q" placeholder="🔍 조문/키워드 검색 (예: 안전띠)" oninput="filter()" onkeydown="if(event.key==='Escape'){this.value='';filter();}">
@@ -303,12 +309,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core.js?v=20260521222525"></script>
-<script src="web_data/data_timeline.js?v=20260521222525"></script>
-<script src="web_data/data_tbl_diff_decree.js?v=20260521222525"></script>
-<script src="web_data/data_tbl_diff_rule.js?v=20260521222525"></script>
-<script src="web_data/data_tbl_pdf.js?v=20260521222525"></script>
-<script src="web_data/data_tbl_history.js?v=20260521222525"></script>
+<script src="web_data/data_core.js?v=20260521231449"></script>
+<script src="web_data/data_timeline.js?v=20260521231449"></script>
+<script src="web_data/data_tbl_diff_decree.js?v=20260521231449"></script>
+<script src="web_data/data_tbl_diff_rule.js?v=20260521231449"></script>
+<script src="web_data/data_tbl_pdf.js?v=20260521231449"></script>
+<script src="web_data/data_tbl_history.js?v=20260521231449"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -324,15 +330,144 @@ const tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{
 let opts=[];
 // currentTab은 init() 안에서 호출되는 updateUrlForArticle()이 참조하므로 미리 선언 (TDZ 회피)
 let currentTab='compare';
-(function init(){
-  // 조문 목록 + 장 정보
-  for(const e of mapData.매핑){
-    const jo=e.법률_조키, t=e.법률_조문제목||'', h=e.하위법령_존재;
-    const lawArt=artData.법률.조문[jo]||{};
-    const ch=lawArt.장||'';
-    opts.push({jo,t,label:`제${jo}조 ${t}`,h,ch});
+// Phase 3 S3-1-b-4-b: 법령유형 직접 진입 (법률·시행령·시행규칙)
+let currentLawType='법률';
+// 시행령 조키 → [위임받은 법률 조키 목록], 시행규칙 동일 (init에서 1회 빌드)
+let decreeToLaw={}, ruleToLaw={};
+
+// URL의 law 파라미터를 내부 lawType으로 매핑
+//   없음 / 'law' / 'L' → 법률 (기존 ?jo=50 호환)
+//   'enf' / 'D'        → 시행령
+//   'enr' / 'R'        → 시행규칙
+function parseLawTypeParam(v){
+  if(!v) return '법률';
+  if(v==='enf'||v==='D'||v==='시행령') return '시행령';
+  if(v==='enr'||v==='R'||v==='시행규칙') return '시행규칙';
+  return '법률';
+}
+function lawTypeToParam(t){
+  if(t==='시행령') return 'enf';
+  if(t==='시행규칙') return 'enr';
+  return null;
+}
+function getArtMap(lawType){
+  if(lawType==='시행령') return (artData.시행령&&artData.시행령.조문)||{};
+  if(lawType==='시행규칙') return (artData.시행규칙&&artData.시행규칙.조문)||{};
+  return (artData.법률&&artData.법률.조문)||{};
+}
+function hasLawTypeData(lawType){
+  const m=getArtMap(lawType);
+  return Object.keys(m).length>0;
+}
+
+// 시행령 / 시행규칙 조문 → 위임받은 법률 조문 역참조 인덱스 빌드
+// 시행규칙은 직접 위임뿐 아니라 "시행령 경유" 위임도 같이 수집한다 (사용자 결정).
+function buildReverseIndex(){
+  decreeToLaw={}; ruleToLaw={};
+  const addUnique=(obj,k,v)=>{
+    if(!obj[k]) obj[k]=[];
+    if(!obj[k].includes(v)) obj[k].push(v);
+  };
+  for(const e of (mapData.매핑||[])){
+    const lawJo=e.법률_조키;
+    if(!lawJo) continue;
+    // 조문 전체 매핑 (시행령·시행규칙 모두)
+    for(const g of (e.조문전체_매핑||[])){
+      if(g.법령유형==='시행령') addUnique(decreeToLaw, g.조키, lawJo);
+      else if(g.법령유형==='시행규칙') addUnique(ruleToLaw, g.조키, lawJo);
+    }
+    // 항별 매핑: 시행령 + 시행령 경유 시행규칙 + 시행규칙 직접
+    for(const pm of (e.항별_매핑||[])){
+      for(const d of (pm.시행령||[])){
+        addUnique(decreeToLaw, d.조키, lawJo);
+        for(const r of (d.시행규칙||[])) addUnique(ruleToLaw, r.조키, lawJo);
+      }
+      for(const r of (pm.시행규칙_직접||[])) addUnique(ruleToLaw, r.조키, lawJo);
+    }
   }
+}
+
+// 주어진 lawType의 모든 조문 옵션을 만든다.
+// 법률: 기존 로직 (mapData.매핑 기반 — 장 정보 보존)
+// 시행령·시행규칙: artData[lawType].조문 키 순회 (장 정보는 art.장에서 추출)
+function buildOpts(lawType){
+  const list=[];
+  if(lawType==='법률'){
+    for(const e of (mapData.매핑||[])){
+      const jo=e.법률_조키, t=e.법률_조문제목||'', h=e.하위법령_존재;
+      const lawArt=(artData.법률&&artData.법률.조문&&artData.법률.조문[jo])||{};
+      const ch=lawArt.장||'';
+      list.push({jo,t,label:`제${jo}조 ${t}`,h,ch});
+    }
+    return list;
+  }
+  const map=getArtMap(lawType);
+  for(const jo of Object.keys(map)){
+    const art=map[jo]||{};
+    const t=art.조문제목||'';
+    const ch=art.장||'';
+    list.push({jo,t,label:`제${jo}조 ${t}`,h:false,ch});
+  }
+  return list;
+}
+
+// 토글 버튼 시각 상태 동기화
+function syncLawTypeToggle(){
+  const btns=document.querySelectorAll('#lawTypeToggle .lt-btn');
+  btns.forEach(b=>{
+    const isActive=b.dataset.lawtype===currentLawType;
+    b.classList.toggle('active', isActive);
+    b.style.background = isActive ? 'var(--law)' : '#fff';
+    b.style.color = isActive ? '#fff' : 'var(--text)';
+    b.style.fontWeight = isActive ? '600' : '400';
+    // 시행규칙 자료가 없는 그룹(예: tlspc)에서는 자동 비활성
+    if(b.dataset.lawtype!=='법률'){
+      const ok=hasLawTypeData(b.dataset.lawtype);
+      b.disabled = !ok;
+      b.style.opacity = ok ? '1' : '0.4';
+      b.style.cursor = ok ? 'pointer' : 'not-allowed';
+      if(!ok) b.title='이 법령에는 '+b.dataset.lawtype+' 자료가 없습니다';
+      else b.title='';
+    }
+  });
+}
+
+// 라디오 클릭 시: lawType 전환 → opts 재빌드 → 첫 조문 선택 → render
+function switchLawType(newType){
+  if(newType===currentLawType) return;
+  if(newType!=='법률' && !hasLawTypeData(newType)){
+    showToast('이 법령에는 '+newType+' 자료가 없습니다');
+    return;
+  }
+  currentLawType=newType;
+  opts=buildOpts(currentLawType);
   popGrouped(opts);
+  syncLawTypeToggle();
+  // 검색창 비우기는 렌더 전에 (Codex 사후검증 권장: 검색 결과 패널이 잠깐 남는 것 방지)
+  const qEl=document.getElementById('q');
+  if(qEl&&qEl.value){
+    qEl.value='';
+    const r=document.getElementById('searchResults');
+    if(r){r.style.display='none'; r.innerHTML='';}
+  }
+  if(opts.length){
+    const sel=document.getElementById('sel');
+    sel.value=opts[0].jo;
+    if(currentTab==='history') renderHistory();
+    else render();
+  }
+}
+(function init(){
+  buildReverseIndex();
+  // URL ?law=enf|enr 파라미터로 초기 lawType 결정 (없으면 법률 — 기존 ?jo=50 호환)
+  const _initUrl = new URL(window.location.href);
+  const _lawParam = _initUrl.searchParams.get('law');
+  currentLawType = parseLawTypeParam(_lawParam);
+  // 해당 lawType 자료가 없으면 (예: tlspc에서 ?law=enr) 법률로 폴백
+  if(currentLawType!=='법률' && !hasLawTypeData(currentLawType)) currentLawType='법률';
+  opts = buildOpts(currentLawType);
+  popGrouped(opts);
+  syncLawTypeToggle();
   const totalArt = mapData.통계.법률_전체조문수||0;
   const linkedArt = mapData.통계.하위법령_연결조문수||0;
   const headerStats = document.getElementById('headerStats');
@@ -367,20 +502,26 @@ let currentTab='compare';
   if(!url2.searchParams.get('jo')) showOnboardingIfFirstVisit();
 })();
 
-// 딥링크 — URL 동기화
+// 딥링크 — URL 동기화 (S3-1-b-4-b: law 파라미터 포함)
 function updateUrlForArticle(jo){
   if(!history.replaceState) return;
   const url = new URL(window.location.href);
   url.searchParams.set('jo', jo);
+  const lp=lawTypeToParam(currentLawType);
+  if(lp) url.searchParams.set('law', lp);
+  else url.searchParams.delete('law');  // 법률은 기본 → law 파라미터 생략 (?jo=50 호환)
   if(currentTab==='history') url.searchParams.set('tab','history');
   else url.searchParams.delete('tab');
-  history.replaceState({jo, tab: currentTab}, '', url.toString());
+  history.replaceState({jo, tab: currentTab, law: currentLawType}, '', url.toString());
 }
 
 // 링크 복사 (조문 URL을 클립보드에)
 function copyArticleLink(jo){
   const url = new URL(window.location.href);
   url.searchParams.set('jo', jo);
+  const lp=lawTypeToParam(currentLawType);
+  if(lp) url.searchParams.set('law', lp);
+  else url.searchParams.delete('law');
   if(currentTab==='history') url.searchParams.set('tab','history');
   else url.searchParams.delete('tab');
   const text = url.toString();
@@ -488,10 +629,11 @@ function filter(){
     }
   }
 
-  // 2) 키워드 검색 — 법률 조문 제목 + 본문에서 매칭
+  // 2) 키워드 검색 — 현재 lawType의 조문 제목 + 본문에서 매칭 (S3-1-b-4-b)
+  const _artMap=getArtMap(currentLawType);
   const matches=[];
   for(const opt of opts){
-    const art=artData.법률.조문[opt.jo]||{};
+    const art=_artMap[opt.jo]||{};
     const fullText=articleFullText(art);
     const hayLower=(opt.jo + ' ' + fullText).toLowerCase();
     if(!hayLower.includes(qLower)) continue;
@@ -537,6 +679,11 @@ function filter(){
 }
 
 function render(){
+  // Phase 3 S3-1-b-4-b: 시행령·시행규칙 직접 진입 분기
+  if(currentLawType!=='법률'){
+    renderSubLawArticle(currentLawType);
+    return;
+  }
   const jo=document.getElementById('sel').value;
   const entry=mapData.매핑.find(e=>e.법률_조키===jo);
   if(!entry)return;
@@ -673,6 +820,130 @@ function render(){
   }
 
   document.getElementById('content').innerHTML=html;
+}
+
+// Phase 3 S3-1-b-4-b: 시행령·시행규칙 조문 직접 진입 렌더러
+// 단일 조문 카드 형태로 본문을 표시하고, 위임을 받은 법률 조문 chip을 보여준다.
+function renderSubLawArticle(lawType){
+  const jo=document.getElementById('sel').value;
+  const map=getArtMap(lawType);
+  const art=map[jo]||{};
+  updateUrlForArticle(jo);
+  const lawTypeColor = lawType==='시행령' ? 'var(--decree)' : 'var(--rule)';
+  const lawTypeBgVar = lawType==='시행령' ? 'var(--decree-bg)' : 'var(--rule-bg)';
+  setEscLawType(lawType);
+  let html='';
+  const chapter=art.장||'';
+  html+=`<div style="margin-bottom:16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">`;
+  html+=`<div>`;
+  if(chapter) html+=`<div style="font-size:12px;color:var(--sub);margin-bottom:4px">${esc(chapter)}</div>`;
+  html+=`<div style="font-size:18px;font-weight:700;color:${lawTypeColor}"><span style="font-size:13px;padding:2px 8px;border-radius:3px;background:${lawTypeColor};color:#fff;margin-right:8px;vertical-align:middle;font-weight:600">${lawType}</span>제${jo}조 ${esc(art.조문제목||'')}</div>`;
+  html+=`</div>`;
+  // 액션 버튼
+  html+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+  html+=`<button onclick="copyArticleLink('${jo}')" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" title="이 조문 URL 복사">🔗 링크 복사</button>`;
+  html+=`<button onclick="window.print()" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" title="현재 화면 인쇄">🖨️ 인쇄</button>`;
+  const _refMeta = (mapData.기준법령||{})[lawType] || {};
+  const _refName = _refMeta.법령명 || '';
+  if(_refName){
+    const refSrcUrl = encodeURI(`https://www.law.go.kr/법령/${_refName}/제${jo}조`);
+    html+=`<a href="${refSrcUrl}" target="_blank" rel="noopener" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);text-decoration:none">📖 원문</a>`;
+  }
+  html+=`</div>`;
+  html+=`</div>`;
+  // 역참조 chips — 이 조문을 위임한 법률 조문 (있을 때만)
+  const relLaws = (lawType==='시행령' ? decreeToLaw[jo] : ruleToLaw[jo]) || [];
+  if(relLaws.length){
+    html+=`<div style="margin-bottom:14px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px">`;
+    html+=`<div style="font-size:12px;color:#92400e;margin-bottom:6px;font-weight:600">↩ 위임 근거 법률 조문 (${relLaws.length}건) — 클릭하면 해당 법률 조문으로 이동</div>`;
+    html+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+    for(const lj of relLaws){
+      const lawArt=(artData.법률&&artData.법률.조문&&artData.법률.조문[lj])||{};
+      const lt=lawArt.조문제목||'';
+      html+=`<button onclick="switchLawType('법률');document.getElementById('sel').value='${lj}';render();" style="padding:5px 10px;background:#fff;border:1px solid #fde68a;border-radius:16px;cursor:pointer;font-size:12px;color:#92400e">법률 제${lj}조${lt?' '+esc(lt):''}</button>`;
+    }
+    html+=`</div>`;
+    html+=`</div>`;
+  } else {
+    html+=`<div style="margin-bottom:14px;padding:8px 14px;background:#f9fafb;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--sub)">자동 매칭된 위임 근거 법률 조문이 없습니다 (자료 한계 또는 부속 조문).</div>`;
+  }
+  // 조문 본문
+  html+=`<div class="para-block">`;
+  html+=`<div class="para-header"><span class="para-badge" style="background:${lawTypeColor}">${lawType}</span><span class="para-title">제${jo}조${art.조문제목?' ('+esc(art.조문제목)+')':''}</span></div>`;
+  html+=`<div class="para-body open" style="background:${lawTypeBgVar}">${renderArticleBody(art)}</div>`;
+  html+=`</div>`;
+  document.getElementById('content').innerHTML=html;
+}
+
+// 단일 조문(법률·시행령·시행규칙 공용)의 본문을 HTML로 — 조문내용 + 항 + 호 + 목 전체 렌더
+function renderArticleBody(art){
+  if(!art) return '<em style="color:var(--sub)">조문 데이터 없음</em>';
+  let out='';
+  if(art.조문내용) out += `<div class="fp-para">${esc(art.조문내용)}</div>`;
+  const 항=(art.항)||[];
+  // 항이 1개이고 항내용 비어있으면 → 조문내용 아래에 호 표시 (기존 togFull 패턴)
+  if(항.length===1 && !항[0].항내용 && 항[0].호 && 항[0].호.length){
+    out += `<div class="fp-para" style="margin-top:6px">${esc(hoListHtml(항[0].호))}</div>`;
+    return out;
+  }
+  for(const p of 항){
+    if(!p.항내용 && !(p.호&&p.호.length)) continue;
+    let pContent = p.항내용 || '';
+    if(p.호 && p.호.length) pContent += hoListHtml(p.호);
+    out += `<div class="fp-para" style="margin-top:6px"><strong>${p.항번호||''}</strong> ${esc(pContent)}</div>`;
+  }
+  return out || '<em style="color:var(--sub)">본문 없음</em>';
+}
+
+// Phase 3 S3-1-b-4-b: 시행령·시행규칙 조문 직접 진입 시 연혁 (diff만, 캐스케이드 없음)
+function renderSubLawHistory(lawType){
+  const jo=document.getElementById('sel').value;
+  const map=getArtMap(lawType);
+  const art=map[jo]||{};
+  const el=document.getElementById('historyContent');
+  updateUrlForArticle(jo);
+  const lawTypeColor = lawType==='시행령' ? 'var(--decree)' : 'var(--rule)';
+  let html='';
+  const chapter=art.장||'';
+  html+=`<div style="margin-bottom:16px">`;
+  if(chapter) html+=`<div style="font-size:12px;color:var(--sub);margin-bottom:4px">${esc(chapter)}</div>`;
+  html+=`<div style="font-size:18px;font-weight:700;color:${lawTypeColor}"><span style="font-size:13px;padding:2px 8px;border-radius:3px;background:${lawTypeColor};color:#fff;margin-right:8px;vertical-align:middle;font-weight:600">${lawType}</span>제${jo}조 ${esc(art.조문제목||'')} — 개정 연혁</div>`;
+  html+=`</div>`;
+  // 캐스케이드 안내 박스 (사용자 결정: 캐스케이드는 법률 진입으로 안내)
+  const relLaws = (lawType==='시행령' ? decreeToLaw[jo] : ruleToLaw[jo]) || [];
+  html+=`<div style="margin-bottom:14px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e40af;line-height:1.7">`;
+  html+=`🛈 이 화면은 <b>${lawType} 제${jo}조</b> 자체의 전후비교만 보여줍니다. 법률 개정과 연결된 <b>캐스케이드 연혁</b>은 위임 근거 법률 조문에서 확인하세요.`;
+  if(relLaws.length){
+    html+=`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">`;
+    for(const lj of relLaws){
+      const lawArt=(artData.법률&&artData.법률.조문&&artData.법률.조문[lj])||{};
+      const lt=lawArt.조문제목||'';
+      html+=`<button onclick="switchLawType('법률');document.getElementById('sel').value='${lj}';switchTab('history');" style="padding:5px 10px;background:#fff;border:1px solid #bfdbfe;border-radius:16px;cursor:pointer;font-size:12px;color:#1e40af">법률 제${lj}조${lt?' '+esc(lt):''} 연혁 보기</button>`;
+    }
+    html+=`</div>`;
+  }
+  html+=`</div>`;
+  // 자체 diff 목록
+  const diffs = ((diffData||{})[lawType] || {})[jo] || [];
+  if(!diffs.length){
+    html+=`<div style="color:var(--sub);padding:20px;font-size:13px;text-align:center;border:1px dashed var(--border);border-radius:8px">이 조문의 전후비교 자료가 없습니다.</div>`;
+    el.innerHTML=html; return;
+  }
+  html+=`<div style="font-size:13px;color:var(--sub);margin-bottom:12px">총 ${diffs.length}건의 전후비교</div>`;
+  // 최신 공포일 우선
+  const sorted=[...diffs].sort((a,b)=>(b.공포일자||'').localeCompare(a.공포일자||''));
+  for(let i=0;i<sorted.length;i++){
+    const d=sorted[i];
+    html+=`<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)">`;
+    html+=`<div style="padding:10px 14px;background:${lawTypeColor};color:#fff">`;
+    html+=`<span style="font-size:14px;font-weight:700">${fmtD(d.공포일자||'')}</span>`;
+    if(d.시행일자) html+=`<span style="font-size:12px;opacity:.85;margin-left:10px">시행 ${fmtD(d.시행일자)}</span>`;
+    html+=`</div>`;
+    html+=`<div style="padding:10px 14px">`;
+    html+=renderDiffView(d.이전||'', d.이후||'');
+    html+=`</div></div>`;
+  }
+  el.innerHTML=html;
 }
 
 // 시행령/시행규칙 렌더링 헬퍼
@@ -1012,6 +1283,11 @@ function countAddendaExceptions(addendaInfo){
 }
 
 function renderHistory(){
+  // Phase 3 S3-1-b-4-b: 시행령·시행규칙 직접 진입 시 단순 diff 연혁
+  if(currentLawType!=='법률'){
+    renderSubLawHistory(currentLawType);
+    return;
+  }
   const jo=document.getElementById('sel').value;
   const lawArt=artData.법률.조문[jo]||{};
   const el=document.getElementById('historyContent');
@@ -1759,7 +2035,7 @@ function popupArticle(joKey){
   }
   body += `</div>`;
   body += `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);text-align:center">`;
-  body += `<button onclick="closeModal();goArticle('${joKey}')" style="padding:9px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">📂 이 조문 화면으로 이동</button>`;
+  body += `<button onclick="closeModal();switchLawType('법률');goArticle('${joKey}')" style="padding:9px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">📂 이 조문 화면으로 이동</button>`;
   body += `<div style="font-size:11px;color:var(--sub);margin-top:8px">참고용 미리보기 — 시행령·시행규칙·연혁까지 보려면 위 버튼 클릭</div>`;
   body += `</div>`;
   document.getElementById('modalBody').innerHTML = body;
@@ -1934,6 +2210,8 @@ window.addEventListener('message',e=>{
   const url=new URL(window.location.href);
   url.searchParams.set('jo',e.data.jo);
   url.searchParams.set('tab','history');
+  // Phase 3 S3-1-b-4-b 사후검증: 알람은 항상 법률 조문 기준이므로 law 파라미터 잔존 시 제거
+  url.searchParams.delete('law');
   window.location.href=url.toString();
 });
 </script>
