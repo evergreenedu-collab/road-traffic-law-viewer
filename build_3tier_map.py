@@ -39,6 +39,10 @@ LAW_GROUPS = {
 }
 LAWS = LAW_GROUPS["road"]   # S1-A: 호환성 alias (기존 사용처 그대로)
 
+# Phase 3 S3-1-b-1: 단일 법률 모드(시행령·시행규칙 없는 법령) 안전 폴백.
+# 시행령/시행규칙 부재 시 빈 구조 반환 — 기존 3단 처리 코드가 KeyError 안 나도록.
+EMPTY_LAW = {"기본정보": {}, "조문": {}, "공포일자": "", "법령ID": ""}
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data")
 
@@ -295,8 +299,8 @@ def build_reference_map(all_data):
         "시행규칙": defaultdict(lambda: defaultdict(list)),
     }
 
-    # --- 시행령 → 법률 참조 추출 ---
-    decree_data = all_data["시행령"]
+    # --- 시행령 → 법률 참조 추출 (단일 법률 모드 대응: 시행령 없으면 EMPTY_LAW) ---
+    decree_data = all_data.get("시행령", EMPTY_LAW)
     ref_count = 0
     for jo_key, article in decree_data["조문"].items():
         # 조문내용에서 추출
@@ -337,8 +341,8 @@ def build_reference_map(all_data):
 
     print(f"\n📌 시행령 → 법률: {ref_count}건 참조 추출")
 
-    # --- 시행규칙 → 법률/시행령 참조 추출 ---
-    rule_data = all_data["시행규칙"]
+    # --- 시행규칙 → 법률/시행령 참조 추출 (단일 법률 모드 대응) ---
+    rule_data = all_data.get("시행규칙", EMPTY_LAW)
     law_ref_count = 0
     decree_ref_count = 0
 
@@ -402,8 +406,8 @@ def build_reverse_map(forward_map, all_data):
     # ]
     reverse_map = defaultdict(lambda: defaultdict(list))
 
-    # 시행령 → 법률 역방향
-    decree_articles = all_data["시행령"]["조문"]
+    # 시행령 → 법률 역방향 (단일 법률 모드: 시행령 없으면 빈 dict)
+    decree_articles = all_data.get("시행령", EMPTY_LAW).get("조문", {})
     for decree_jo, hang_map in forward_map["시행령"].items():
         decree_title = decree_articles.get(decree_jo, {}).get("조문제목", "")
         for source_hang, refs in hang_map.items():
@@ -428,8 +432,8 @@ def build_reverse_map(forward_map, all_data):
                     ):
                         existing.append(entry)
 
-    # 시행규칙 → 법률 역방향
-    rule_articles = all_data["시행규칙"]["조문"]
+    # 시행규칙 → 법률 역방향 (단일 법률 모드: 시행규칙 없으면 빈 dict)
+    rule_articles = all_data.get("시행규칙", EMPTY_LAW).get("조문", {})
     for rule_jo, hang_map in forward_map["시행규칙"].items():
         rule_title = rule_articles.get(rule_jo, {}).get("조문제목", "")
         for source_hang, refs in hang_map.items():
@@ -519,7 +523,7 @@ def extract_other_law_hints(all_data):
     hints = {}  # 법률조키 -> set(타법명)
 
     for law_type in ["시행령", "시행규칙"]:
-        for jo_key, article in all_data[law_type]["조문"].items():
+        for jo_key, article in all_data.get(law_type, EMPTY_LAW).get("조문", {}).items():
             full = article.get("조문내용", "") or ""
             for p in article.get("항", []):
                 full += " " + (p.get("항내용", "") or "")
@@ -558,16 +562,16 @@ def build_final_map(all_data, reverse_map, decree_reverse, other_law_hints=None)
     print("=" * 55)
 
     law_articles = all_data["법률"]["조문"]
-    decree_articles = all_data["시행령"]["조문"]
-    rule_articles = all_data["시행규칙"]["조문"]
+    decree_articles = all_data.get("시행령", EMPTY_LAW).get("조문", {})
+    rule_articles = all_data.get("시행규칙", EMPTY_LAW).get("조문", {})
 
     result = {
         "생성일시": datetime.now().isoformat(),
         "설명": "도로교통법 3단 비교 매핑 (법률 조·항 → 시행령 → 시행규칙)",
         "기준법령": {
             "법률": all_data["법률"]["기본정보"],
-            "시행령": all_data["시행령"]["기본정보"],
-            "시행규칙": all_data["시행규칙"]["기본정보"],
+            "시행령": all_data.get("시행령", EMPTY_LAW).get("기본정보", {}),
+            "시행규칙": all_data.get("시행규칙", EMPTY_LAW).get("기본정보", {}),
         },
         "통계": {},
         "매핑": [],
@@ -766,12 +770,12 @@ def main():
     # 1단계: 전체 조문 수집
     all_data = fetch_all_articles()
 
-    # 조문 원문 데이터 저장
+    # 조문 원문 데이터 저장 (단일 법률 모드: 시행령·시행규칙 없으면 EMPTY_LAW)
     save_json({
         "생성일시": datetime.now().isoformat(),
         "법률": all_data["법률"],
-        "시행령": all_data["시행령"],
-        "시행규칙": all_data["시행규칙"],
+        "시행령": all_data.get("시행령", EMPTY_LAW),
+        "시행규칙": all_data.get("시행규칙", EMPTY_LAW),
     }, articles_path)
 
     # 2단계: 위임 근거 추출
