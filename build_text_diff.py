@@ -17,8 +17,12 @@ from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data")
+# 기본 경로 (road 호환). multi-group 실행 시 main()에서 suffix 적용해 재정의
 HISTORY_PATH = os.path.join(DATA_DIR, "article_history.json")
 OUTPUT_PATH = os.path.join(DATA_DIR, "text_diff.json")
+
+# build_3tier_map에서 그룹 키 목록 공유 (DRY)
+from build_3tier_map import LAW_GROUPS as _SHARED_LAW_GROUPS
 
 
 def get_full_text(jo_data):
@@ -51,8 +55,23 @@ def normalize_for_compare(text):
 
 
 def main():
-    print("📖 데이터 로딩...")
-    with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+    import argparse
+    parser = argparse.ArgumentParser(description="조문 전후비교 데이터 구축 (multi-group)")
+    parser.add_argument("--group", default="road", choices=list(_SHARED_LAW_GROUPS.keys()),
+                        help="법령 그룹 코드 (기본 road = 도로교통법)")
+    args = parser.parse_args()
+    suffix = "" if args.group == "road" else f"_{args.group}"
+    history_path = os.path.join(DATA_DIR, f"article_history{suffix}.json")
+    output_path = os.path.join(DATA_DIR, f"text_diff{suffix}.json")
+
+    print(f"🏷️  그룹: {args.group}")
+    if not os.path.exists(history_path):
+        raise FileNotFoundError(
+            f"{history_path} 없음.\n"
+            f"먼저 `py collect_article_history.py --group {args.group}`를 실행하세요."
+        )
+    print(f"📖 데이터 로딩... ({history_path})")
+    with open(history_path, "r", encoding="utf-8") as f:
         hist = json.load(f)
 
     print("=" * 55)
@@ -133,11 +152,11 @@ def main():
 
     # 저장
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False)
 
-    size_mb = os.path.getsize(OUTPUT_PATH) / (1024 * 1024)
-    print(f"\n💾 저장: {OUTPUT_PATH} ({size_mb:.1f}MB)")
+    size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    print(f"\n💾 저장: {output_path} ({size_mb:.1f}MB)")
 
 
 if __name__ == "__main__":

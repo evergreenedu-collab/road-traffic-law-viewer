@@ -34,6 +34,7 @@ from parse_addenda_effective import parse_addenda
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data")
 
+# 기본 경로 (road 호환). multi-group 실행 시 main()에서 suffix 적용해 재정의
 HISTORY_PATH = os.path.join(DATA_DIR, "article_history.json")
 FULL_HISTORY_PATH = os.path.join(DATA_DIR, "road_traffic_full_history.json")
 MAP_PATH = os.path.join(DATA_DIR, "three_tier_map.json")
@@ -41,6 +42,9 @@ TEXT_DIFF_PATH = os.path.join(DATA_DIR, "text_diff.json")
 ATTACHED_TABLES_PATH = os.path.join(DATA_DIR, "attached_tables.json")
 ATTACHED_TABLES_DIFF_PATH = os.path.join(DATA_DIR, "attached_tables_diff.json")
 OUTPUT_PATH = os.path.join(DATA_DIR, "cascade_events.json")
+
+# build_3tier_map에서 그룹 키 목록 공유 (DRY)
+from build_3tier_map import LAW_GROUPS as _SHARED_LAW_GROUPS
 
 # 별표 제목에서 모법 조문 인용 추출
 # 예: "(제91조제1항관련)", "[제18조제1항관련]", "(제46조제1항ㆍ제46조의2제1항 관련)"
@@ -181,28 +185,53 @@ def parse_dates_in_text(text, pattern):
 # 메인
 # ─────────────────────────────────────────────────────────
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="법률·시행령·시행규칙 연쇄 개정 이벤트 빌더 (multi-group)")
+    parser.add_argument("--group", default="road", choices=list(_SHARED_LAW_GROUPS.keys()),
+                        help="법령 그룹 코드 (기본 road = 도로교통법)")
+    args = parser.parse_args()
+    suffix = "" if args.group == "road" else f"_{args.group}"
+    history_path = os.path.join(DATA_DIR, f"article_history{suffix}.json")
+    full_history_path = os.path.join(DATA_DIR, f"road_traffic_full_history{suffix}.json")
+    map_path = os.path.join(DATA_DIR, f"three_tier_map{suffix}.json")
+    text_diff_path = os.path.join(DATA_DIR, f"text_diff{suffix}.json")
+    attached_tables_path = os.path.join(DATA_DIR, f"attached_tables{suffix}.json")
+    attached_tables_diff_path = os.path.join(DATA_DIR, f"attached_tables_diff{suffix}.json")
+    output_path = os.path.join(DATA_DIR, f"cascade_events{suffix}.json")
+
+    print(f"🏷️  그룹: {args.group}")
     print("📖 데이터 로딩...")
-    with open(HISTORY_PATH, "r", encoding="utf-8") as f:
-        hist = json.load(f)
-    with open(FULL_HISTORY_PATH, "r", encoding="utf-8") as f:
-        full_hist = json.load(f)
-    with open(MAP_PATH, "r", encoding="utf-8") as f:
-        mapdata = json.load(f)
-    if not os.path.exists(TEXT_DIFF_PATH):
+    # 친절한 에러 — 빌드 순서 안내 (multi-group 첫 실행 시 자주 발생)
+    _missing = [p for p in (history_path, full_history_path, map_path) if not os.path.exists(p)]
+    if _missing:
         raise FileNotFoundError(
-            f"{TEXT_DIFF_PATH} 없음. build_cascade_events.py는 text_diff.json에 의존합니다. "
-            "먼저 build_text_diff.py를 실행하세요. (빌드 순서: text_diff → cascade_events)"
+            f"필수 입력 파일이 없습니다: {_missing}\n"
+            f"먼저 빌드 순서: `py collect_full_history.py --group {args.group}` → "
+            f"`py collect_article_history.py --group {args.group}` → "
+            f"`py build_3tier_map.py --group {args.group}` → "
+            f"`py build_text_diff.py --group {args.group}` → 본 스크립트"
         )
-    with open(TEXT_DIFF_PATH, "r", encoding="utf-8") as f:
+    with open(history_path, "r", encoding="utf-8") as f:
+        hist = json.load(f)
+    with open(full_history_path, "r", encoding="utf-8") as f:
+        full_hist = json.load(f)
+    with open(map_path, "r", encoding="utf-8") as f:
+        mapdata = json.load(f)
+    if not os.path.exists(text_diff_path):
+        raise FileNotFoundError(
+            f"{text_diff_path} 없음. build_cascade_events.py는 text_diff에 의존합니다. "
+            f"먼저 `py build_text_diff.py --group {args.group}`를 실행하세요. (빌드 순서: text_diff → cascade_events)"
+        )
+    with open(text_diff_path, "r", encoding="utf-8") as f:
         text_diff = json.load(f)
     attached_tables = {}
-    if os.path.exists(ATTACHED_TABLES_PATH):
-        with open(ATTACHED_TABLES_PATH, "r", encoding="utf-8") as f:
+    if os.path.exists(attached_tables_path):
+        with open(attached_tables_path, "r", encoding="utf-8") as f:
             attached_tables = json.load(f)
     # 별표 시점별 변경 이력 (선택적 — 없어도 동작)
     attached_diff = {}
-    if os.path.exists(ATTACHED_TABLES_DIFF_PATH):
-        with open(ATTACHED_TABLES_DIFF_PATH, "r", encoding="utf-8") as f:
+    if os.path.exists(attached_tables_diff_path):
+        with open(attached_tables_diff_path, "r", encoding="utf-8") as f:
             attached_diff = json.load(f)
 
     # 본문 실제 변경된 (조문키, 공포일자) 인덱스 + 변경유형/제목
@@ -1070,10 +1099,10 @@ def main():
         "법률조문별_관련별표": law_to_tables_final,
     }
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False)
-    size_mb = os.path.getsize(OUTPUT_PATH) / (1024 * 1024)
-    print(f"💾 저장: {OUTPUT_PATH} ({size_mb:.1f}MB)")
+    size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    print(f"💾 저장: {output_path} ({size_mb:.1f}MB)")
 
     # ─────────────────────────────────────────────────────
     # 검증

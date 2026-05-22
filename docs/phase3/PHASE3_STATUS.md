@@ -63,7 +63,9 @@
 - **Stage 미진행**: S5·S8 (튜터 multi-law — 최대 위험)
 
 ### 🥇 다음 세션 진입점 (2026-05-22 갱신)
-- **collect 스크립트 multi-group 지원** (Codex 권장): collect_full_history.py / collect_article_history.py를 --group 인자 받게. tlspc·car_mgmt 등 연혁 자료 수집 기반. 자료 확보되면 viewer의 "마지막 공포일 안내" 대신 실제 연혁 표시 가능
+- ✅ **collect 스크립트 multi-group** (commit 004c9ea) — collect_full_history / collect_article_history --group 지원
+- ✅ **빌드 파이프라인 multi-group 경로** (이번 커밋) — build_text_diff / build_cascade_events --group 지원
+- **🟡 build_cascade_events 매칭 로직 일반화** (Codex 발견 잔존): LAWNAME_PAT 등 "도로교통법" 하드코딩 패턴이 다른 그룹 자료에서 매칭 품질 떨어뜨림. 별도 stage 필요
 - **별표 자료 수집 multi-group**: collect_attached_tables_history.py 동일 패턴
 - **S5 + S8** (튜터 multi-law, 최대 위험) — Phase 2 안정화 후
 
