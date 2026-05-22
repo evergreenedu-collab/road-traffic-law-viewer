@@ -1,0 +1,1 @@
+window._DATA_TBL_DIFF_DECREE={};

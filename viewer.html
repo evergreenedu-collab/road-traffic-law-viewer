@@ -244,7 +244,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <label>법령</label>
   <select id="lawSel" onchange="onLawChange()" autocomplete="off" title="Phase 3 — 다중 법령">
     <option value="road" selected>도로교통법 (시행령·시행규칙)</option>
-    <option value="tlspc" disabled>교통사고처리 특례법 (시행령)</option>
+    <option value="tlspc">교통사고처리 특례법 (시행령)</option>
     <option value="tkga" disabled>특정범죄 가중처벌법 (준비 중)</option>
     <option value="car_mgmt" disabled>자동차관리법 (준비 중)</option>
     <option value="passenger_transport" disabled>여객자동차 운수사업법 (준비 중)</option>
@@ -327,12 +327,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core.js?v=20260521234041"></script>
-<script src="web_data/data_timeline.js?v=20260521234041"></script>
-<script src="web_data/data_tbl_diff_decree.js?v=20260521234041"></script>
-<script src="web_data/data_tbl_diff_rule.js?v=20260521234041"></script>
-<script src="web_data/data_tbl_pdf.js?v=20260521234041"></script>
-<script src="web_data/data_tbl_history.js?v=20260521234041"></script>
+<script src="web_data/data_core.js?v=20260522191023"></script>
+<script src="web_data/data_timeline.js?v=20260522191023"></script>
+<script src="web_data/data_tbl_diff_decree.js?v=20260522191023"></script>
+<script src="web_data/data_tbl_diff_rule.js?v=20260522191023"></script>
+<script src="web_data/data_tbl_pdf.js?v=20260522191023"></script>
+<script src="web_data/data_tbl_history.js?v=20260522191023"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -983,24 +983,25 @@ function renderSubLawHistory(lawType){
   if(chapter) html+=`<div style="font-size:12px;color:var(--sub);margin-bottom:4px">${esc(chapter)}</div>`;
   html+=`<div style="font-size:18px;font-weight:700;color:${lawTypeColor}"><span style="font-size:13px;padding:2px 8px;border-radius:3px;background:${lawTypeColor};color:#fff;margin-right:8px;vertical-align:middle;font-weight:600">${lawType}</span>제${jo}조 ${esc(art.조문제목||'')} — 개정 연혁</div>`;
   html+=`</div>`;
-  // 캐스케이드 안내 박스 (사용자 결정: 캐스케이드는 법률 진입으로 안내)
+  // 자료 유무에 따라 안내 박스/메시지 분기 — 법률 연혁 화면과 일관된 표현 (사용자 피드백 2026-05-22)
   const relLaws = (lawType==='시행령' ? decreeToLaw[jo] : ruleToLaw[jo]) || [];
-  html+=`<div style="margin-bottom:14px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e40af;line-height:1.7">`;
-  html+=`🛈 이 화면은 <b>${lawType} 제${jo}조</b> 자체의 전후비교만 보여줍니다. 법률 개정과 연결된 <b>캐스케이드 연혁</b>은 위임 근거 법률 조문에서 확인하세요.`;
+  const diffs = ((diffData||{})[lawType] || {})[jo] || [];
+  // 위임 법률 chip 박스 — 자료 유무 관계없이, 사용자가 법률 화면으로 점프할 수 있도록 항상 노출
   if(relLaws.length){
-    html+=`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">`;
+    html+=`<div style="margin-bottom:14px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px">`;
+    html+=`<div style="font-size:12px;color:#92400e;margin-bottom:6px;font-weight:600">↩ 위임 근거 법률 조문 (${relLaws.length}건) — 캐스케이드 연혁은 법률 화면에서 확인</div>`;
+    html+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
     for(const lj of relLaws){
       const lawArt=(artData.법률&&artData.법률.조문&&artData.법률.조문[lj])||{};
       const lt=lawArt.조문제목||'';
-      html+=`<button onclick="switchLawType('법률');document.getElementById('sel').value='${lj}';switchTab('history');" style="padding:5px 10px;background:#fff;border:1px solid #bfdbfe;border-radius:16px;cursor:pointer;font-size:12px;color:#1e40af">법률 제${lj}조${lt?' '+esc(lt):''} 연혁 보기</button>`;
+      html+=`<button onclick="switchLawType('법률');document.getElementById('sel').value='${lj}';switchTab('history');" style="padding:5px 10px;background:#fff;border:1px solid #fde68a;border-radius:16px;cursor:pointer;font-size:12px;color:#92400e">법률 제${lj}조${lt?' '+esc(lt):''} 연혁 보기</button>`;
     }
     html+=`</div>`;
+    html+=`</div>`;
   }
-  html+=`</div>`;
-  // 자체 diff 목록
-  const diffs = ((diffData||{})[lawType] || {})[jo] || [];
   if(!diffs.length){
-    html+=`<div style="color:var(--sub);padding:20px;font-size:13px;text-align:center;border:1px dashed var(--border);border-radius:8px">이 조문의 전후비교 자료가 없습니다.</div>`;
+    // 법률 renderHistory와 동일한 표현
+    html+=`<div style="color:var(--sub);padding:20px;font-size:13px;text-align:center">이 조문의 변경 이력이 없습니다.</div>`;
     el.innerHTML=html; return;
   }
   html+=`<div style="font-size:13px;color:var(--sub);margin-bottom:12px">총 ${diffs.length}건의 전후비교 — 카드를 클릭하면 펼쳐집니다</div>`;
@@ -1444,7 +1445,8 @@ function renderHistory(){
   }
 
   // 이 조문이 포함된 캐스케이드 이벤트 찾기
-  const eventIndices=cascadeData.조문별이벤트인덱스[jo]||[];
+  // tlspc 등 캐스케이드 자료 미빌드 그룹 안전 접근 (Codex 사후검증)
+  const eventIndices=((cascadeData||{}).조문별이벤트인덱스||{})[jo]||[];
   if(eventIndices.length===0){
     if(!relTables.length){
       html+=`<div style="color:var(--sub);padding:20px;font-size:13px;text-align:center">이 조문의 변경 이력이 없습니다.</div>`;
@@ -1455,7 +1457,7 @@ function renderHistory(){
   html+=`<div style="font-size:13px;color:var(--sub);margin-bottom:12px">총 ${eventIndices.length}건의 개정 이벤트</div>`;
 
   for(let ei=0;ei<eventIndices.length;ei++){
-    const event=cascadeData.이벤트[eventIndices[ei]];
+    const event=((cascadeData||{}).이벤트||[])[eventIndices[ei]];
     if(!event)continue;
     const law=event.법률;
     const decs=event.시행령||[];
