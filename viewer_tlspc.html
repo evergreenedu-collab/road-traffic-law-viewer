@@ -222,34 +222,23 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="header" style="position:relative">
   <div class="header-stats" id="headerStats"></div>
-  <button type="button" class="header-alarm-link" id="alarmLink" onclick="openAlarmModal()"
-     style="position:absolute;top:12px;left:20px;background:#c0392b;color:white;border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;box-shadow:0 2px 4px rgba(0,0,0,0.15);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;z-index:5">
-    📢 최근 개정 알림
-  </button>
+  
   <h1>교통사고처리 특례법 한눈에</h1>
   <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
 </div>
 
-<!-- 최근 개정 알림 모달 (alarm.html을 iframe으로 띄움) -->
-<div id="alarmModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
-  <div onclick="closeAlarmModal()" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:0"></div>
-  <div style="position:relative;z-index:1;background:white;width:100%;max-width:960px;height:90vh;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column">
-    <button type="button" onclick="closeAlarmModal()" aria-label="닫기"
-      style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.9);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3">×</button>
-    <iframe id="alarmIframe" src="alarm/alarm.html" style="flex:1;width:100%;border:none;background:#f8fafc;display:block"></iframe>
-  </div>
-</div>
+
 
 <div class="toolbar">
   <label>법령</label>
   <select id="lawSel" onchange="onLawChange()" autocomplete="off" title="Phase 3 — 다중 법령">
     <option value="road">도로교통법 (시행령·시행규칙)</option>
     <option value="tlspc" selected>교통사고처리 특례법 (시행령)</option>
-    <option value="tkga" disabled>특정범죄 가중처벌법 (준비 중)</option>
+    <option value="tkga">특정범죄 가중처벌법 (단일 법률)</option>
     <option value="car_mgmt" disabled>자동차관리법 (준비 중)</option>
     <option value="passenger_transport" disabled>여객자동차 운수사업법 (준비 중)</option>
     <option value="cargo_transport" disabled>화물자동차 운수사업법 (준비 중)</option>
-    <option value="crim_proc" disabled>형사소송법 (준비 중)</option>
+    <option value="crim_proc">형사소송법 (단일 법률)</option>
   </select>
   <!-- Phase 3 S3-1-b-4-b: 법령유형 토글 (법률·시행령·시행규칙 직접 진입) -->
   <div id="lawTypeToggle" style="display:inline-flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff" role="group" aria-label="법령유형 선택">
@@ -327,12 +316,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core_tlspc.js?v=20260522191023"></script>
-<script src="web_data/data_timeline_tlspc.js?v=20260522191023"></script>
-<script src="web_data/data_tbl_diff_decree_tlspc.js?v=20260522191023"></script>
-<script src="web_data/data_tbl_diff_rule_tlspc.js?v=20260522191023"></script>
-<script src="web_data/data_tbl_pdf_tlspc.js?v=20260522191023"></script>
-<script src="web_data/data_tbl_history_tlspc.js?v=20260522191023"></script>
+<script src="web_data/data_core_tlspc.js?v=20260522192320"></script>
+<script src="web_data/data_timeline_tlspc.js?v=20260522192320"></script>
+<script src="web_data/data_tbl_diff_decree_tlspc.js?v=20260522192320"></script>
+<script src="web_data/data_tbl_diff_rule_tlspc.js?v=20260522192320"></script>
+<script src="web_data/data_tbl_pdf_tlspc.js?v=20260522192320"></script>
+<script src="web_data/data_tbl_history_tlspc.js?v=20260522192320"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -2299,18 +2288,24 @@ function esc(s){
 
 function openAlarmModal(){
   // iframe src는 HTML에서 미리 설정되어 페이지 로드 시 alarm.html 로딩 완료 상태
-  document.getElementById('alarmModal').style.display='flex';
+  // road 외 그룹에서는 알람 모달 자체가 HTML에서 제거되므로 null 체크
+  const m=document.getElementById('alarmModal');
+  if(!m) return;
+  m.style.display='flex';
   document.body.style.overflow='hidden';  // 배경 스크롤 잠금
 }
 
 function closeAlarmModal(){
-  document.getElementById('alarmModal').style.display='none';
+  const m=document.getElementById('alarmModal');
+  if(!m) return;
+  m.style.display='none';
   document.body.style.overflow='';
 }
 
 // ESC 키로 모달 닫기
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape' && document.getElementById('alarmModal').style.display==='flex'){
+  const m=document.getElementById('alarmModal');
+  if(e.key==='Escape' && m && m.style.display==='flex'){
     closeAlarmModal();
   }
 });
