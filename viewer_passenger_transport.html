@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>형사소송법 한눈에 — 법률·시행령·시행규칙·별표 통합 비교</title>
+<title>여객자동차 운수사업법 한눈에 — 법률·시행령·시행규칙·별표 통합 비교</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
 :root {
@@ -223,7 +223,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <div class="header" style="position:relative">
   <div class="header-stats" id="headerStats"></div>
   
-  <h1>형사소송법 한눈에</h1>
+  <h1>여객자동차 운수사업법 한눈에</h1>
   <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
 </div>
 
@@ -236,9 +236,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <option value="tlspc">교통사고처리 특례법 (시행령)</option>
     <option value="tkga">특정범죄 가중처벌법 (단일 법률)</option>
     <option value="car_mgmt">자동차관리법 (시행령·시행규칙)</option>
-    <option value="passenger_transport">여객자동차 운수사업법 (시행령·시행규칙)</option>
+    <option value="passenger_transport" selected>여객자동차 운수사업법 (시행령·시행규칙)</option>
     <option value="cargo_transport">화물자동차 운수사업법 (시행령·시행규칙)</option>
-    <option value="crim_proc" selected>형사소송법 (단일 법률)</option>
+    <option value="crim_proc">형사소송법 (단일 법률)</option>
   </select>
   <!-- Phase 3 S3-1-b-4-b: 법령유형 토글 (법률·시행령·시행규칙 직접 진입) -->
   <div id="lawTypeToggle" style="display:inline-flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff" role="group" aria-label="법령유형 선택">
@@ -316,12 +316,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core_crim_proc.js?v=20260522195357"></script>
-<script src="web_data/data_timeline_crim_proc.js?v=20260522195357"></script>
-<script src="web_data/data_tbl_diff_decree_crim_proc.js?v=20260522195357"></script>
-<script src="web_data/data_tbl_diff_rule_crim_proc.js?v=20260522195357"></script>
-<script src="web_data/data_tbl_pdf_crim_proc.js?v=20260522195357"></script>
-<script src="web_data/data_tbl_history_crim_proc.js?v=20260522195357"></script>
+<script src="web_data/data_core_passenger_transport.js?v=20260522195358"></script>
+<script src="web_data/data_timeline_passenger_transport.js?v=20260522195358"></script>
+<script src="web_data/data_tbl_diff_decree_passenger_transport.js?v=20260522195358"></script>
+<script src="web_data/data_tbl_diff_rule_passenger_transport.js?v=20260522195358"></script>
+<script src="web_data/data_tbl_pdf_passenger_transport.js?v=20260522195358"></script>
+<script src="web_data/data_tbl_history_passenger_transport.js?v=20260522195358"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -336,7 +336,7 @@ const tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{
 
 let opts=[];
 // Phase 3: 현재 viewer가 어느 법령 그룹인지 (road 외 그룹은 안내 메시지로 법령정보센터 유도)
-const CURRENT_GROUP = 'crim_proc';
+const CURRENT_GROUP = 'passenger_transport';
 const IS_ROAD_GROUP = CURRENT_GROUP === 'road';
 // currentTab은 init() 안에서 호출되는 updateUrlForArticle()이 참조하므로 미리 선언 (TDZ 회피)
 let currentTab='compare';

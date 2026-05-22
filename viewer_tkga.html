@@ -235,9 +235,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <option value="road">도로교통법 (시행령·시행규칙)</option>
     <option value="tlspc">교통사고처리 특례법 (시행령)</option>
     <option value="tkga" selected>특정범죄 가중처벌법 (단일 법률)</option>
-    <option value="car_mgmt" disabled>자동차관리법 (준비 중)</option>
-    <option value="passenger_transport" disabled>여객자동차 운수사업법 (준비 중)</option>
-    <option value="cargo_transport" disabled>화물자동차 운수사업법 (준비 중)</option>
+    <option value="car_mgmt">자동차관리법 (시행령·시행규칙)</option>
+    <option value="passenger_transport">여객자동차 운수사업법 (시행령·시행규칙)</option>
+    <option value="cargo_transport">화물자동차 운수사업법 (시행령·시행규칙)</option>
     <option value="crim_proc">형사소송법 (단일 법률)</option>
   </select>
   <!-- Phase 3 S3-1-b-4-b: 법령유형 토글 (법률·시행령·시행규칙 직접 진입) -->
@@ -316,12 +316,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core_tkga.js?v=20260522192320"></script>
-<script src="web_data/data_timeline_tkga.js?v=20260522192320"></script>
-<script src="web_data/data_tbl_diff_decree_tkga.js?v=20260522192320"></script>
-<script src="web_data/data_tbl_diff_rule_tkga.js?v=20260522192320"></script>
-<script src="web_data/data_tbl_pdf_tkga.js?v=20260522192320"></script>
-<script src="web_data/data_tbl_history_tkga.js?v=20260522192320"></script>
+<script src="web_data/data_core_tkga.js?v=20260522195357"></script>
+<script src="web_data/data_timeline_tkga.js?v=20260522195357"></script>
+<script src="web_data/data_tbl_diff_decree_tkga.js?v=20260522195357"></script>
+<script src="web_data/data_tbl_diff_rule_tkga.js?v=20260522195357"></script>
+<script src="web_data/data_tbl_pdf_tkga.js?v=20260522195357"></script>
+<script src="web_data/data_tbl_history_tkga.js?v=20260522195357"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -335,6 +335,9 @@ const tblPdfData = window._DATA_TBL_PDF;
 const tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};
 
 let opts=[];
+// Phase 3: 현재 viewer가 어느 법령 그룹인지 (road 외 그룹은 안내 메시지로 법령정보센터 유도)
+const CURRENT_GROUP = 'tkga';
+const IS_ROAD_GROUP = CURRENT_GROUP === 'road';
 // currentTab은 init() 안에서 호출되는 updateUrlForArticle()이 참조하므로 미리 선언 (TDZ 회피)
 let currentTab='compare';
 // Phase 3 S3-1-b-4-b: 법령유형 직접 진입 (법률·시행령·시행규칙)
@@ -657,12 +660,39 @@ function popGrouped(list){
   }
 }
 
+// non-road 그룹용 안내 메시지 + 법령정보센터 링크 생성 (2026-05-22 사용자 피드백)
+// road 외 법령은 별표·별지·연혁 자료를 제공하지 않으므로, 빈 영역을 친절한 안내로 대체한다.
+function nonRoadNotice(opts){
+  opts = opts || {};
+  const subject = opts.subject || '별표·별지·개정 연혁';
+  const lawType = opts.lawType || '법률';   // '법률' | '시행령' | '시행규칙'
+  const joKey = opts.joKey || '';
+  const meta = (mapData && mapData.기준법령 && mapData.기준법령[lawType]) || {};
+  const lawName = meta.법령명 || ((mapData && mapData.기준법령 && mapData.기준법령.법률 && mapData.기준법령.법률.법령명) || '');
+  let url;
+  if(lawName){
+    url = encodeURI(joKey ? `https://www.law.go.kr/법령/${lawName}/제${joKey}조` : `https://www.law.go.kr/법령/${lawName}`);
+  } else {
+    url = 'https://www.law.go.kr/';
+  }
+  // esc()는 별표·별지 참조를 onclick 링크로 자동 변환하므로 안내 문구 내부에서는 단순 escape만 사용
+  return `<div style="padding:14px 18px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:13px;color:#78350f;line-height:1.7">`
+    + `이 서비스는 <b>도로교통법 외의 법령</b>은 마지막 공포일 기준 <b>조문 본문</b>만 참고용으로 제공합니다. `
+    + `${escHtmlSimple(subject)}는 법령정보센터에서 확인해주세요.`
+    + `<div style="margin-top:8px"><a href="${url}" target="_blank" rel="noopener" style="display:inline-block;padding:6px 12px;background:#fff;border:1px solid #fde68a;border-radius:6px;color:#92400e;text-decoration:none;font-weight:600">📖 법령정보센터에서 보기 →</a></div>`
+    + `</div>`;
+}
+
 function articleFullText(art){
   let t = (art.조문제목||'') + ' ' + (art.조문내용||'');
   for(const h of (art.항||[])){
     t += ' ' + (h.항내용||'');
     for(const ho of (h.호||[])){
       t += ' ' + (ho.호내용||'');
+      // Codex 사후검증: 자관법 등은 호 아래 목(가목·나목)에도 검색 키워드가 많음
+      for(const mo of (ho.목||[])){
+        t += ' ' + (mo.목내용||'');
+      }
     }
   }
   return t;
@@ -847,8 +877,11 @@ function render(){
         html+=renderSubLaws(pid,decrees,rulesDirect);
         html+=`</div>`;
       } else if(lawText.includes('대통령령')||lawText.includes('부령')){
-        const lawGoJo=`https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=281875&ancYd=&ancNo=&efYd=20260402&nwJoYnInfo=Y#J${jo.replace('의',':')}`;
-        let warnMsg='* 이 항에 위임 규정이 있지만, 도로교통법 시행령·시행규칙이 아닌 다른 법령에서 규정하고 있을 수 있습니다. ';
+        // 위임 규정이 있으나 자동 매핑 실패 — 법령정보센터의 해당 조문 페이지로 동적 링크
+        // (Codex 사후검증: 그룹별 법령명 사용, 기존 도교법 lsiSeq 하드코딩 제거)
+        const _curLawName = (mapData.기준법령 && mapData.기준법령.법률 && mapData.기준법령.법률.법령명) || '현행 법률';
+        const lawGoJo = encodeURI(`https://www.law.go.kr/법령/${_curLawName}/제${jo}조`);
+        let warnMsg='* 이 항에 위임 규정이 있지만, 자동 매핑된 시행령·시행규칙 외 다른 법령에 위임됐을 수 있습니다. ';
         warnMsg+='<a href="'+lawGoJo+'" target="_blank" style="color:var(--law);text-decoration:underline;font-weight:500">법령정보센터에서 이 조문 보기</a>를 클릭한 뒤, 해당 항의 위임 링크를 직접 확인해 주세요.';
         html+=`<div class="unmapped">${warnMsg}</div>`;
       }
@@ -989,8 +1022,11 @@ function renderSubLawHistory(lawType){
     html+=`</div>`;
   }
   if(!diffs.length){
-    // 법률 renderHistory와 동일한 표현
-    html+=`<div style="color:var(--sub);padding:20px;font-size:13px;text-align:center">이 조문의 변경 이력이 없습니다.</div>`;
+    if(!IS_ROAD_GROUP){
+      html+=nonRoadNotice({subject:`${lawType} 제${jo}조의 개정 연혁`, lawType:lawType, joKey:jo});
+    } else {
+      html+=`<div style="color:var(--sub);padding:20px;font-size:13px;text-align:center">이 조문의 변경 이력이 없습니다.</div>`;
+    }
     el.innerHTML=html; return;
   }
   html+=`<div style="font-size:13px;color:var(--sub);margin-bottom:12px">총 ${diffs.length}건의 전후비교 — 카드를 클릭하면 펼쳐집니다</div>`;
@@ -1238,7 +1274,12 @@ function openTable(lawType,ref){
       h+=`</div>`;
       bodyEl.innerHTML=h;
     }else{
-      bodyEl.innerHTML=`<p>"${ref}"가 아직 제정되지 않았거나 다른 법령에 포함되어 있을 수 있습니다.</p>`;
+      // road 외 그룹은 별표·별지 자료를 제공하지 않으므로 법령정보센터로 안내
+      if(!IS_ROAD_GROUP){
+        bodyEl.innerHTML = nonRoadNotice({subject:`"${ref}"의 본문/PDF`, lawType:lawType});
+      } else {
+        bodyEl.innerHTML=`<p>"${ref}"가 아직 제정되지 않았거나 다른 법령에 포함되어 있을 수 있습니다.</p>`;
+      }
     }
   }else{
     titleEl.textContent=`${lawType} [${found.key}] ${found.val.제목||''}`;
@@ -1437,7 +1478,10 @@ function renderHistory(){
   // tlspc 등 캐스케이드 자료 미빌드 그룹 안전 접근 (Codex 사후검증)
   const eventIndices=((cascadeData||{}).조문별이벤트인덱스||{})[jo]||[];
   if(eventIndices.length===0){
-    if(!relTables.length){
+    if(!IS_ROAD_GROUP){
+      // road 외 그룹은 연혁·캐스케이드 자료 미제공 — 법령정보센터로 안내
+      html+=nonRoadNotice({subject:`제${jo}조의 개정 연혁`, lawType:'법률', joKey:jo});
+    } else if(!relTables.length){
       html+=`<div style="color:var(--sub);padding:20px;font-size:13px;text-align:center">이 조문의 변경 이력이 없습니다.</div>`;
     }
     el.innerHTML=html;return;
