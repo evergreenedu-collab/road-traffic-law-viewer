@@ -316,12 +316,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core_tkga.js?v=20260522195357"></script>
-<script src="web_data/data_timeline_tkga.js?v=20260522195357"></script>
-<script src="web_data/data_tbl_diff_decree_tkga.js?v=20260522195357"></script>
-<script src="web_data/data_tbl_diff_rule_tkga.js?v=20260522195357"></script>
-<script src="web_data/data_tbl_pdf_tkga.js?v=20260522195357"></script>
-<script src="web_data/data_tbl_history_tkga.js?v=20260522195357"></script>
+<script src="web_data/data_core_tkga.js?v=20260522202022"></script>
+<script src="web_data/data_timeline_tkga.js?v=20260522202022"></script>
+<script src="web_data/data_tbl_diff_decree_tkga.js?v=20260522202022"></script>
+<script src="web_data/data_tbl_diff_rule_tkga.js?v=20260522202022"></script>
+<script src="web_data/data_tbl_pdf_tkga.js?v=20260522202022"></script>
+<script src="web_data/data_tbl_history_tkga.js?v=20260522202022"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -340,6 +340,10 @@ const CURRENT_GROUP = 'tkga';
 const IS_ROAD_GROUP = CURRENT_GROUP === 'road';
 // currentTab은 init() 안에서 호출되는 updateUrlForArticle()이 참조하므로 미리 선언 (TDZ 회피)
 let currentTab='compare';
+// 본문 esc()에서 별표·별지 변환 시 사용 — 별표는 시행령·시행규칙에만 있으므로 기본 '시행규칙'
+// (자기참조 prefix-less "제X조"는 _escLawType이 아닌 currentLawType 기준으로 처리)
+let _escLawType='시행규칙';
+function setEscLawType(t){_escLawType=t}
 // Phase 3 S3-1-b-4-b: 법령유형 직접 진입 (법률·시행령·시행규칙)
 let currentLawType='법률';
 // 시행령 조키 → [위임받은 법률 조키 목록], 시행규칙 동일 (init에서 1회 빌드)
@@ -975,7 +979,7 @@ function renderSubLawArticle(lawType){
 function renderArticleBody(art){
   if(!art) return '<em style="color:var(--sub)">조문 데이터 없음</em>';
   let out='';
-  if(art.조문내용) out += `<div class="fp-para">${esc(art.조문내용)}</div>`;
+  if(art.조문내용) out += `<div class="fp-para">${esc(_normalizeBlankLines(art.조문내용))}</div>`;
   const 항=(art.항)||[];
   // 항이 1개이고 항내용 비어있으면 → 조문내용 아래에 호 표시 (기존 togFull 패턴)
   if(항.length===1 && !항[0].항내용 && 항[0].호 && 항[0].호.length){
@@ -984,7 +988,7 @@ function renderArticleBody(art){
   }
   for(const p of 항){
     if(!p.항내용 && !(p.호&&p.호.length)) continue;
-    let pContent = p.항내용 || '';
+    let pContent = _normalizeBlankLines(p.항내용 || '');
     if(p.호 && p.호.length) pContent += hoListHtml(p.호);
     out += `<div class="fp-para" style="margin-top:6px"><strong>${p.항번호||''}</strong> ${esc(pContent)}</div>`;
   }
@@ -1285,9 +1289,11 @@ function openTable(lawType,ref){
     titleEl.textContent=`${lawType} [${found.key}] ${found.val.제목||''}`;
     let html='';
 
-    // 파일명 생성: "도로교통법 시행규칙 [별표 16] 교통안전교육의 과목..."
+    // 파일명 생성: "{법령명} {시행령/규칙} [별표 16] 교통안전교육의 과목..."
+    // F12(2026-05-22): 도로교통법 하드코딩 제거 → mapData.기준법령.법률.법령명 사용
     const safeTitle=(found.val.제목||'').replace(/[\\/:*?"<>|]/g,'').slice(0,40);
-    const fileName=`도로교통법 ${lawType} [${found.key}] ${safeTitle}`;
+    const _lawBaseName = ((mapData.기준법령 && mapData.기준법령.법률 && mapData.기준법령.법률.법령명) || '도로교통법').replace(/[\\/:*?"<>|]/g,'');
+    const fileName=`${_lawBaseName} ${lawType} [${found.key}] ${safeTitle}`;
 
     // PDF 소스 결정:
     //   - 별지(서식): PDF_BASE64 (작아서 임베드 OK)
@@ -1577,7 +1583,10 @@ function renderHistory(){
       }
       const reasonLabel=isTalaw?'제개정이유 (타법개정 — 원인 법령의 이유)':'제개정이유 전문 보기';
       html+=`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--law);cursor:pointer">${reasonLabel}</summary>`;
-      if(isTalaw) html+=`<div style="font-size:11px;color:var(--warn);padding:4px 8px;margin-top:4px">* 타법개정: 다른 법률 개정에 따라 도로교통법이 연쇄 변경된 것으로, 아래 이유는 원인 법령의 제개정이유입니다.</div>`;
+      if(isTalaw){
+        const _talaName = (mapData.기준법령 && mapData.기준법령.법률 && mapData.기준법령.법률.법령명) || '본 법률';
+        html+=`<div style="font-size:11px;color:var(--warn);padding:4px 8px;margin-top:4px">* 타법개정: 다른 법률 개정에 따라 ${escHtmlSimple(_talaName)}이(가) 연쇄 변경된 것으로, 아래 이유는 원인 법령의 제개정이유입니다.</div>`;
+      }
       html+=`<div style="font-size:12px;line-height:1.7;padding:8px;background:#f9f9f7;border-radius:4px;margin-top:4px;max-height:400px;overflow-y:auto">${law.제개정이유.replace(/\n/g,'<br>')}</div>`;
       html+=`</details>`;
     }
@@ -2161,18 +2170,23 @@ function escPlain(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
 
 // 내부 조문 인용 클릭 시 — 모달로 미리보기 (원래 화면 유지). 더 깊이 보려면 "이 조문 화면으로 이동" 버튼.
-function popupArticle(joKey){
-  const art = artData.법률.조문[joKey];
+// F11(2026-05-22): lawType 인자 추가 — 시행령·시행규칙 본문의 자기참조 "제X조"도 자기법 모달로 표시
+function popupArticle(joKey, lawType){
+  lawType = lawType || '법률';
+  const artMap = getArtMap(lawType);
+  const art = artMap[joKey];
   if(!art){
-    alert('제'+joKey+'조를 찾을 수 없습니다.');
+    alert((lawType==='법률'?'':lawType+' ') + '제'+joKey+'조를 찾을 수 없습니다.');
     return;
   }
-  document.getElementById('modalTitle').textContent = `제${joKey}조 ${art.조문제목||''}`;
+  const labelColor = lawType==='시행령' ? 'var(--decree)' : (lawType==='시행규칙' ? 'var(--rule)' : 'var(--law)');
+  const titlePrefix = lawType==='법률' ? '' : lawType+' ';
+  document.getElementById('modalTitle').textContent = `${titlePrefix}제${joKey}조 ${art.조문제목||''}`;
   let body = `<div style="font-size:13px;line-height:1.9;color:var(--text)">`;
   if(art.조문내용) body += escHtml(art.조문내용).replace(/\n/g,'<br>');
   for(const h of (art.항||[])){
     body += `<div style="margin-top:10px;padding-left:14px">`;
-    if(h.항번호) body += `<span style="font-weight:600;color:var(--law);margin-right:6px">${escHtml(h.항번호)}</span>`;
+    if(h.항번호) body += `<span style="font-weight:600;color:${labelColor};margin-right:6px">${escHtml(h.항번호)}</span>`;
     body += escHtml(h.항내용||'').replace(/\n/g,'<br>');
     for(const ho of (h.호||[])){
       body += `<div style="margin-top:5px;padding-left:18px;color:var(--sub);font-size:12.5px">${escHtml(ho.호내용||'').replace(/\n/g,'<br>')}</div>`;
@@ -2181,8 +2195,8 @@ function popupArticle(joKey){
   }
   body += `</div>`;
   body += `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);text-align:center">`;
-  body += `<button onclick="closeModal();switchLawType('법률');goArticle('${joKey}')" style="padding:9px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">📂 이 조문 화면으로 이동</button>`;
-  body += `<div style="font-size:11px;color:var(--sub);margin-top:8px">참고용 미리보기 — 시행령·시행규칙·연혁까지 보려면 위 버튼 클릭</div>`;
+  body += `<button onclick="closeModal();switchLawType('${lawType}');goArticle('${joKey}')" style="padding:9px 18px;background:${labelColor};color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">📂 이 조문 화면으로 이동</button>`;
+  body += `<div style="font-size:11px;color:var(--sub);margin-top:8px">참고용 미리보기 — 본문/연혁까지 보려면 위 버튼 클릭</div>`;
   body += `</div>`;
   document.getElementById('modalBody').innerHTML = body;
   document.getElementById('modalOverlay').classList.add('open');
@@ -2197,11 +2211,14 @@ function cleanHo(num, content){
   return cleaned;
 }
 
+// API 원본 호·목 내용에 빈 줄(\n\n+)이 다수 끼어있는 경우가 있어 단일 \n로 압축 (2026-05-22)
+function _normalizeBlankLines(s){return (s||'').replace(/\n\s*\n+/g,'\n')}
+
 function hoListHtml(hoArr){
   if(!hoArr||!hoArr.length)return'';
   let t='\n';
   for(const ho of hoArr){
-    const rawContent=ho.호내용||'';
+    const rawContent=_normalizeBlankLines(ho.호내용||'');
     // 내용에서 실제 번호 추출 (7의2. 등)
     const numMatch=rawContent.match(/^\s*(\d+(?:의\d+)?)\.\s*/);
     const displayNum=numMatch?numMatch[1]+'.':ho.호번호||'';
@@ -2209,7 +2226,7 @@ function hoListHtml(hoArr){
     t+='\n  '+displayNum+' '+content;
     // 목(가목·나목 등) — 호 아래 한 단계 더 들여쓰기
     for(const mok of (ho.목||[])){
-      const mc=(mok.목내용||'').trim();
+      const mc=_normalizeBlankLines((mok.목내용||'').trim());
       if(mc) t+='\n    '+mc;
     }
   }
@@ -2238,8 +2255,7 @@ function fullJoText(art){
   return t;
 }
 // 현재 표시중인 법령유형 (별표 클릭 시 사용)
-let _escLawType='시행규칙';
-function setEscLawType(t){_escLawType=t}
+// _escLawType / setEscLawType 정의는 init/render에서도 접근하므로 스크립트 상단으로 이동됨 (TDZ 회피)
 
 function esc(s){
   if(!s)return'';
@@ -2285,6 +2301,8 @@ function esc(s){
   // 3. 남은 "제X조" (접두어 없음) → 자기법 내부 링크
   // "법 제X조"와 "영 제X조"는 이미 2단계에서 치환됨, 남은 건 자기법 참조
   // 단, 플레이스홀더(___PH) 바로 뒤나, 조문 제목("제X조(제목)") 첫 번째는 제외
+  // F11(2026-05-22): currentLawType 기준 — 현재 화면 법령유형의 자기법 popupArticle 호출
+  // (_escLawType은 별표 변환 전용이라 여기선 안 씀. 별표는 시행규칙이 기본이라 _escLawType과 자기참조는 의미가 다름)
   t=t.replace(/제(\d+)조(?:의(\d+))?(?:\s*제(\d+)항)?/g, function(match,joNum,joBranch,hangNum,offset){
     // 이미 치환된 부분 뒤인지 확인 (___PH 바로 뒤면 skip)
     if(offset>0 && t.substring(Math.max(0,offset-7),offset).includes('___PH')) return match;
@@ -2293,7 +2311,10 @@ function esc(s){
     const idx=placeholders.length;
     const joKey=joBranch?joNum+'의'+joBranch:joNum;
     const display=match.trim();
-    placeholders.push('<a href="javascript:void(0)" onclick="popupArticle(\''+joKey+'\')" style="color:var(--law);text-decoration:underline;cursor:pointer" title="제'+joKey+'조 미리보기 (팝업)">'+display+'</a>');
+    const selfType = (typeof currentLawType !== 'undefined' && currentLawType) || '법률';
+    const linkColor = selfType==='시행령' ? 'var(--decree)' : (selfType==='시행규칙' ? 'var(--rule)' : 'var(--law)');
+    const tipPrefix = selfType==='법률' ? '' : selfType+' ';
+    placeholders.push('<a href="javascript:void(0)" onclick="popupArticle(\''+joKey+'\',\''+selfType+'\')" style="color:'+linkColor+';text-decoration:underline;cursor:pointer" title="'+tipPrefix+'제'+joKey+'조 미리보기 (팝업)">'+display+'</a>');
     return '___PH'+idx+'___';
   });
 
