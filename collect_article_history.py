@@ -26,15 +26,24 @@ HISTORY_LIST_URL = "https://www.law.go.kr/LSW/lsHstListR.do"
 REQUEST_DELAY = 0.6
 SAVE_INTERVAL = 20  # 중간 저장 간격
 
-# Phase 3 S1-A: 법령 그룹 dict로 래핑 (build_3tier_map과 동일 패턴).
-LAW_GROUPS = {
-    "road": [
-        {"유형": "법률",     "법령명": "도로교통법",         "법령ID": "001638"},
-        {"유형": "시행령",   "법령명": "도로교통법 시행령",   "법령ID": "003395"},
-        {"유형": "시행규칙", "법령명": "도로교통법 시행규칙", "법령ID": "007079"},
-    ],
-}
-LAW_GROUP = LAW_GROUPS["road"]   # S1-A: 호환성 alias
+# Phase 3 (2026-05-22): build_3tier_map.LAW_GROUPS를 단일 출처로 사용 — 7개 그룹 공유.
+from build_3tier_map import LAW_GROUPS as _SHARED_LAW_GROUPS
+
+def _to_collect_form(group_dict):
+    out = []
+    for law_type in ("법률", "시행령", "시행규칙"):
+        meta = group_dict.get(law_type)
+        if not meta:
+            continue
+        out.append({
+            "유형": law_type,
+            "법령명": meta["법령명"],
+            "법령ID": meta.get("법령ID", ""),
+        })
+    return out
+
+LAW_GROUPS = {g: _to_collect_form(d) for g, d in _SHARED_LAW_GROUPS.items()}
+LAW_GROUP = LAW_GROUPS["road"]   # main()에서 --group으로 재바인딩
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "data")
@@ -180,10 +189,15 @@ def fetch_version_articles(mst):
     return info
 
 
-def collect_all():
-    """3개 법령의 전체 과거 버전에서 조문별 변경 이력을 수집합니다."""
-    checkpoint_path = os.path.join(DATA_DIR, "article_history_checkpoint.json")
-    output_path = os.path.join(DATA_DIR, "article_history.json")
+def collect_all(suffix: str = ""):
+    """현재 LAW_GROUP의 전체 과거 버전에서 조문별 변경 이력을 수집합니다.
+
+    suffix: road는 빈 문자열(기존 파일명 유지). 그 외 그룹은 "_{group}" → 파일명 수정.
+    """
+    base_chk = f"article_history_checkpoint{suffix}.json"
+    base_out = f"article_history{suffix}.json"
+    checkpoint_path = os.path.join(DATA_DIR, base_chk)
+    output_path = os.path.join(DATA_DIR, base_out)
 
     print("=" * 55)
     print("  조문별 변경 이력 수집기")
@@ -198,9 +212,12 @@ def collect_all():
         done = sum(len(v.get("버전", [])) for v in result.get("법령", {}).values())
         print(f"\n🔄 체크포인트 발견! (기존 {done}건)")
     else:
+        # 현재 그룹 첫 법령(법률) 기준 설명 문구 — multi-group 호환
+        _base_name = (LAW_GROUP[0]["법령명"] if LAW_GROUP else "법령")
+        _types_label = " · ".join(li["유형"] for li in LAW_GROUP) or "법령"
         result = {
             "생성일시": datetime.now().isoformat(),
-            "설명": "도로교통법 3개 법령의 조문별 변경 이력",
+            "설명": f"{_base_name} ({_types_label})의 조문별 변경 이력",
             "법령": {},
         }
 
@@ -312,5 +329,21 @@ def collect_all():
         print(f"  {law_type}: {ver_count}개 버전, 변경 조문 합계 {total_changed}건")
 
 
+def main():
+    import argparse
+    # Phase 3 (2026-05-22): --group 인자 — 도교법 외 그룹 조문 변경 이력 수집 지원
+    parser = argparse.ArgumentParser(description="조문별 변경 이력 수집기 (multi-group)")
+    parser.add_argument("--group", default="road", choices=list(LAW_GROUPS.keys()),
+                        help="법령 그룹 코드 (기본 road = 도로교통법)")
+    args = parser.parse_args()
+
+    global LAW_GROUP
+    LAW_GROUP = LAW_GROUPS[args.group]
+    suffix = "" if args.group == "road" else f"_{args.group}"
+
+    print(f"\n🏷️  법령 그룹: {args.group} ({len(LAW_GROUP)}개 법령 단위)")
+    collect_all(suffix=suffix)
+
+
 if __name__ == "__main__":
-    collect_all()
+    main()
