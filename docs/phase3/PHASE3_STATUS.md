@@ -1,8 +1,8 @@
 # Phase 3 진행 상황 + 향후 To-Do
 
-**기준 시각**: 2026-05-22 (viewer 7개 그룹 전체 활성화 — S3 stage 종결)
+**기준 시각**: 2026-05-26 (build_cascade_events 일반화 + Phase 2 빈필드폴백 머지 — PR #21·#22)
 **플랜 원본**: `C:\Users\user\.claude\plans\3-synthetic-lagoon.md` (8 Stage)
-**격리 산출물**: `c:\Users\user\projects\overnight_phase3\`
+**격리 산출물**: `c:\Users\user\projects\overnight_phase3\` (모든 산출물 master 통합 완료, 격리 dir은 휴지통)
 
 ---
 
@@ -55,28 +55,37 @@
 
 ---
 
-## 4. 우선순위별 다음 단계 (2026-05-21 저녁 갱신)
+## 4. 우선순위별 다음 단계 (2026-05-26 갱신)
 
 ### ✅ 누적 완료 (master)
 - **함정 13개 해소**: F1·F2·F3·F4·F5·F6·F8·F9·F10·F11·F12·F13 (F7만 미래 위험으로 잔존)
 - **Stage 완료**: S1-A·S2-A·S3(전체 7그룹)·S4(staging)·S6·S7
+- **Phase 3 인프라 multi-group 완성**:
+  - collect 스크립트 (004c9ea) — collect_full_history·collect_article_history·collect_attached_tables_history 모두 --group 지원
+  - 빌드 파이프라인 (cc21e92) — build_text_diff·build_3tier_map·build_attached_tables·build_attached_tables_diff·download_table_pdfs 모두 --group 지원
+  - update_all.py (4c35c41) — multi-group 자동 갱신 워크플로
+  - LAW_GROUPS 7그룹 등록 — road·tlspc·tkga·crim_proc·car_mgmt·passenger_transport·cargo_transport
+  - **build_cascade_events 매칭 로직 일반화 (PR #22, bb07ed3)** — LAWNAME_PAT 동적 컴파일 + 법령명 공백 유연 매칭 + type_to_name 그룹별 dict (2026-05-26)
+- **Phase 2 보강**: case 카드 빈 필드 폴백 처리 (PR #21, 017342e) — 재페어링 1회 + article 폴백 + schedule 갱신 (2026-05-26)
 - **Stage 미진행**: S5·S8 (튜터 multi-law — 최대 위험)
 
-### 🥇 다음 세션 진입점 (2026-05-22 갱신)
-- ✅ **collect 스크립트 multi-group** (commit 004c9ea) — collect_full_history / collect_article_history --group 지원
-- ✅ **빌드 파이프라인 multi-group 경로** (이번 커밋) — build_text_diff / build_cascade_events --group 지원
-- **🟡 build_cascade_events 매칭 로직 일반화** (Codex 발견 잔존): LAWNAME_PAT 등 "도로교통법" 하드코딩 패턴이 다른 그룹 자료에서 매칭 품질 떨어뜨림. 별도 stage 필요
-- **별표 자료 수집 multi-group**: collect_attached_tables_history.py 동일 패턴
-- **S5 + S8** (튜터 multi-law, 최대 위험) — Phase 2 안정화 후
-
-### 🥈 그 다음 (Phase 3 마무리)
-- **S5 + S8** (튜터 multi-law, 3-4시간) — schedule 마이그레이션 + B3 슬롯
-- **다른 5법령 LAW_GROUPS 추가** — 특가법·자관법·여객·화물·형소법 MST 등록
-- **timeline·cascade·diff 파이프라인 multi-law** — article_history·text_diff 등도 group별
+### 🥇 다음 세션 진입점 (2026-05-26 갱신)
+- **S5 + S8** (튜터 multi-law, 3-4시간, 최대 위험) — schedule.json을 도교법 3 + 교특법 1 + 회전 1 구조로 마이그레이션 + B3 슬롯 로직
+- **LAW_REF_IN_TABLE 일반화** (build_cascade_events:53, Codex PR #22 사후검증 권장) — 별표 본문 법률 인용 패턴이 여전히 `(?:도로교통)?법\s*제` 식으로 road 중심. 다른 그룹 별표에서 `자동차관리법 제X조` 같은 인용 못 잡음. 짧은 작업 (1시간)
+- **Phase 2 카드 재생성** — 화·목 case 카드 자동 생성 시 폴백 동작 실 운영 모니터링
 
 ### 🔄 보류
 - F7 (case_no#num 미래 위험, 현재 무해)
 - 어린이 보호구역 판례 외부 자료 (F3는 commentary 대체로 결정 완료)
+
+## ⚠️ 작업 시 함정 (2026-05-26 경험)
+
+**메모리 노트만 보고 작업 시작하지 말 것.** 메모리 노트가 한참 오래되어 이미 master에
+머지된 작업을 "미완성"으로 가리키는 경우가 빈번. 헛수고 방지:
+1. 세션 시작 시 `git log --oneline -30` 으로 master 실제 상태 먼저 확인
+2. 메모리 노트 vs 코드 어긋나면 **코드를 정본**으로
+3. `feature/daily-tutor-push` 같은 옛 분기 브랜치만 보지 말고 master HEAD 기준
+4. 메인 워크트리(`도로교통법-한눈에/`)는 master 정본, tutor 워크트리(`도로교통법-한눈에-tutor/`)는 feature 브랜치 — 두 워크트리가 다른 브랜치라는 점 잊지 말 것
 
 ---
 
@@ -109,6 +118,6 @@
 4. ~~격리 산출물 통합~~ → ✅ `docs/phase3/` + tutor·viewer 자료 모두 master
 
 ### 새 결정 대기 (다음 세션)
-- **GROUP_ENABLED에 tlspc 추가 시범 빌드** — 자료 검증 + 시행령 조문 직접 진입 UX 확인
-- **다른 5법령 LAW_GROUPS 등록** — 특가법·자관법·여객·화물·형소법 MST 등록 (build_3tier_map LAW_GROUPS 확장)
-- **S5 + S8** (튜터 multi-law) — schedule 마이그레이션 + B3 슬롯 (Phase 2 안정화 후)
+- ~~GROUP_ENABLED에 tlspc 추가 시범 빌드~~ → ✅ 완료 (af91878)
+- ~~다른 5법령 LAW_GROUPS 등록~~ → ✅ 완료 (7그룹 모두 등록·활성화: ed6fe2d·9a62178·8d36b8d)
+- **S5 + S8** (튜터 multi-law) — schedule 마이그레이션 + B3 슬롯. Phase 2 빈필드폴백 머지(PR #21)로 Phase 2 안정화 완료 — 이제 S5 진입 가능
