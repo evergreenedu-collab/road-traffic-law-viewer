@@ -306,10 +306,16 @@ function renderMainCard(card) {
   const rev = li.recent_revision;
   const lawClass = rev ? (LAW_TYPE_CLASS[rev.법령유형] || 'law') : 'law';
   const cat = (li.categories && li.categories[0]) || (card.selection_basis && card.selection_basis.category) || '';
+  // Phase 3 S5 — 다른 그룹(교특법·tkga 등) 카드의 법령명을 헤더에 표시
+  const lawName = li.법령명 || '도로교통법';
+  const isOtherGroup = card.group && card.group !== 'road';
 
   const badge = rev
     ? '<span class="badge ' + lawClass + '">' + esc(rev.법령유형) + ' · 최근 개정</span>'
     : '<span class="badge current">현행 법령</span>';
+  const groupBadge = isOtherGroup
+    ? '<span class="badge cat" style="background:#7c3aed;color:#fff">' + esc(lawName) + '</span>'
+    : '';
   const catBadge = cat ? '<span class="badge cat">' + esc(cat) + '</span>' : '';
   const dateInfo = rev
     ? '<span class="card-date">공포 ' + esc(fmtDate(rev.공포일자)) + ' · 시행 ' + esc(fmtDate(rev.시행일자)) + '</span>'
@@ -317,16 +323,20 @@ function renderMainCard(card) {
 
   if (llmOk) {
     return '<article class="card ' + lawClass + '">'
-      + '<div class="card-header">' + badge + catBadge + dateInfo + '</div>'
-      + '<div class="jo-label">📖 ' + esc(lc.source_article || ('도로교통법 제' + jo + '조')) + '</div>'
+      + '<div class="card-header">' + badge + groupBadge + catBadge + dateInfo + '</div>'
+      + '<div class="jo-label">📖 ' + esc(lc.source_article || (lawName + ' 제' + jo + '조')) + '</div>'
       + '<h2 class="oneliner">' + esc(String(lc.oneliner || '').replace(/[.\s]+$/, '')) + '</h2>'
       + '<p class="explanation">' + esc(lc.explanation) + '</p>'
       + '</article>';
   }
+  // Phase 3 S5 — simple_other_group은 LLM 미수행이 정상. 조문 본문이 풍부하므로 안내 메시지 톤 다르게.
+  const banner = card.llm_status === 'simple_other_group'
+    ? '<div class="llm-skip-banner" style="background:#f3f4f6;color:#374151;border-color:#d1d5db">📘 ' + esc(lawName) + ' 조문 — LLM 학습 콘텐츠는 향후 확장 예정. 조문 본문 위주로 확인하세요.</div>'
+    : '<div class="llm-skip-banner">⚠️ 이 날짜는 학습 콘텐츠가 아직 생성되지 않았습니다 (' + esc(card.llm_status) + '). 조문 정보만 표시합니다.</div>';
   return '<article class="card ' + lawClass + '">'
-    + '<div class="card-header">' + badge + catBadge + dateInfo + '</div>'
-    + '<div class="jo-label">📖 도로교통법 제' + esc(jo) + '조</div>'
-    + '<div class="llm-skip-banner">⚠️ 이 날짜는 학습 콘텐츠가 아직 생성되지 않았습니다 (' + esc(card.llm_status) + '). 조문 정보만 표시합니다.</div>'
+    + '<div class="card-header">' + badge + groupBadge + catBadge + dateInfo + '</div>'
+    + '<div class="jo-label">📖 ' + esc(lawName) + ' 제' + esc(jo) + '조</div>'
+    + banner
     + '</article>';
 }
 
@@ -444,8 +454,9 @@ function renderArticleText(card) {
   const txt = li.article_text;
   if (!txt) return '';
   const jo = li.매핑법률조문 || '';
+  const lawName = li.법령명 || '도로교통법';
   return '<details class="section article-raw">'
-    + '<summary>📜 도로교통법 제' + esc(jo) + '조 — 현행 조문 원문</summary>'
+    + '<summary>📜 ' + esc(lawName) + ' 제' + esc(jo) + '조 — 현행 조문 원문</summary>'
     + '<pre>' + esc(txt) + '</pre>'
     + '</details>';
 }
@@ -453,7 +464,8 @@ function renderArticleText(card) {
 function renderViewLaw(card) {
   const jo = (card.law_info && card.law_info.매핑법률조문) || '';
   const link = (card.law_info && card.law_info.viewer_link) || ('../viewer.html?jo=' + jo);
-  return '<a href="' + esc(link) + '" class="view-law">📖 도로교통법 제' + esc(jo) + '조 본문·연혁 보기 →</a>';
+  const lawName = (card.law_info && card.law_info.법령명) || '도로교통법';
+  return '<a href="' + esc(link) + '" class="view-law">📖 ' + esc(lawName) + ' 제' + esc(jo) + '조 본문·연혁 보기 →</a>';
 }
 
 // 카테고리 코드 → 한글 라벨 (case_pairing.py의 ARTICLE_CATEGORY_MAP과 1:1)
