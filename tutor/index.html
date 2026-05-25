@@ -293,10 +293,15 @@ async function loadDaily(date) {
   return r.json();
 }
 
+// 'ok'와 재페어링 성공('ok_re_paired') 모두 통과시키는 단일 정책
+function isLlmOk(status) {
+  return status === 'ok' || status === 'ok_re_paired';
+}
+
 function renderMainCard(card) {
   const li = card.law_info || {};
   const lc = card.learning_content || {};
-  const llmOk = card.llm_status === 'ok';
+  const llmOk = isLlmOk(card.llm_status);
   const jo = li.매핑법률조문 || '?';
   const rev = li.recent_revision;
   const lawClass = rev ? (LAW_TYPE_CLASS[rev.법령유형] || 'law') : 'law';
@@ -470,7 +475,7 @@ function renderCaseCard(card) {
   const ci = card.case_info || {};
   const pa = card.paired_article || {};
   const lc = card.learning_content || {};
-  const llmOk = card.llm_status === 'ok' && lc.oneliner;
+  const llmOk = isLlmOk(card.llm_status) && lc.oneliner;
 
   const courtClass = (ci.court === '대법원' || ci.court === '하급심') ? 'court' : '';
   const catLabel = ci.category ? (CATEGORY_KO[ci.category] || ci.category) : '';
@@ -546,7 +551,7 @@ function renderCard(card) {
   // 순서(R9): 메인 → 조문 원문 → 법리분석 → 학습포인트
   //          → 관련판례 → 핵심쟁점 → 참고자료 → 법령본문보기
   const lc = card.learning_content || {};
-  const llmOk = card.llm_status === 'ok';
+  const llmOk = isLlmOk(card.llm_status);
   return [
     renderMainCard(card),
     renderArticleText(card),

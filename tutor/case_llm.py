@@ -37,6 +37,22 @@ REQUIRED_KEYS = [
     'conclusion', 'teaching_application', 'reference_digest',
 ]
 
+# 핵심 필드 — 하나라도 비면 카드로 사용 불가
+CRITICAL_KEYS = ('oneliner', 'fact_summary', 'conclusion')
+
+
+def count_empty_required_fields(lc):
+    """REQUIRED_KEYS 중 빈 문자열·비-문자열 값을 가진 키 개수.
+    lc가 None이거나 dict 아니면 전체(=len(REQUIRED_KEYS))."""
+    if not isinstance(lc, dict):
+        return len(REQUIRED_KEYS)
+    n = 0
+    for k in REQUIRED_KEYS:
+        v = lc.get(k)
+        if not isinstance(v, str) or not v.strip():
+            n += 1
+    return n
+
 
 # ────────────────────────────────────────────────────────────────
 # Gemini 호출 (build_tutor_content.py와 동일 로직 — 2b-γ에서 공용 모듈로 분리)
@@ -176,6 +192,8 @@ def generate_case_learning_content(case_data, source, paired_jo, paired_jo_title
 
     out = {}
     for k in REQUIRED_KEYS:
-        v = parsed.get(k, '')
-        out[k] = str(v).strip() if v is not None else ''
+        v = parsed.get(k)
+        # 비문자열(list·dict·int 등)은 빈 처리. str() 변환은 "[]"·"{}"가 critical
+        # 필드를 통과시키는 위험을 만들기 때문에 의도적으로 회피.
+        out[k] = v.strip() if isinstance(v, str) else ''
     return out
