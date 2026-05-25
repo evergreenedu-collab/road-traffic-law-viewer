@@ -169,7 +169,20 @@ LAW_NO_PAT = re.compile(r"(?:법률\s*제|법률제)(\d+)호")
 DECREE_NO_PAT = re.compile(r"(?:대통령령\s*제|대통령령제)(\d+)호")
 PUBDATE_PAT = re.compile(r"(\d{4})\s*[.년]\s*(\d{1,2})\s*[.월]\s*(\d{1,2})\s*[일.,]?\s*공포")
 EFFDATE_PAT = re.compile(r"(\d{4})\s*[.년]\s*(\d{1,2})\s*[.월]\s*(\d{1,2})\s*[일.,]?\s*시행")
-LAWNAME_PAT = re.compile(r"「도로교통법(?:\s*시행령)?」")  # "「도로교통법」" 또는 "「도로교통법 시행령」"
+# LAWNAME_PAT: 「법령명」 형태 인용 매칭. 기본은 도교법(road), main()에서 --group에 따라 재컴파일.
+LAWNAME_PAT = re.compile(r"「도로교통법(?:\s*시행령)?」")
+
+
+def _compile_lawname_pat(group_laws):
+    """LAW_GROUPS[group]의 법령명들로 「법령명」 인용 정규식 컴파일.
+    법령명 내부 공백을 \\s*로 유연 매칭(「도로교통법시행령」, 「도로교통법  시행령」 변형 대응 — Codex 권장).
+    긴 이름 우선 매칭(접두어 충돌 방지)을 위해 길이 내림차순 정렬."""
+    names = sorted({info["법령명"] for info in group_laws.values() if info.get("법령명")},
+                   key=len, reverse=True)
+    if not names:
+        return re.compile(r"$^")   # 매칭 불가 (안전 폴백)
+    flexible = [r"\s*".join(re.escape(p) for p in n.split()) for n in names]
+    return re.compile("「(?:" + "|".join(flexible) + ")」")
 
 
 def parse_dates_in_text(text, pattern):
@@ -191,6 +204,13 @@ def main():
                         help="법령 그룹 코드 (기본 road = 도로교통법)")
     args = parser.parse_args()
     suffix = "" if args.group == "road" else f"_{args.group}"
+
+    # 그룹별 법령명 동적화 — 「법령명」 인용 매칭 + 본문/부칙 dict 키 모두 사용
+    group_laws = _SHARED_LAW_GROUPS[args.group]
+    global LAWNAME_PAT
+    LAWNAME_PAT = _compile_lawname_pat(group_laws)
+    # 법령유형 → 법령명 (그룹에 없는 유형은 키 누락. 단일 법률 그룹은 시행령·시행규칙 없음)
+    type_to_name = {lt: info["법령명"] for lt, info in group_laws.items() if info.get("법령명")}
     history_path = os.path.join(DATA_DIR, f"article_history{suffix}.json")
     full_history_path = os.path.join(DATA_DIR, f"road_traffic_full_history{suffix}.json")
     map_path = os.path.join(DATA_DIR, f"three_tier_map{suffix}.json")
@@ -267,17 +287,21 @@ def main():
 
     # 법률 공포번호 → 공포일자
     law_pubno_to_pubdate = {}  # 정규화 공포번호 → 공포일자
-    for ver in fullhist_by_name.get("도로교통법", {}).get("연혁", []):
-        pubno = norm_pubno(ver.get("공포번호", ""))
-        if pubno and pubno not in law_pubno_to_pubdate:
-            law_pubno_to_pubdate[pubno] = ver.get("공포일자", "")
+    _law_name = type_to_name.get("법률")
+    if _law_name:
+        for ver in fullhist_by_name.get(_law_name, {}).get("연혁", []):
+            pubno = norm_pubno(ver.get("공포번호", ""))
+            if pubno and pubno not in law_pubno_to_pubdate:
+                law_pubno_to_pubdate[pubno] = ver.get("공포일자", "")
 
-    # 시행령 공포번호 → 공포일자
+    # 시행령 공포번호 → 공포일자 (시행령 없는 그룹은 빈 dict)
     decree_pubno_to_pubdate = {}
-    for ver in fullhist_by_name.get("도로교통법 시행령", {}).get("연혁", []):
-        pubno = norm_pubno(ver.get("공포번호", ""))
-        if pubno and pubno not in decree_pubno_to_pubdate:
-            decree_pubno_to_pubdate[pubno] = ver.get("공포일자", "")
+    _decree_name = type_to_name.get("시행령")
+    if _decree_name:
+        for ver in fullhist_by_name.get(_decree_name, {}).get("연혁", []):
+            pubno = norm_pubno(ver.get("공포번호", ""))
+            if pubno and pubno not in decree_pubno_to_pubdate:
+                decree_pubno_to_pubdate[pubno] = ver.get("공포일자", "")
 
     print(f"  법률 공포번호: {len(law_pubno_to_pubdate)}개")
     print(f"  시행령 공포번호: {len(decree_pubno_to_pubdate)}개")
@@ -290,12 +314,8 @@ def main():
     rescued = {"법률": 0, "시행령": 0, "시행규칙": 0}  # API=N인데 본문 변경된 것 살린 카운트
 
     # fullhist 에서 (법령유형, 공포일자) → 부칙 리스트 매핑
-    # article_history.json 에는 부칙이 없으므로 road_traffic_full_history.json 에서 따로 가져온다
-    type_to_name = {
-        "법률": "도로교통법",
-        "시행령": "도로교통법 시행령",
-        "시행규칙": "도로교통법 시행규칙",
-    }
+    # article_history.json 에는 부칙이 없으므로 *_full_history.json 에서 따로 가져온다
+    # type_to_name 은 위 main()에서 group_laws 기반으로 이미 빌드됨
     addenda_by_pub = {"법률": {}, "시행령": {}, "시행규칙": {}}
     for lt, lname in type_to_name.items():
         for v in fullhist_by_name.get(lname, {}).get("연혁", []):
