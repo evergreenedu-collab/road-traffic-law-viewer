@@ -28,6 +28,9 @@ DATA_DIR = os.path.join(SCRIPT_DIR, "data")
 INPUT_PATH = os.path.join(DATA_DIR, "attached_tables_history.json")
 OUTPUT_PATH = os.path.join(DATA_DIR, "attached_tables_diff.json")
 
+# build_3tier_map에서 그룹 키 공유
+from build_3tier_map import LAW_GROUPS as _SHARED_LAW_GROUPS
+
 
 def normalize_for_compare(text):
     """비교용 정규화 — 개정이력 태그 제거 + 공백 정규화"""
@@ -40,15 +43,24 @@ def normalize_for_compare(text):
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="별표 전후비교 데이터 구축 (multi-group)")
+    parser.add_argument("--group", default="road", choices=list(_SHARED_LAW_GROUPS.keys()),
+                        help="법령 그룹 코드 (기본 road = 도로교통법)")
+    args = parser.parse_args()
+    suffix = "" if args.group == "road" else f"_{args.group}"
+    input_path = os.path.join(DATA_DIR, f"attached_tables_history{suffix}.json")
+    output_path = os.path.join(DATA_DIR, f"attached_tables_diff{suffix}.json")
+
     print("=" * 60)
-    print("  별표 전후비교 데이터 구축")
+    print(f"  별표 전후비교 데이터 구축 — 그룹: {args.group}")
     print("=" * 60)
 
-    if not os.path.exists(INPUT_PATH):
+    if not os.path.exists(input_path):
         raise FileNotFoundError(
-            f"{INPUT_PATH} 없음. 먼저 collect_attached_tables_history.py를 실행하세요."
+            f"{input_path} 없음. 먼저 `py collect_attached_tables_history.py --group {args.group}`를 실행하세요."
         )
-    with open(INPUT_PATH, "r", encoding="utf-8") as f:
+    with open(input_path, "r", encoding="utf-8") as f:
         history = json.load(f)
 
     result = {"생성일시": datetime.now().isoformat(), "시행령": {}, "시행규칙": {}}
@@ -107,10 +119,10 @@ def main():
                 n_tables += 1
         print(f"  ✅ {n_tables}개 별표/서식, {n_changes}건 변경 시점")
 
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False)
-    size_mb = os.path.getsize(OUTPUT_PATH) / (1024 * 1024)
-    print(f"\n💾 저장: {OUTPUT_PATH} ({size_mb:.1f}MB)")
+    size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    print(f"\n💾 저장: {output_path} ({size_mb:.1f}MB)")
 
 
 if __name__ == "__main__":

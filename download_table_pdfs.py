@@ -28,6 +28,9 @@ DIFF_PATH = os.path.join(DATA_DIR, "attached_tables_diff.json")
 PDF_DIR = os.path.join(DATA_DIR, "table_pdfs")
 BASE_URL = "https://www.law.go.kr"
 
+# build_3tier_map에서 그룹 키 공유
+from build_3tier_map import LAW_GROUPS as _SHARED_LAW_GROUPS
+
 
 def safe_filename(s):
     """파일시스템 안전한 이름으로 변환 (공백 → _)"""
@@ -39,11 +42,12 @@ def pdf_filename(law_type, table_name, pub_date):
     return f"{safe_filename(law_type)}_{safe_filename(table_name)}_{pub_date}.pdf"
 
 
-def collect_targets():
+def collect_targets(diff_path=None):
     """다운로드 대상 (법령유형, 별표명, 공포일자, PDF_URL) 추출"""
-    if not os.path.exists(DIFF_PATH):
-        raise FileNotFoundError(f"{DIFF_PATH} 없음. build_attached_tables_diff.py 먼저 실행.")
-    with open(DIFF_PATH, "r", encoding="utf-8") as f:
+    p = diff_path or DIFF_PATH
+    if not os.path.exists(p):
+        raise FileNotFoundError(f"{p} 없음. build_attached_tables_diff.py 먼저 실행.")
+    with open(p, "r", encoding="utf-8") as f:
         diff = json.load(f)
     targets = []
     seen = set()  # (법령유형, 별표명, 공포일자) 중복 제거
@@ -67,12 +71,22 @@ def collect_targets():
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="별표 PDF 증분 다운로드 (multi-group)")
+    parser.add_argument("--group", default="road", choices=list(_SHARED_LAW_GROUPS.keys()),
+                        help="법령 그룹 코드 (기본 road = 도로교통법)")
+    args = parser.parse_args()
+    suffix = "" if args.group == "road" else f"_{args.group}"
+    diff_path = os.path.join(DATA_DIR, f"attached_tables_diff{suffix}.json")
+    # road는 기존 폴더(data/table_pdfs/) 그대로, 그 외는 하위 폴더(data/table_pdfs/{group}/)
+    pdf_dir = PDF_DIR if args.group == "road" else os.path.join(PDF_DIR, args.group)
+
     print("=" * 60)
-    print("  별표 PDF 증분 다운로드")
+    print(f"  별표 PDF 증분 다운로드 — 그룹: {args.group}")
     print("=" * 60)
 
-    os.makedirs(PDF_DIR, exist_ok=True)
-    targets = collect_targets()
+    os.makedirs(pdf_dir, exist_ok=True)
+    targets = collect_targets(diff_path)
     print(f"\n📋 다운로드 대상 {len(targets)}건 (변경 시점의 직전·직후 PDF)")
 
     existing = 0
@@ -82,7 +96,7 @@ def main():
 
     for i, (law_type, tname, pub, url) in enumerate(targets):
         fname = pdf_filename(law_type, tname, pub)
-        fpath = os.path.join(PDF_DIR, fname)
+        fpath = os.path.join(pdf_dir, fname)
         if os.path.exists(fpath) and os.path.getsize(fpath) > 0:
             existing += 1
             continue
@@ -108,8 +122,8 @@ def main():
 
     # 결과
     total_size = sum(
-        os.path.getsize(os.path.join(PDF_DIR, f))
-        for f in os.listdir(PDF_DIR)
+        os.path.getsize(os.path.join(pdf_dir, f))
+        for f in os.listdir(pdf_dir)
         if f.endswith(".pdf")
     )
     print(f"\n📊 결과")
@@ -117,7 +131,7 @@ def main():
     print(f"  기존 (건너뜀): {existing}건")
     print(f"  실패: {failed}건")
     print(f"  PDF 폴더 총 크기: {total_size/1024/1024:.1f}MB")
-    print(f"  저장 위치: {PDF_DIR}")
+    print(f"  저장 위치: {pdf_dir}")
 
 
 if __name__ == "__main__":

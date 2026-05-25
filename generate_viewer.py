@@ -287,8 +287,13 @@ def main():
         map_data = json.load(f)
     with open(art_path, "r", encoding="utf-8") as f:
         art_data = json.load(f)
-    # attached_tables는 road 전용 폴백 로직 있음. tlspc는 빈값 처리.
-    table_data = load_table_data_with_fallback() if group == "road" else {"시행령": {}, "시행규칙": {}}
+    # attached_tables (별표 모달용): road는 폴백 로직 사용, 다른 그룹은 group별 파일 직접 로드.
+    # 2026-05-25 multi-group 별표 지원 — 파일 없으면 빈 dict로 안전 폴백
+    if group == "road":
+        table_data = load_table_data_with_fallback()
+    else:
+        tbl_path = os.path.join(DATA_DIR, f"attached_tables_{group}.json")
+        table_data = _load_json_or_empty(tbl_path, {"시행령": {}, "시행규칙": {}})
 
     # 뷰어 크기 최적화: 텍스트 내용은 PDF가 있으면 제거
     for law_type in ["시행령", "시행규칙"]:
@@ -2338,9 +2343,11 @@ function summarizeReason(reason){
 }
 
 // 로컬 PDF 경로 (download_table_pdfs.py 파일명 규칙과 일치)
+// 2026-05-25: multi-group 분리 — road는 기존 폴더, 그 외는 data/table_pdfs/{group}/ 하위
 function localPdfPath(lawType, tableName, pubDate){
   const safe = s => (s||'').replace(/[\\/:*?"<>|]/g,'_').replace(/ /g,'_');
-  return `data/table_pdfs/${safe(lawType)}_${safe(tableName)}_${pubDate}.pdf`;
+  const sub = IS_ROAD_GROUP ? '' : `${CURRENT_GROUP}/`;
+  return `data/table_pdfs/${sub}${safe(lawType)}_${safe(tableName)}_${pubDate}.pdf`;
 }
 
 // 별표 본문 정규화: 빈 줄 압축 + 줄 끝 공백 제거 + 연속 공백 1개로
