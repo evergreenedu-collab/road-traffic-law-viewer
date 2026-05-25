@@ -39,7 +39,12 @@ import requests
 
 # Phase 2 2b-γ: 판례 페어링 + LLM 정리 (case 카드용)
 from case_pairing import select_paired_case
-from case_llm import generate_case_learning_content
+from case_llm import (
+    CRITICAL_KEYS,
+    REQUIRED_KEYS,
+    count_empty_required_fields,
+    generate_case_learning_content,
+)
 
 # 평일 운영 모델 (메모리 — 일 단위 인접 페어):
 # 월=조문A · 화=조문A 관련 판례 · 수=조문B · 목=조문B 관련 판례 · 금=조문C 단독
@@ -72,6 +77,10 @@ CASE_CONTEXT_CHARS = 1400    # 판례 1건당 LLM에 넣을 본문 길이
 MAX_HISTORY_CHANGES = 5      # S7: 카드에 넣을 조문 연혁 변화 수 (최신순)
 HISTORY_KEYWORD_LIMIT = 4    # S7: 변화당 추가/삭제 키워드 수
 EPOCH = datetime(2026, 1, 1)
+
+# case 카드 빈 필드 폴백 — 6필드 중 3개 이상 비거나 CRITICAL_KEYS(oneliner·fact_summary·conclusion)
+# 중 하나라도 비면 1회 재페어링 후 그래도 못 쓰면 article 카드로 폴백
+EMPTY_FIELD_FALLBACK_THRESHOLD = 3
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash').strip()
@@ -210,8 +219,32 @@ def _extract_recent_case_history(schedule, target_date, lookback_days=14):
     return history
 
 
-def _try_case_selection(target_date, articles, schedule, indexes, pool_size):
-    """화·목 — 전날 조문에 페어링된 case 선정. 실패 시 None (호출부에서 article fallback)."""
+def is_llm_ok(status):
+    """viewer의 isLlmOk와 같은 정책 — 'ok'와 재페어링 성공('ok_re_paired') 모두 통과."""
+    return status in ('ok', 'ok_re_paired')
+
+
+def is_usable_case_learning_content(lc):
+    """case 카드 learning_content가 viewer 노출에 사용 가능한지.
+    False면 호출부가 재페어링 또는 article 폴백을 수행."""
+    if not isinstance(lc, dict):
+        return False
+    if '_error' in lc:           # case_llm의 json_parse_failed 마커
+        return False
+    for k in CRITICAL_KEYS:      # 핵심 3필드 중 하나라도 비면 못 씀
+        v = lc.get(k)
+        if not isinstance(v, str) or not v.strip():
+            return False
+    return count_empty_required_fields(lc) < EMPTY_FIELD_FALLBACK_THRESHOLD
+
+
+def _try_case_selection(target_date, articles, schedule, indexes, pool_size,
+                         exclude_case_keys=None):
+    """화·목 — 전날 조문에 페어링된 case 선정. 실패 시 None (호출부에서 article fallback).
+
+    exclude_case_keys: 이번 빌드에서 이미 실패해 제외할 (source, case_no) 튜플 목록.
+                      14일 recent_history(장기 중복 방지)와 합쳐 select_paired_case에 전달.
+    """
     prev_jo = _extract_prev_jo(target_date, articles, schedule, pool_size)
     if not prev_jo:
         return None
@@ -233,8 +266,10 @@ def _try_case_selection(target_date, articles, schedule, indexes, pool_size):
                         if cid in court_data}
 
     recent_history = _extract_recent_case_history(schedule, target_date)
+    exclude = list(exclude_case_keys or [])
     case_result = select_paired_case(prev_jo, target_date.strftime('%Y-%m-%d'),
-                                     admin_cases, court_cases_dict, recent_history)
+                                     admin_cases, court_cases_dict,
+                                     recent_history + exclude)
     if not case_result:
         return None
     return {
@@ -1159,6 +1194,130 @@ def build_card(selection, indexes, target_date=None, use_llm=True):
     return card
 
 
+def _case_summary(case):
+    """폴백 메타에 남길 case 요약(공개정보만)."""
+    return {
+        'source': case.get('source'),
+        'case_no': case.get('case_no'),
+    }
+
+
+def _build_article_fallback(jo, indexes, target_date, use_llm, fallback_meta,
+                             schedule):
+    """case 카드 폴백 — 같은 jo로 article 카드를 빌드하고 fallback_meta 첨부.
+    articles에 jo 없으면 None. schedule[key]도 article 폴백 사실에 맞춰 갱신."""
+    articles = indexes['articles']
+    if jo not in articles:
+        return None
+    sel = _make_article_selection(jo, articles)
+    sel['basis']['fallback_from_case'] = fallback_meta
+    print(f"  ↩️ article 폴백 — 제{jo}조 ({fallback_meta.get('reason')})")
+    card = build_card(sel, indexes,
+                      target_date=target_date.strftime('%Y%m%d'),
+                      use_llm=use_llm)
+    # schedule 갱신: 다음 빌드가 같은 실패를 반복하지 않게, 또 14일 중복회피 이력이
+    # 실제 노출된 사건이 아니라 실패한 사건을 가리키지 않도록 article 형식으로 박음
+    key = target_date.strftime('%Y-%m-%d')
+    schedule[key] = {
+        'type': 'article',
+        'article': jo,
+        'fallback_from_case': fallback_meta,
+    }
+    return card
+
+
+def _build_case_card_with_fallback(selection, indexes, target_date, use_llm,
+                                    schedule):
+    """case 카드 빌드 + 빈 필드/호출 실패 시 1회 재페어링 또는 article 폴백.
+    반환값은 항상 카드 dict (실패 시 첫 카드를 그대로 반환해 데이터 손실 방지).
+    schedule[key]도 최종 결정(첫 사건 채택/재페어링 사건 채택/article 폴백)에 맞춰 갱신."""
+    target_date_str = target_date.strftime('%Y%m%d')
+    schedule_key = target_date.strftime('%Y-%m-%d')
+    first_card = build_card(selection, indexes,
+                            target_date=target_date_str, use_llm=use_llm)
+    first_case = selection['case']
+    first_status = first_card.get('llm_status')
+
+    # use_llm=False면 article 폴백해도 동일하게 비어 있음 → 폴백 의미 없음
+    if first_status == 'skipped_by_flag':
+        return first_card
+
+    # 1) LLM 호출 자체 실패 → 즉시 article 폴백
+    if first_status in ('skip_call_failed', 'skip_no_api_key'):
+        reason = ('llm_call_failed' if first_status == 'skip_call_failed'
+                  else 'no_api_key')
+        meta = {'reason': reason, 'first_case': _case_summary(first_case),
+                'retry_case': None}
+        return _build_article_fallback(selection['jo'], indexes, target_date,
+                                        use_llm, meta, schedule) or first_card
+
+    lc = first_card.get('learning_content')
+
+    # 2) JSON 파싱 실패 → 즉시 article 폴백 (같은 프롬프트 재호출 무의미)
+    if isinstance(lc, dict) and '_error' in lc:
+        meta = {'reason': 'parse_failed', 'first_case': _case_summary(first_case),
+                'retry_case': None}
+        return _build_article_fallback(selection['jo'], indexes, target_date,
+                                        use_llm, meta, schedule) or first_card
+
+    # 3) 정상 응답 + 필드 충분 → 채택 (schedule entry는 이미 첫 사건 기준으로 박혀 있어 정확)
+    if is_usable_case_learning_content(lc):
+        return first_card
+
+    # 4) 정상 응답이나 빈 필드 과다 → 재페어링 1회
+    first_empty = count_empty_required_fields(lc)
+    print(f"  🔁 case 카드 빈 필드 감지 ({first_empty}/{len(REQUIRED_KEYS)}) — 다른 사건으로 재페어링")
+
+    exclude = [(first_case.get('source'), first_case.get('case_no'))]
+    retry_selection = _try_case_selection(
+        target_date, indexes['articles'], schedule, indexes,
+        WEIGHT_POOL_SIZE, exclude_case_keys=exclude)
+
+    if not retry_selection:
+        meta = {
+            'reason': 'no_retry_candidate',
+            'first_case': {**_case_summary(first_case), 'empty_count': first_empty},
+            'retry_case': None,
+        }
+        return _build_article_fallback(selection['jo'], indexes, target_date,
+                                        use_llm, meta, schedule) or first_card
+
+    retry_case = retry_selection['case']
+    print(f"  🤖 재페어링 → {retry_case['source']} {retry_case['case_no']}")
+    retry_card = build_card(retry_selection, indexes,
+                            target_date=target_date_str, use_llm=use_llm)
+    retry_lc = retry_card.get('learning_content')
+    retry_status = retry_card.get('llm_status')
+
+    # 5) 재페어링 카드도 못 쓰면 article 폴백
+    if not is_usable_case_learning_content(retry_lc):
+        if retry_status in ('skip_call_failed', 'skip_no_api_key'):
+            reason = 'retry_llm_failed'
+        elif isinstance(retry_lc, dict) and '_error' in retry_lc:
+            reason = 'retry_parse_failed'
+        else:
+            reason = 'retry_also_empty'
+        retry_empty = count_empty_required_fields(retry_lc)
+        meta = {
+            'reason': reason,
+            'first_case': {**_case_summary(first_case), 'empty_count': first_empty},
+            'retry_case': {**_case_summary(retry_case), 'empty_count': retry_empty},
+        }
+        return _build_article_fallback(selection['jo'], indexes, target_date,
+                                        use_llm, meta, schedule) or retry_card
+
+    # 6) 재페어링 성공 → ok_re_paired. schedule의 source/case_no를 retry 사건으로 갱신
+    retry_card['llm_status'] = 'ok_re_paired'
+    retry_card.setdefault('selection_basis', {})['re_paired_from'] = {
+        **_case_summary(first_case), 'empty_count': first_empty,
+    }
+    if isinstance(schedule.get(schedule_key), dict):
+        schedule[schedule_key]['source'] = retry_case.get('source')
+        schedule[schedule_key]['case_no'] = retry_case.get('case_no')
+        schedule[schedule_key]['re_paired_from'] = _case_summary(first_case)
+    return retry_card
+
+
 def build_daily(target_date, indexes, schedule, use_llm=True):
     base = {
         'date': target_date.strftime('%Y-%m-%d'),
@@ -1187,14 +1346,16 @@ def build_daily(target_date, indexes, schedule, use_llm=True):
         ci = selection['case']
         print(f"\n📅 {target_date.strftime('%Y-%m-%d')} → 판례 카드 (제{selection['jo']}조 페어링) "
               f"| {ci['source']} {ci['case_no']} | priority_matched={ci.get('priority_matched')}")
+        card = _build_case_card_with_fallback(selection, indexes, target_date,
+                                               use_llm, schedule)
     else:
         print(f"\n📅 {target_date.strftime('%Y-%m-%d')} → 제{selection['jo']}조 "
               f"(w={b['weight_score']:.3f}, {b['category']}, "
               f"행정심판 {b['admin_case_count']}·대법원 {b['court_case_count']})")
+        card = build_card(selection, indexes,
+                          target_date=target_date.strftime('%Y%m%d'),
+                          use_llm=use_llm)
 
-    card = build_card(selection, indexes,
-                      target_date=target_date.strftime('%Y%m%d'),
-                      use_llm=use_llm)
     base['status'] = 'ok'
     base['cards'] = [card]
     return base
@@ -1265,7 +1426,7 @@ def main():
         if content.get('status') == 'ok' and content.get('cards'):
             card = content['cards'][0]
             status = card.get('llm_status', '?')
-            mark = '✅' if status == 'ok' else '⚠️'
+            mark = '✅' if is_llm_ok(status) else '⚠️'
             # Phase 2 2b-γ: card_type 분기
             if card.get('card_type') == 'case':
                 ci = card.get('case_info', {})
@@ -1276,7 +1437,7 @@ def main():
             else:
                 jo = card.get('law_info', {}).get('매핑법률조문', '?')
                 line = f"  {mark} {target.strftime('%Y-%m-%d')} 제{jo}조 — {status}"
-            if status == 'ok' and isinstance(card.get('learning_content'), dict):
+            if is_llm_ok(status) and isinstance(card.get('learning_content'), dict):
                 oneliner = card['learning_content'].get('oneliner', '')
                 if oneliner:
                     line += f" — {oneliner[:80]}"
