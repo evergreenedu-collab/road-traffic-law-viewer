@@ -49,8 +49,19 @@ from build_3tier_map import LAW_GROUPS as _SHARED_LAW_GROUPS
 # 별표 제목에서 모법 조문 인용 추출
 # 예: "(제91조제1항관련)", "[제18조제1항관련]", "(제46조제1항ㆍ제46조의2제1항 관련)"
 TABLE_ARTICLE_PAT = re.compile(r"제(\d+(?:의\d+)?)조")
-# 별표 본문에서 "법 제X조" / "도로교통법 제X조" 인용 추출 (법률 조문 직접 인용)
+# 별표 본문에서 "법 제X조" / "{법령명} 제X조" 인용 추출 (법률 조문 직접 인용)
+# 기본은 road, main()에서 --group에 따라 재컴파일.
 LAW_REF_IN_TABLE = re.compile(r"(?:도로교통)?법\s*제(\d+(?:의\d+)?)조")
+
+
+def _compile_law_ref_in_table_pat(group_laws):
+    """별표 본문의 자기 그룹 법률 인용 매칭. "법 제X조" 약식 + "{법령명} 제X조" 명시 모두 잡음.
+    법령명 내부 공백 \\s* 유연 매칭."""
+    law_name = (group_laws.get("법률") or {}).get("법령명", "")
+    if not law_name:
+        return re.compile(r"법\s*제(\d+(?:의\d+)?)조")
+    flexible = r"\s*".join(re.escape(p) for p in law_name.split())
+    return re.compile(r"(?:" + flexible + r"|법)\s*제(\d+(?:의\d+)?)조")
 
 
 # ─────────────────────────────────────────────────────────
@@ -207,8 +218,9 @@ def main():
 
     # 그룹별 법령명 동적화 — 「법령명」 인용 매칭 + 본문/부칙 dict 키 모두 사용
     group_laws = _SHARED_LAW_GROUPS[args.group]
-    global LAWNAME_PAT
+    global LAWNAME_PAT, LAW_REF_IN_TABLE
     LAWNAME_PAT = _compile_lawname_pat(group_laws)
+    LAW_REF_IN_TABLE = _compile_law_ref_in_table_pat(group_laws)
     # 법령유형 → 법령명 (그룹에 없는 유형은 키 누락. 단일 법률 그룹은 시행령·시행규칙 없음)
     type_to_name = {lt: info["법령명"] for lt, info in group_laws.items() if info.get("법령명")}
     history_path = os.path.join(DATA_DIR, f"article_history{suffix}.json")
