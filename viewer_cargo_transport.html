@@ -316,12 +316,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core_cargo_transport.js?v=20260522202024"></script>
-<script src="web_data/data_timeline_cargo_transport.js?v=20260522202024"></script>
-<script src="web_data/data_tbl_diff_decree_cargo_transport.js?v=20260522202024"></script>
-<script src="web_data/data_tbl_diff_rule_cargo_transport.js?v=20260522202024"></script>
-<script src="web_data/data_tbl_pdf_cargo_transport.js?v=20260522202024"></script>
-<script src="web_data/data_tbl_history_cargo_transport.js?v=20260522202024"></script>
+<script src="web_data/data_core_cargo_transport.js?v=20260525211357"></script>
+<script src="web_data/data_timeline_cargo_transport.js?v=20260525211357"></script>
+<script src="web_data/data_tbl_diff_decree_cargo_transport.js?v=20260525211357"></script>
+<script src="web_data/data_tbl_diff_rule_cargo_transport.js?v=20260525211357"></script>
+<script src="web_data/data_tbl_pdf_cargo_transport.js?v=20260525211357"></script>
+<script src="web_data/data_tbl_history_cargo_transport.js?v=20260525211357"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -1865,9 +1865,11 @@ function summarizeReason(reason){
 }
 
 // 로컬 PDF 경로 (download_table_pdfs.py 파일명 규칙과 일치)
+// 2026-05-25: multi-group 분리 — road는 기존 폴더, 그 외는 data/table_pdfs/{group}/ 하위
 function localPdfPath(lawType, tableName, pubDate){
   const safe = s => (s||'').replace(/[\\/:*?"<>|]/g,'_').replace(/ /g,'_');
-  return `data/table_pdfs/${safe(lawType)}_${safe(tableName)}_${pubDate}.pdf`;
+  const sub = IS_ROAD_GROUP ? '' : `${CURRENT_GROUP}/`;
+  return `data/table_pdfs/${sub}${safe(lawType)}_${safe(tableName)}_${pubDate}.pdf`;
 }
 
 // 별표 본문 정규화: 빈 줄 압축 + 줄 끝 공백 제거 + 연속 공백 1개로
