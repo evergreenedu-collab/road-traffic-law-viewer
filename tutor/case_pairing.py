@@ -62,9 +62,9 @@ ARTICLE_TOPIC_KEYWORDS = {
     '45': ['약물운전', '과로', '졸음', '운전부적격', '환각'],
     '50의3': ['음주운전 방지장치', '시동잠금', '음주방지장치'],
     '148의2': ['음주', '주취', '음주측정', '재범', '가중처벌'],
-    '43': ['무면허', '면허 없이', '면허 정지 중', '면허취소 후 운전'],
+    '43': ['무면허운전', '면허 없이', '면허 정지 중', '면허취소 후 운전'],
     '152': ['무면허', '면허 없이'],
-    '46': ['공동위험행위', '공동위험', '공동하여', '집단', '대열', '폭주', '난폭운전', '교통상의 위험'],
+    '46': ['공동위험행위', '공동위험', '공동하여', '대열', '폭주', '난폭운전'],
     '47': ['위험방지', '일시정지', '경찰관 지시'],
     '54': ['뺑소니', '도주', '구호', '사고 후 미조치', '사고후미조치', '도주차량', '특정범죄가중처벌'],
     '148': ['사고 후 조치', '사고후조치', '도주', '구호의무'],
@@ -96,6 +96,10 @@ CASE_KEYWORDS = {
     'aptitude': ['적성검사'],
     'other': [],
 }
+
+# 강력범죄 deny-list — court case_name에 이 키워드 중 하나라도 들어가면
+# priority pool에서 제외 (도로교통법 위반은 부수 죄명일 가능성 큼).
+STRONG_CRIME_KEYWORDS = ['강도', '강간', '성폭력', '약취', '유인']
 
 
 # ────────────────────────────────────────────────────────────────
@@ -154,6 +158,13 @@ def _has_topic_keyword(case_data, source, keywords):
     return any(kw in text for kw in keywords)
 
 
+def _is_strong_crime(case_data, source):
+    if source != 'court':
+        return False
+    name = case_data.get('case_name', '') or ''
+    return any(kw in name for kw in STRONG_CRIME_KEYWORDS)
+
+
 # ────────────────────────────────────────────────────────────────
 # 결정론 stride
 # ────────────────────────────────────────────────────────────────
@@ -203,7 +214,11 @@ def select_paired_case(jo, target_date, admin_cases, court_cases, recent_history
 
     # 2) 키워드 우선 풀 분리
     admin_priority = [c for c in admin_cat if _has_topic_keyword(c, 'admin', topic_keywords)]
-    court_priority = [t for t in court_cat if _has_topic_keyword(t[1], 'court', topic_keywords)]
+    court_priority = [
+        t for t in court_cat
+        if _has_topic_keyword(t[1], 'court', topic_keywords)
+        and not _is_strong_crime(t[1], 'court')
+    ]
 
     if admin_priority or court_priority:
         # priority pool 사용
