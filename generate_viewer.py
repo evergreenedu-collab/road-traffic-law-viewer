@@ -33,8 +33,8 @@ TIMELINE_PATH = os.path.join(DATA_DIR, "article_timeline.json")
 GROUP_LABELS = {
     "road": "도로교통법 (시행령·시행규칙)",
     "tlspc": "교통사고처리 특례법 (시행령)",
-    "tkga": "특정범죄 가중처벌법 (단일 법률)",
-    "crim_proc": "형사소송법 (단일 법률)",
+    "tkga": "특정범죄 가중처벌법 (시행령)",
+    "crim_proc": "형사소송법 (대법원규칙)",
     "car_mgmt": "자동차관리법 (시행령·시행규칙)",
     "passenger_transport": "여객자동차 운수사업법 (시행령·시행규칙)",
     "cargo_transport": "화물자동차 운수사업법 (시행령·시행규칙)",
@@ -481,6 +481,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 2026-05-25: viewer html 자체 캐시 무효화 (매주 자동 갱신 시 브라우저가 옛 viewer 사용해 별표/별지 무반응 회피) -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>{{LAW_TITLE}} 한눈에 — 법률·시행령·시행규칙·별표 통합 비교</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
@@ -712,11 +716,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <select id="lawSel" onchange="onLawChange()" autocomplete="off" title="Phase 3 — 다중 법령">
     <option value="road" selected>도로교통법 (시행령·시행규칙)</option>
     <option value="tlspc" disabled>교통사고처리 특례법 (시행령)</option>
-    <option value="tkga" disabled>특정범죄 가중처벌법 (단일 법률)</option>
+    <option value="tkga" disabled>특정범죄 가중처벌법 (시행령)</option>
     <option value="car_mgmt" disabled>자동차관리법 (시행령·시행규칙)</option>
     <option value="passenger_transport" disabled>여객자동차 운수사업법 (시행령·시행규칙)</option>
     <option value="cargo_transport" disabled>화물자동차 운수사업법 (시행령·시행규칙)</option>
-    <option value="crim_proc" disabled>형사소송법 (단일 법률)</option>
+    <option value="crim_proc" disabled>형사소송법 (대법원규칙)</option>
   </select>
   <!-- Phase 3 S3-1-b-4-b: 법령유형 토글 (법률·시행령·시행규칙 직접 진입) -->
   <div id="lawTypeToggle" style="display:inline-flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff" role="group" aria-label="법령유형 선택">

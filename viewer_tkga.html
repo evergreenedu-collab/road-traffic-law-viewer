@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 2026-05-25: viewer html 자체 캐시 무효화 (매주 자동 갱신 시 브라우저가 옛 viewer 사용해 별표/별지 무반응 회피) -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>특정범죄 가중처벌 등에 관한 법률 한눈에 — 법률·시행령·시행규칙·별표 통합 비교</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
@@ -234,11 +238,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <select id="lawSel" onchange="onLawChange()" autocomplete="off" title="Phase 3 — 다중 법령">
     <option value="road">도로교통법 (시행령·시행규칙)</option>
     <option value="tlspc">교통사고처리 특례법 (시행령)</option>
-    <option value="tkga" selected>특정범죄 가중처벌법 (단일 법률)</option>
+    <option value="tkga" selected>특정범죄 가중처벌법 (시행령)</option>
     <option value="car_mgmt">자동차관리법 (시행령·시행규칙)</option>
     <option value="passenger_transport">여객자동차 운수사업법 (시행령·시행규칙)</option>
     <option value="cargo_transport">화물자동차 운수사업법 (시행령·시행규칙)</option>
-    <option value="crim_proc">형사소송법 (단일 법률)</option>
+    <option value="crim_proc">형사소송법 (대법원규칙)</option>
   </select>
   <!-- Phase 3 S3-1-b-4-b: 법령유형 토글 (법률·시행령·시행규칙 직접 진입) -->
   <div id="lawTypeToggle" style="display:inline-flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff" role="group" aria-label="법령유형 선택">
@@ -316,12 +320,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core_tkga.js?v=20260522202022"></script>
-<script src="web_data/data_timeline_tkga.js?v=20260522202022"></script>
-<script src="web_data/data_tbl_diff_decree_tkga.js?v=20260522202022"></script>
-<script src="web_data/data_tbl_diff_rule_tkga.js?v=20260522202022"></script>
-<script src="web_data/data_tbl_pdf_tkga.js?v=20260522202022"></script>
-<script src="web_data/data_tbl_history_tkga.js?v=20260522202022"></script>
+<script src="web_data/data_core_tkga.js?v=20260525222327"></script>
+<script src="web_data/data_timeline_tkga.js?v=20260525222327"></script>
+<script src="web_data/data_tbl_diff_decree_tkga.js?v=20260525222327"></script>
+<script src="web_data/data_tbl_diff_rule_tkga.js?v=20260525222327"></script>
+<script src="web_data/data_tbl_pdf_tkga.js?v=20260525222327"></script>
+<script src="web_data/data_tbl_history_tkga.js?v=20260525222327"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -1865,9 +1869,11 @@ function summarizeReason(reason){
 }
 
 // 로컬 PDF 경로 (download_table_pdfs.py 파일명 규칙과 일치)
+// 2026-05-25: multi-group 분리 — road는 기존 폴더, 그 외는 data/table_pdfs/{group}/ 하위
 function localPdfPath(lawType, tableName, pubDate){
   const safe = s => (s||'').replace(/[\\/:*?"<>|]/g,'_').replace(/ /g,'_');
-  return `data/table_pdfs/${safe(lawType)}_${safe(tableName)}_${pubDate}.pdf`;
+  const sub = IS_ROAD_GROUP ? '' : `${CURRENT_GROUP}/`;
+  return `data/table_pdfs/${sub}${safe(lawType)}_${safe(tableName)}_${pubDate}.pdf`;
 }
 
 // 별표 본문 정규화: 빈 줄 압축 + 줄 끝 공백 제거 + 연속 공백 1개로
