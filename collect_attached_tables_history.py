@@ -45,6 +45,9 @@ HISTORY_PATH = os.path.join(DATA_DIR, "article_history.json")
 OUTPUT_PATH = os.path.join(DATA_DIR, "attached_tables_history.json")
 CHECKPOINT_PATH = os.path.join(DATA_DIR, "attached_tables_history_checkpoint.json")
 
+# build_3tier_map에서 그룹 키 공유 (DRY, 다중 법령 지원)
+from build_3tier_map import LAW_GROUPS as _SHARED_LAW_GROUPS
+
 
 def safe_text(el, tag):
     e = el.find(tag)
@@ -89,18 +92,33 @@ def fetch_tables(mst):
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="별표 시점별 본문 수집 (multi-group)")
+    parser.add_argument("--group", default="road", choices=list(_SHARED_LAW_GROUPS.keys()),
+                        help="법령 그룹 코드 (기본 road = 도로교통법)")
+    args = parser.parse_args()
+    suffix = "" if args.group == "road" else f"_{args.group}"
+    history_path = os.path.join(DATA_DIR, f"article_history{suffix}.json")
+    output_path = os.path.join(DATA_DIR, f"attached_tables_history{suffix}.json")
+    checkpoint_path = os.path.join(DATA_DIR, f"attached_tables_history_checkpoint{suffix}.json")
+
     print("=" * 60)
-    print("  별표 시점별 본문 수집")
+    print(f"  별표 시점별 본문 수집 — 그룹: {args.group}")
     print("=" * 60)
 
-    with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+    if not os.path.exists(history_path):
+        raise FileNotFoundError(
+            f"{history_path} 없음.\n"
+            f"먼저 `py collect_article_history.py --group {args.group}`를 실행하세요."
+        )
+    with open(history_path, "r", encoding="utf-8") as f:
         hist = json.load(f)
 
     # 체크포인트
     result = {"시행령": {}, "시행규칙": {}}
     done = set()
-    if os.path.exists(CHECKPOINT_PATH):
-        with open(CHECKPOINT_PATH, "r", encoding="utf-8") as f:
+    if os.path.exists(checkpoint_path):
+        with open(checkpoint_path, "r", encoding="utf-8") as f:
             ckpt = json.load(f)
         result = ckpt.get("data", result)
         done = set(ckpt.get("done", []))
@@ -140,7 +158,7 @@ def main():
                 print(f"    ❌ 오류: {e}")
 
             if (i + 1) % SAVE_INTERVAL == 0:
-                with open(CHECKPOINT_PATH, "w", encoding="utf-8") as f:
+                with open(checkpoint_path, "w", encoding="utf-8") as f:
                     json.dump({"data": result, "done": sorted(done)}, f, ensure_ascii=False)
                 print(f"    💾 중간 저장")
 
@@ -151,10 +169,10 @@ def main():
         "시행령": result["시행령"],
         "시행규칙": result["시행규칙"],
     }
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(final, f, ensure_ascii=False)
-    size_mb = os.path.getsize(OUTPUT_PATH) / (1024 * 1024)
-    print(f"\n💾 저장: {OUTPUT_PATH} ({size_mb:.1f}MB)")
+    size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    print(f"\n💾 저장: {output_path} ({size_mb:.1f}MB)")
 
     # 통계
     for t in ["시행령", "시행규칙"]:

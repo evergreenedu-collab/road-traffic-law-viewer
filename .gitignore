@@ -16,6 +16,15 @@ three_tier_viewer.html
 # 백업 폴더
 backup_before_*/
 
+# API 키 등 비밀 (절대 push 금지)
+.env
+.env.*
+!.env.example
+
+# 임시 시범 스크립트·결과 (사용 후 정리)
+tutor/_tmp_*.py
+tutor/_tmp_*.json
+
 # Python
 __pycache__/
 *.pyc

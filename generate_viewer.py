@@ -33,8 +33,13 @@ TIMELINE_PATH = os.path.join(DATA_DIR, "article_timeline.json")
 GROUP_LABELS = {
     "road": "도로교통법 (시행령·시행규칙)",
     "tlspc": "교통사고처리 특례법 (시행령)",
+    "tkga": "특정범죄 가중처벌법 (시행령)",
+    "crim_proc": "형사소송법 (대법원규칙)",
+    "car_mgmt": "자동차관리법 (시행령·시행규칙)",
+    "passenger_transport": "여객자동차 운수사업법 (시행령·시행규칙)",
+    "cargo_transport": "화물자동차 운수사업법 (시행령·시행규칙)",
 }
-GROUP_ENABLED = {"road"}   # disabled 해제된 그룹. tlspc는 viewer JS 단일/2단 분기 보강(S3-1-b-4) 후 활성화
+GROUP_ENABLED = {"road", "tlspc", "tkga", "crim_proc", "car_mgmt", "passenger_transport", "cargo_transport"}   # 2026-05-22: 7법령 전체 활성
 
 
 import re as _re
@@ -282,8 +287,13 @@ def main():
         map_data = json.load(f)
     with open(art_path, "r", encoding="utf-8") as f:
         art_data = json.load(f)
-    # attached_tables는 road 전용 폴백 로직 있음. tlspc는 빈값 처리.
-    table_data = load_table_data_with_fallback() if group == "road" else {"시행령": {}, "시행규칙": {}}
+    # attached_tables (별표 모달용): road는 폴백 로직 사용, 다른 그룹은 group별 파일 직접 로드.
+    # 2026-05-25 multi-group 별표 지원 — 파일 없으면 빈 dict로 안전 폴백
+    if group == "road":
+        table_data = load_table_data_with_fallback()
+    else:
+        tbl_path = os.path.join(DATA_DIR, f"attached_tables_{group}.json")
+        table_data = _load_json_or_empty(tbl_path, {"시행령": {}, "시행규칙": {}})
 
     # 뷰어 크기 최적화: 텍스트 내용은 PDF가 있으면 제거
     for law_type in ["시행령", "시행규칙"]:
@@ -406,6 +416,28 @@ def main():
     law_title = map_data.get("기준법령", {}).get("법률", {}).get("법령명", "도로교통법")
     html = HTML_TEMPLATE.replace("{{LAW_TITLE}}", law_title)
 
+    # 알람 UI는 도교법(road) 전용 자료라 다른 그룹에서는 숨김 (Codex 사후검증 2026-05-22)
+    if group == "road":
+        alarm_button = (
+            '<button type="button" class="header-alarm-link" id="alarmLink" onclick="openAlarmModal()"'
+            ' style="position:absolute;top:12px;left:20px;background:#c0392b;color:white;border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;box-shadow:0 2px 4px rgba(0,0,0,0.15);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;z-index:5">'
+            '📢 최근 개정 알림</button>'
+        )
+        alarm_modal = (
+            '<!-- 최근 개정 알림 모달 (alarm.html을 iframe으로 띄움) -->\n'
+            '<div id="alarmModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">'
+            '<div onclick="closeAlarmModal()" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:0"></div>'
+            '<div style="position:relative;z-index:1;background:white;width:100%;max-width:960px;height:90vh;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column">'
+            '<button type="button" onclick="closeAlarmModal()" aria-label="닫기" style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.9);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3">×</button>'
+            '<iframe id="alarmIframe" src="alarm/alarm.html" style="flex:1;width:100%;border:none;background:#f8fafc;display:block"></iframe>'
+            '</div></div>'
+        )
+    else:
+        alarm_button = ""
+        alarm_modal = ""
+    html = html.replace("{{ALARM_BUTTON}}", alarm_button).replace("{{ALARM_MODAL}}", alarm_modal)
+    html = html.replace("{{CURRENT_GROUP}}", group)
+
     # 1) script src에 group suffix + 캐시버스팅
     html = _re.sub(
         r'(web_data/data_\w+)(\.js)(["\'])',
@@ -449,6 +481,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 2026-05-25: viewer html 자체 캐시 무효화 (매주 자동 갱신 시 브라우저가 옛 viewer 사용해 별표/별지 무반응 회피) -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>{{LAW_TITLE}} 한눈에 — 법률·시행령·시행규칙·별표 통합 비교</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
@@ -476,7 +512,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 .toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
 .toolbar label{font-size:13px;font-weight:600;color:var(--law);flex-shrink:0}
-.toolbar select{flex:1;min-width:180px;max-width:500px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit}
+.toolbar select{flex:1;min-width:180px;max-width:500px;padding:7px 28px 7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;text-overflow:ellipsis}
 .toolbar select:focus{border-color:var(--law);outline:none}
 .toolbar input{flex:1;min-width:120px;max-width:250px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit}
 .toolbar input:focus{border-color:var(--law);outline:none}
@@ -616,6 +652,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   .toolbar{padding:8px 10px;gap:6px}
   .toolbar label{display:none}
   .toolbar select,.toolbar input{min-width:100px;max-width:none;font-size:14px;padding:8px 10px}
+  .toolbar select{padding-right:28px}
   .tab-switch{width:100%;order:99}
   .tab-btn{flex:1;text-align:center}
   .main{padding:10px}
@@ -667,35 +704,30 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="header" style="position:relative">
   <div class="header-stats" id="headerStats"></div>
-  <button type="button" class="header-alarm-link" id="alarmLink" onclick="openAlarmModal()"
-     style="position:absolute;top:12px;left:20px;background:#c0392b;color:white;border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;box-shadow:0 2px 4px rgba(0,0,0,0.15);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;z-index:5">
-    📢 최근 개정 알림
-  </button>
+  {{ALARM_BUTTON}}
   <h1>{{LAW_TITLE}} 한눈에</h1>
   <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
 </div>
 
-<!-- 최근 개정 알림 모달 (alarm.html을 iframe으로 띄움) -->
-<div id="alarmModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
-  <div onclick="closeAlarmModal()" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:0"></div>
-  <div style="position:relative;z-index:1;background:white;width:100%;max-width:960px;height:90vh;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column">
-    <button type="button" onclick="closeAlarmModal()" aria-label="닫기"
-      style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.9);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3">×</button>
-    <iframe id="alarmIframe" src="alarm/alarm.html" style="flex:1;width:100%;border:none;background:#f8fafc;display:block"></iframe>
-  </div>
-</div>
+{{ALARM_MODAL}}
 
 <div class="toolbar">
   <label>법령</label>
   <select id="lawSel" onchange="onLawChange()" autocomplete="off" title="Phase 3 — 다중 법령">
     <option value="road" selected>도로교통법 (시행령·시행규칙)</option>
     <option value="tlspc" disabled>교통사고처리 특례법 (시행령)</option>
-    <option value="tkga" disabled>특정범죄 가중처벌법 (준비 중)</option>
-    <option value="car_mgmt" disabled>자동차관리법 (준비 중)</option>
-    <option value="passenger_transport" disabled>여객자동차 운수사업법 (준비 중)</option>
-    <option value="cargo_transport" disabled>화물자동차 운수사업법 (준비 중)</option>
-    <option value="crim_proc" disabled>형사소송법 (준비 중)</option>
+    <option value="tkga" disabled>특정범죄 가중처벌법 (시행령)</option>
+    <option value="car_mgmt" disabled>자동차관리법 (시행령·시행규칙)</option>
+    <option value="passenger_transport" disabled>여객자동차 운수사업법 (시행령·시행규칙)</option>
+    <option value="cargo_transport" disabled>화물자동차 운수사업법 (시행령·시행규칙)</option>
+    <option value="crim_proc" disabled>형사소송법 (대법원규칙)</option>
   </select>
+  <!-- Phase 3 S3-1-b-4-b: 법령유형 토글 (법률·시행령·시행규칙 직접 진입) -->
+  <div id="lawTypeToggle" style="display:inline-flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff" role="group" aria-label="법령유형 선택">
+    <button type="button" class="lt-btn active" data-lawtype="법률" onclick="switchLawType('법률')" style="padding:6px 10px;border:none;background:var(--law);color:#fff;cursor:pointer;font-size:12px;font-weight:600">법률</button>
+    <button type="button" class="lt-btn" data-lawtype="시행령" onclick="switchLawType('시행령')" style="padding:6px 10px;border:none;border-left:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-size:12px">시행령</button>
+    <button type="button" class="lt-btn" data-lawtype="시행규칙" onclick="switchLawType('시행규칙')" style="padding:6px 10px;border:none;border-left:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-size:12px">시행규칙</button>
+  </div>
   <label>조문</label>
   <select id="sel" onchange="onArticleChange()" autocomplete="off"></select>
   <input type="text" id="q" placeholder="🔍 조문/키워드 검색 (예: 안전띠)" oninput="filter()" onkeydown="if(event.key==='Escape'){this.value='';filter();}">
@@ -724,6 +756,23 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="main" id="content"></div>
 <div class="main" id="historyContent" style="display:none"></div>
+
+<!-- 위로 올라가기 FAB (모바일/긴 페이지에서 유용) — 스크롤 300px 이상이면 표시 -->
+<button id="scrollTopFab" type="button" aria-label="맨 위로" title="맨 위로 (단축키: Home)" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;right:20px;bottom:max(24px,env(safe-area-inset-bottom,0px));width:44px;height:44px;border-radius:50%;border:none;background:var(--law);color:#fff;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.22);z-index:150;opacity:0;pointer-events:none;transition:opacity .22s ease">↑</button>
+<script>
+(function(){
+  const btn=document.getElementById('scrollTopFab');
+  if(!btn) return;
+  const onScroll=()=>{
+    const y = window.pageYOffset || document.documentElement.scrollTop;
+    const show = y > 300;
+    btn.style.opacity = show ? '1' : '0';
+    btn.style.pointerEvents = show ? 'auto' : 'none';
+  };
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+})();
+</script>
 <script>
 // 깜빡임 방지 — URL의 ?tab=history면 첫 페인트 전에 탭 즉시 전환
 (function(){
@@ -768,17 +817,207 @@ const tblPdfData = window._DATA_TBL_PDF;
 const tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};
 
 let opts=[];
+// Phase 3: 현재 viewer가 어느 법령 그룹인지 (road 외 그룹은 안내 메시지로 법령정보센터 유도)
+const CURRENT_GROUP = '{{CURRENT_GROUP}}';
+const IS_ROAD_GROUP = CURRENT_GROUP === 'road';
 // currentTab은 init() 안에서 호출되는 updateUrlForArticle()이 참조하므로 미리 선언 (TDZ 회피)
 let currentTab='compare';
-(function init(){
-  // 조문 목록 + 장 정보
-  for(const e of mapData.매핑){
-    const jo=e.법률_조키, t=e.법률_조문제목||'', h=e.하위법령_존재;
-    const lawArt=artData.법률.조문[jo]||{};
-    const ch=lawArt.장||'';
-    opts.push({jo,t,label:`제${jo}조 ${t}`,h,ch});
+// 본문 esc()에서 별표·별지 변환 시 사용 — 별표는 시행령·시행규칙에만 있으므로 기본 '시행규칙'
+// (자기참조 prefix-less "제X조"는 _escLawType이 아닌 currentLawType 기준으로 처리)
+let _escLawType='시행규칙';
+function setEscLawType(t){_escLawType=t}
+// Phase 3 S3-1-b-4-b: 법령유형 직접 진입 (법률·시행령·시행규칙)
+let currentLawType='법률';
+// 시행령 조키 → [위임받은 법률 조키 목록], 시행규칙 동일 (init에서 1회 빌드)
+let decreeToLaw={}, ruleToLaw={};
+// 시행령·시행규칙 공포일자 → 부칙_시행일 객체 (cascadeData 매칭으로 init에서 1회 빌드)
+let subLawAddendaByPub={시행령:{}, 시행규칙:{}};
+
+// URL의 law 파라미터를 내부 lawType으로 매핑
+//   없음 / 'law' / 'L' → 법률 (기존 ?jo=50 호환)
+//   'enf' / 'D'        → 시행령
+//   'enr' / 'R'        → 시행규칙
+function parseLawTypeParam(v){
+  if(!v) return '법률';
+  if(v==='enf'||v==='D'||v==='시행령') return '시행령';
+  if(v==='enr'||v==='R'||v==='시행규칙') return '시행규칙';
+  return '법률';
+}
+function lawTypeToParam(t){
+  if(t==='시행령') return 'enf';
+  if(t==='시행규칙') return 'enr';
+  return null;
+}
+function getArtMap(lawType){
+  if(lawType==='시행령') return (artData.시행령&&artData.시행령.조문)||{};
+  if(lawType==='시행규칙') return (artData.시행규칙&&artData.시행규칙.조문)||{};
+  return (artData.법률&&artData.법률.조문)||{};
+}
+function hasLawTypeData(lawType){
+  const m=getArtMap(lawType);
+  return Object.keys(m).length>0;
+}
+
+// 시행령 / 시행규칙 조문 → 위임받은 법률 조문 역참조 인덱스 빌드
+// 시행규칙은 직접 위임뿐 아니라 "시행령 경유" 위임도 같이 수집한다 (사용자 결정).
+function buildReverseIndex(){
+  decreeToLaw={}; ruleToLaw={};
+  const addUnique=(obj,k,v)=>{
+    if(!obj[k]) obj[k]=[];
+    if(!obj[k].includes(v)) obj[k].push(v);
+  };
+  for(const e of (mapData.매핑||[])){
+    const lawJo=e.법률_조키;
+    if(!lawJo) continue;
+    // 조문 전체 매핑 (시행령·시행규칙 모두)
+    for(const g of (e.조문전체_매핑||[])){
+      if(g.법령유형==='시행령') addUnique(decreeToLaw, g.조키, lawJo);
+      else if(g.법령유형==='시행규칙') addUnique(ruleToLaw, g.조키, lawJo);
+    }
+    // 항별 매핑: 시행령 + 시행령 경유 시행규칙 + 시행규칙 직접
+    for(const pm of (e.항별_매핑||[])){
+      for(const d of (pm.시행령||[])){
+        addUnique(decreeToLaw, d.조키, lawJo);
+        for(const r of (d.시행규칙||[])) addUnique(ruleToLaw, r.조키, lawJo);
+      }
+      for(const r of (pm.시행규칙_직접||[])) addUnique(ruleToLaw, r.조키, lawJo);
+    }
   }
+}
+
+// 시행령·시행규칙 공포일자별 부칙 정보 인덱스 (cascadeData 매칭)
+// 시행령 직접 진입 시 자체 부칙 별도 시행일을 표시하려는 목적
+// 매칭 자료 우선 — 미매칭은 같은 공포일자가 매칭에 없을 때만 추가 (Codex 권장)
+function buildSubLawAddendaIndex(){
+  subLawAddendaByPub={시행령:{}, 시행규칙:{}};
+  const ingest=(arr, lawType, allowOverride)=>{
+    for(const v of (arr||[])){
+      if(!v || !v.공포일자 || !v.부칙_시행일) continue;
+      if(!allowOverride && subLawAddendaByPub[lawType][v.공포일자]) continue;
+      subLawAddendaByPub[lawType][v.공포일자]=v.부칙_시행일;
+    }
+  };
+  for(const ev of (cascadeData.이벤트||[])){
+    ingest(ev.시행령||[], '시행령', false);
+    ingest(ev.시행규칙||[], '시행규칙', false);
+  }
+  ingest(cascadeData.미매칭_시행령||[], '시행령', false);
+  ingest(cascadeData.미매칭_시행규칙||[], '시행규칙', false);
+}
+
+// 주어진 lawType의 모든 조문 옵션을 만든다.
+// 법률: 기존 로직 (mapData.매핑 기반 — 장 정보 보존)
+// 시행령·시행규칙: artData[lawType].조문 키 순회 (장 정보는 art.장에서 추출)
+function buildOpts(lawType){
+  const list=[];
+  if(lawType==='법률'){
+    for(const e of (mapData.매핑||[])){
+      const jo=e.법률_조키, t=e.법률_조문제목||'', h=e.하위법령_존재;
+      const lawArt=(artData.법률&&artData.법률.조문&&artData.법률.조문[jo])||{};
+      const ch=lawArt.장||'';
+      list.push({jo,t,label:`제${jo}조 ${t}`,h,ch});
+    }
+    return list;
+  }
+  const map=getArtMap(lawType);
+  for(const jo of Object.keys(map)){
+    const art=map[jo]||{};
+    const t=art.조문제목||'';
+    const ch=art.장||'';
+    list.push({jo,t,label:`제${jo}조 ${t}`,h:false,ch});
+  }
+  return list;
+}
+
+// 토글 버튼 시각 상태 동기화
+function syncLawTypeToggle(){
+  const btns=document.querySelectorAll('#lawTypeToggle .lt-btn');
+  btns.forEach(b=>{
+    const isActive=b.dataset.lawtype===currentLawType;
+    b.classList.toggle('active', isActive);
+    b.style.background = isActive ? 'var(--law)' : '#fff';
+    b.style.color = isActive ? '#fff' : 'var(--text)';
+    b.style.fontWeight = isActive ? '600' : '400';
+    // 시행규칙 자료가 없는 그룹(예: tlspc)에서는 자동 비활성
+    if(b.dataset.lawtype!=='법률'){
+      const ok=hasLawTypeData(b.dataset.lawtype);
+      b.disabled = !ok;
+      b.style.opacity = ok ? '1' : '0.4';
+      b.style.cursor = ok ? 'pointer' : 'not-allowed';
+      if(!ok) b.title='이 법령에는 '+b.dataset.lawtype+' 자료가 없습니다';
+      else b.title='';
+    }
+  });
+}
+
+// 라디오 클릭 시: lawType 전환 → opts 재빌드 → 첫 조문 선택 → render
+function switchLawType(newType){
+  if(newType===currentLawType) return;
+  if(newType!=='법률' && !hasLawTypeData(newType)){
+    showToast('이 법령에는 '+newType+' 자료가 없습니다');
+    return;
+  }
+  currentLawType=newType;
+  opts=buildOpts(currentLawType);
   popGrouped(opts);
+  syncLawTypeToggle();
+  // 검색창 비우기는 렌더 전에 (Codex 사후검증 권장: 검색 결과 패널이 잠깐 남는 것 방지)
+  const qEl=document.getElementById('q');
+  if(qEl&&qEl.value){
+    qEl.value='';
+    const r=document.getElementById('searchResults');
+    if(r){r.style.display='none'; r.innerHTML='';}
+  }
+  if(opts.length){
+    const sel=document.getElementById('sel');
+    sel.value=opts[0].jo;
+    if(currentTab==='history') renderHistory();
+    else render();
+  }
+}
+
+// Phase 3 S3-1-b-4-b 후속: 법률 화면의 시행령·시행규칙 카드에서 직접 그 조문 화면으로 점프
+function goToSubArticle(lawType, joKey){
+  if(lawType!=='시행령' && lawType!=='시행규칙'){
+    // 안전망: 알 수 없는 type이면 법률 그대로
+    if(currentLawType!=='법률') switchLawType('법률');
+    const sel=document.getElementById('sel');
+    sel.value=joKey;
+    if(currentTab==='history') renderHistory(); else render();
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  if(!hasLawTypeData(lawType)){
+    showToast('이 법령에는 '+lawType+' 자료가 없습니다');
+    return;
+  }
+  // 사전 확인: 자료에 해당 조문이 있는가? (Codex H 권장 — switchLawType 호출 전에 검사해 실패 시 현재 화면 유지)
+  const _map=getArtMap(lawType);
+  if(!_map[joKey]){
+    showToast('해당 '+lawType+' 조문을 찾을 수 없습니다 (제'+joKey+'조)');
+    return;
+  }
+  // switchLawType이 첫 조문으로 렌더한 뒤, sel.value를 원하는 조문으로 다시 설정해 렌더
+  if(currentLawType!==lawType){
+    switchLawType(lawType);
+  }
+  const sel=document.getElementById('sel');
+  sel.value=joKey;
+  if(currentTab==='history') renderHistory(); else render();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+(function init(){
+  buildReverseIndex();
+  buildSubLawAddendaIndex();
+  // URL ?law=enf|enr 파라미터로 초기 lawType 결정 (없으면 법률 — 기존 ?jo=50 호환)
+  const _initUrl = new URL(window.location.href);
+  const _lawParam = _initUrl.searchParams.get('law');
+  currentLawType = parseLawTypeParam(_lawParam);
+  // 해당 lawType 자료가 없으면 (예: tlspc에서 ?law=enr) 법률로 폴백
+  if(currentLawType!=='법률' && !hasLawTypeData(currentLawType)) currentLawType='법률';
+  opts = buildOpts(currentLawType);
+  popGrouped(opts);
+  syncLawTypeToggle();
   const totalArt = mapData.통계.법률_전체조문수||0;
   const linkedArt = mapData.통계.하위법령_연결조문수||0;
   const headerStats = document.getElementById('headerStats');
@@ -813,20 +1052,26 @@ let currentTab='compare';
   if(!url2.searchParams.get('jo')) showOnboardingIfFirstVisit();
 })();
 
-// 딥링크 — URL 동기화
+// 딥링크 — URL 동기화 (S3-1-b-4-b: law 파라미터 포함)
 function updateUrlForArticle(jo){
   if(!history.replaceState) return;
   const url = new URL(window.location.href);
   url.searchParams.set('jo', jo);
+  const lp=lawTypeToParam(currentLawType);
+  if(lp) url.searchParams.set('law', lp);
+  else url.searchParams.delete('law');  // 법률은 기본 → law 파라미터 생략 (?jo=50 호환)
   if(currentTab==='history') url.searchParams.set('tab','history');
   else url.searchParams.delete('tab');
-  history.replaceState({jo, tab: currentTab}, '', url.toString());
+  history.replaceState({jo, tab: currentTab, law: currentLawType}, '', url.toString());
 }
 
 // 링크 복사 (조문 URL을 클립보드에)
 function copyArticleLink(jo){
   const url = new URL(window.location.href);
   url.searchParams.set('jo', jo);
+  const lp=lawTypeToParam(currentLawType);
+  if(lp) url.searchParams.set('law', lp);
+  else url.searchParams.delete('law');
   if(currentTab==='history') url.searchParams.set('tab','history');
   else url.searchParams.delete('tab');
   const text = url.toString();
@@ -873,7 +1118,8 @@ function showToast(msg){
   if(!t){
     t = document.createElement('div');
     t.id = 'toast';
-    t.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 20px;border-radius:6px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:1000;opacity:0;transition:opacity .3s;max-width:90vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    // 모바일에서 우측하단 FAB과 시각적 겹침 회피 — bottom 80px로 올림 (FAB 24+44=68 위)
+    t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 20px;border-radius:6px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:1000;opacity:0;transition:opacity .3s;max-width:90vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
     document.body.appendChild(t);
   }
   t.textContent = msg;
@@ -900,12 +1146,39 @@ function popGrouped(list){
   }
 }
 
+// non-road 그룹용 안내 메시지 + 법령정보센터 링크 생성 (2026-05-22 사용자 피드백)
+// road 외 법령은 별표·별지·연혁 자료를 제공하지 않으므로, 빈 영역을 친절한 안내로 대체한다.
+function nonRoadNotice(opts){
+  opts = opts || {};
+  const subject = opts.subject || '별표·별지·개정 연혁';
+  const lawType = opts.lawType || '법률';   // '법률' | '시행령' | '시행규칙'
+  const joKey = opts.joKey || '';
+  const meta = (mapData && mapData.기준법령 && mapData.기준법령[lawType]) || {};
+  const lawName = meta.법령명 || ((mapData && mapData.기준법령 && mapData.기준법령.법률 && mapData.기준법령.법률.법령명) || '');
+  let url;
+  if(lawName){
+    url = encodeURI(joKey ? `https://www.law.go.kr/법령/${lawName}/제${joKey}조` : `https://www.law.go.kr/법령/${lawName}`);
+  } else {
+    url = 'https://www.law.go.kr/';
+  }
+  // esc()는 별표·별지 참조를 onclick 링크로 자동 변환하므로 안내 문구 내부에서는 단순 escape만 사용
+  return `<div style="padding:14px 18px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:13px;color:#78350f;line-height:1.7">`
+    + `이 서비스는 <b>도로교통법 외의 법령</b>은 마지막 공포일 기준 <b>조문 본문</b>만 참고용으로 제공합니다. `
+    + `${escHtmlSimple(subject)}는 법령정보센터에서 확인해주세요.`
+    + `<div style="margin-top:8px"><a href="${url}" target="_blank" rel="noopener" style="display:inline-block;padding:6px 12px;background:#fff;border:1px solid #fde68a;border-radius:6px;color:#92400e;text-decoration:none;font-weight:600">📖 법령정보센터에서 보기 →</a></div>`
+    + `</div>`;
+}
+
 function articleFullText(art){
   let t = (art.조문제목||'') + ' ' + (art.조문내용||'');
   for(const h of (art.항||[])){
     t += ' ' + (h.항내용||'');
     for(const ho of (h.호||[])){
       t += ' ' + (ho.호내용||'');
+      // Codex 사후검증: 자관법 등은 호 아래 목(가목·나목)에도 검색 키워드가 많음
+      for(const mo of (ho.목||[])){
+        t += ' ' + (mo.목내용||'');
+      }
     }
   }
   return t;
@@ -934,10 +1207,11 @@ function filter(){
     }
   }
 
-  // 2) 키워드 검색 — 법률 조문 제목 + 본문에서 매칭
+  // 2) 키워드 검색 — 현재 lawType의 조문 제목 + 본문에서 매칭 (S3-1-b-4-b)
+  const _artMap=getArtMap(currentLawType);
   const matches=[];
   for(const opt of opts){
-    const art=artData.법률.조문[opt.jo]||{};
+    const art=_artMap[opt.jo]||{};
     const fullText=articleFullText(art);
     const hayLower=(opt.jo + ' ' + fullText).toLowerCase();
     if(!hayLower.includes(qLower)) continue;
@@ -983,6 +1257,11 @@ function filter(){
 }
 
 function render(){
+  // Phase 3 S3-1-b-4-b: 시행령·시행규칙 직접 진입 분기
+  if(currentLawType!=='법률'){
+    renderSubLawArticle(currentLawType);
+    return;
+  }
   const jo=document.getElementById('sel').value;
   const entry=mapData.매핑.find(e=>e.법률_조키===jo);
   if(!entry)return;
@@ -1037,6 +1316,7 @@ function render(){
           <span class="gd-title">${esc(gArt.조문제목||'')}</span>
           <div class="gd-btns">
             <button class="sub-btn" onclick="togFull('${gid}_full','${lawType}','${g.조키}','${g.항||''}')">전체보기</button>
+            <button class="sub-btn" onclick="goToSubArticle('${lawType}','${g.조키}')" title="이 ${lawType} 조문 화면으로 이동">📂 조문 화면</button>
           </div>
         </div>
         <div class="gd-body">${esc(gText)}</div>
@@ -1083,8 +1363,11 @@ function render(){
         html+=renderSubLaws(pid,decrees,rulesDirect);
         html+=`</div>`;
       } else if(lawText.includes('대통령령')||lawText.includes('부령')){
-        const lawGoJo=`https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=281875&ancYd=&ancNo=&efYd=20260402&nwJoYnInfo=Y#J${jo.replace('의',':')}`;
-        let warnMsg='* 이 항에 위임 규정이 있지만, 도로교통법 시행령·시행규칙이 아닌 다른 법령에서 규정하고 있을 수 있습니다. ';
+        // 위임 규정이 있으나 자동 매핑 실패 — 법령정보센터의 해당 조문 페이지로 동적 링크
+        // (Codex 사후검증: 그룹별 법령명 사용, 기존 도교법 lsiSeq 하드코딩 제거)
+        const _curLawName = (mapData.기준법령 && mapData.기준법령.법률 && mapData.기준법령.법률.법령명) || '현행 법률';
+        const lawGoJo = encodeURI(`https://www.law.go.kr/법령/${_curLawName}/제${jo}조`);
+        let warnMsg='* 이 항에 위임 규정이 있지만, 자동 매핑된 시행령·시행규칙 외 다른 법령에 위임됐을 수 있습니다. ';
         warnMsg+='<a href="'+lawGoJo+'" target="_blank" style="color:var(--law);text-decoration:underline;font-weight:500">법령정보센터에서 이 조문 보기</a>를 클릭한 뒤, 해당 항의 위임 링크를 직접 확인해 주세요.';
         html+=`<div class="unmapped">${warnMsg}</div>`;
       }
@@ -1121,6 +1404,170 @@ function render(){
   document.getElementById('content').innerHTML=html;
 }
 
+// Phase 3 S3-1-b-4-b: 시행령·시행규칙 조문 직접 진입 렌더러
+// 단일 조문 카드 형태로 본문을 표시하고, 위임을 받은 법률 조문 chip을 보여준다.
+function renderSubLawArticle(lawType){
+  const jo=document.getElementById('sel').value;
+  const map=getArtMap(lawType);
+  const art=map[jo]||{};
+  updateUrlForArticle(jo);
+  const lawTypeColor = lawType==='시행령' ? 'var(--decree)' : 'var(--rule)';
+  const lawTypeBgVar = lawType==='시행령' ? 'var(--decree-bg)' : 'var(--rule-bg)';
+  setEscLawType(lawType);
+  let html='';
+  const chapter=art.장||'';
+  html+=`<div style="margin-bottom:16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">`;
+  html+=`<div>`;
+  if(chapter) html+=`<div style="font-size:12px;color:var(--sub);margin-bottom:4px">${esc(chapter)}</div>`;
+  html+=`<div style="font-size:18px;font-weight:700;color:${lawTypeColor}"><span style="font-size:13px;padding:2px 8px;border-radius:3px;background:${lawTypeColor};color:#fff;margin-right:8px;vertical-align:middle;font-weight:600">${lawType}</span>제${jo}조 ${esc(art.조문제목||'')}</div>`;
+  html+=`</div>`;
+  // 액션 버튼
+  html+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+  html+=`<button onclick="copyArticleLink('${jo}')" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" title="이 조문 URL 복사">🔗 링크 복사</button>`;
+  html+=`<button onclick="window.print()" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text)" title="현재 화면 인쇄">🖨️ 인쇄</button>`;
+  const _refMeta = (mapData.기준법령||{})[lawType] || {};
+  const _refName = _refMeta.법령명 || '';
+  if(_refName){
+    const refSrcUrl = encodeURI(`https://www.law.go.kr/법령/${_refName}/제${jo}조`);
+    html+=`<a href="${refSrcUrl}" target="_blank" rel="noopener" style="padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);text-decoration:none">📖 원문</a>`;
+  }
+  html+=`</div>`;
+  html+=`</div>`;
+  // 역참조 chips — 이 조문을 위임한 법률 조문 (있을 때만)
+  const relLaws = (lawType==='시행령' ? decreeToLaw[jo] : ruleToLaw[jo]) || [];
+  if(relLaws.length){
+    html+=`<div style="margin-bottom:14px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px">`;
+    html+=`<div style="font-size:12px;color:#92400e;margin-bottom:6px;font-weight:600">↩ 위임 근거 법률 조문 (${relLaws.length}건) — 클릭하면 해당 법률 조문으로 이동</div>`;
+    html+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+    for(const lj of relLaws){
+      const lawArt=(artData.법률&&artData.법률.조문&&artData.법률.조문[lj])||{};
+      const lt=lawArt.조문제목||'';
+      html+=`<button onclick="switchLawType('법률');document.getElementById('sel').value='${lj}';render();" style="padding:5px 10px;background:#fff;border:1px solid #fde68a;border-radius:16px;cursor:pointer;font-size:12px;color:#92400e">법률 제${lj}조${lt?' '+esc(lt):''}</button>`;
+    }
+    html+=`</div>`;
+    html+=`</div>`;
+  } else {
+    html+=`<div style="margin-bottom:14px;padding:8px 14px;background:#f9fafb;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--sub)">자동 매칭된 위임 근거 법률 조문이 없습니다 (자료 한계 또는 부속 조문).</div>`;
+  }
+  // 조문 본문
+  html+=`<div class="para-block">`;
+  html+=`<div class="para-header"><span class="para-badge" style="background:${lawTypeColor}">${lawType}</span><span class="para-title">제${jo}조${art.조문제목?' ('+esc(art.조문제목)+')':''}</span></div>`;
+  html+=`<div class="para-body open" style="background:${lawTypeBgVar}">${renderArticleBody(art)}</div>`;
+  html+=`</div>`;
+  document.getElementById('content').innerHTML=html;
+}
+
+// 단일 조문(법률·시행령·시행규칙 공용)의 본문을 HTML로 — 조문내용 + 항 + 호 + 목 전체 렌더
+function renderArticleBody(art){
+  if(!art) return '<em style="color:var(--sub)">조문 데이터 없음</em>';
+  let out='';
+  if(art.조문내용) out += `<div class="fp-para">${esc(_normalizeBlankLines(art.조문내용))}</div>`;
+  const 항=(art.항)||[];
+  // 항이 1개이고 항내용 비어있으면 → 조문내용 아래에 호 표시 (기존 togFull 패턴)
+  if(항.length===1 && !항[0].항내용 && 항[0].호 && 항[0].호.length){
+    out += `<div class="fp-para" style="margin-top:6px">${esc(hoListHtml(항[0].호))}</div>`;
+    return out;
+  }
+  for(const p of 항){
+    if(!p.항내용 && !(p.호&&p.호.length)) continue;
+    let pContent = _normalizeBlankLines(p.항내용 || '');
+    if(p.호 && p.호.length) pContent += hoListHtml(p.호);
+    out += `<div class="fp-para" style="margin-top:6px"><strong>${p.항번호||''}</strong> ${esc(pContent)}</div>`;
+  }
+  return out || '<em style="color:var(--sub)">본문 없음</em>';
+}
+
+// Phase 3 S3-1-b-4-b: 시행령·시행규칙 조문 직접 진입 시 연혁 (diff만, 캐스케이드 없음)
+function renderSubLawHistory(lawType){
+  const jo=document.getElementById('sel').value;
+  const map=getArtMap(lawType);
+  const art=map[jo]||{};
+  const el=document.getElementById('historyContent');
+  updateUrlForArticle(jo);
+  const lawTypeColor = lawType==='시행령' ? 'var(--decree)' : 'var(--rule)';
+  let html='';
+  const chapter=art.장||'';
+  html+=`<div style="margin-bottom:16px">`;
+  if(chapter) html+=`<div style="font-size:12px;color:var(--sub);margin-bottom:4px">${esc(chapter)}</div>`;
+  html+=`<div style="font-size:18px;font-weight:700;color:${lawTypeColor}"><span style="font-size:13px;padding:2px 8px;border-radius:3px;background:${lawTypeColor};color:#fff;margin-right:8px;vertical-align:middle;font-weight:600">${lawType}</span>제${jo}조 ${esc(art.조문제목||'')} — 개정 연혁</div>`;
+  html+=`</div>`;
+  // 자료 유무에 따라 안내 박스/메시지 분기 — 법률 연혁 화면과 일관된 표현 (사용자 피드백 2026-05-22)
+  const relLaws = (lawType==='시행령' ? decreeToLaw[jo] : ruleToLaw[jo]) || [];
+  const diffs = ((diffData||{})[lawType] || {})[jo] || [];
+  // 위임 법률 chip 박스 — 자료 유무 관계없이, 사용자가 법률 화면으로 점프할 수 있도록 항상 노출
+  if(relLaws.length){
+    html+=`<div style="margin-bottom:14px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px">`;
+    html+=`<div style="font-size:12px;color:#92400e;margin-bottom:6px;font-weight:600">↩ 위임 근거 법률 조문 (${relLaws.length}건) — 캐스케이드 연혁은 법률 화면에서 확인</div>`;
+    html+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+    for(const lj of relLaws){
+      const lawArt=(artData.법률&&artData.법률.조문&&artData.법률.조문[lj])||{};
+      const lt=lawArt.조문제목||'';
+      html+=`<button onclick="switchLawType('법률');document.getElementById('sel').value='${lj}';switchTab('history');" style="padding:5px 10px;background:#fff;border:1px solid #fde68a;border-radius:16px;cursor:pointer;font-size:12px;color:#92400e">법률 제${lj}조${lt?' '+esc(lt):''} 연혁 보기</button>`;
+    }
+    html+=`</div>`;
+    html+=`</div>`;
+  }
+  if(!diffs.length){
+    if(!IS_ROAD_GROUP){
+      html+=nonRoadNotice({subject:`${lawType} 제${jo}조의 개정 연혁`, lawType:lawType, joKey:jo});
+    } else {
+      html+=`<div style="color:var(--sub);padding:20px;font-size:13px;text-align:center">이 조문의 변경 이력이 없습니다.</div>`;
+    }
+    el.innerHTML=html; return;
+  }
+  html+=`<div style="font-size:13px;color:var(--sub);margin-bottom:12px">총 ${diffs.length}건의 전후비교 — 카드를 클릭하면 펼쳐집니다</div>`;
+  // 최신 공포일 우선
+  const sorted=[...diffs].sort((a,b)=>(b.공포일자||'').localeCompare(a.공포일자||''));
+  for(let i=0;i<sorted.length;i++){
+    const d=sorted[i];
+    const eid=`subev_${i}`;
+    const addenda=subLawAddendaByPub[lawType] && subLawAddendaByPub[lawType][d.공포일자] || null;
+    const addCnt=countAddendaExceptions(addenda);
+    html+=`<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)">`;
+    // 헤더 (클릭 토글) — 법률 renderHistory와 동일 패턴
+    html+=`<div style="padding:12px 16px;background:${lawTypeColor};color:#fff;cursor:pointer" onclick="tog('${eid}_detail')">`;
+    html+=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
+    html+=`<span style="font-size:15px;font-weight:700">${fmtD(d.공포일자||'')}</span>`;
+    if(d.변경유형) html+=`<span style="font-size:13px;opacity:.9">${esc(d.변경유형)}</span>`;
+    if(d.시행일자) html+=`<span style="font-size:12px;opacity:.7">시행 ${fmtD(d.시행일자)}</span>`;
+    if(addCnt) html+=`<span style="font-size:11px;padding:1px 6px;background:rgba(254,215,170,.95);color:#9a3412;border-radius:3px;font-weight:600" title="이 개정안 중 일부 조문은 부칙에 의해 별도 시행일을 가집니다">⏰ 부칙 별도시행 ${addCnt}건</span>`;
+    html+=`</div>`;
+    html+=`</div>`;
+    // 상세 (펼침)
+    html+=`<div id="${eid}_detail" style="display:none">`;
+    // 부칙 별도 시행 요약 (법률 패턴)
+    if(addenda && (addenda.exceptions||[]).length){
+      const adExs=addenda.exceptions;
+      html+=`<div style="padding:10px 14px;background:#fff7ed;border-left:4px solid #fb923c;border-bottom:1px solid var(--border)">`;
+      html+=`<div style="font-size:12px;font-weight:700;color:#9a3412;margin-bottom:6px">⏰ 이 개정안의 부칙 별도 시행 (${adExs.length}건)</div>`;
+      for(const ex of adExs){
+        const targets=[];
+        for(const a of (ex.articles||[])){
+          const items=(ex.article_items||{})[a]||[];
+          targets.push(items.length?`제${a}조 ${items.join('·')}`:`제${a}조`);
+        }
+        for(const t of (ex.tables||[])) targets.push(`별표 ${t}`);
+        const phr=(ex.raw_phrase||'').replace(/</g,'&lt;');
+        html+=`<div style="font-size:12px;margin:3px 0;color:#7c2d12"><strong>${targets.join(', ')||'(파싱 실패 — 원문 참조)'}</strong> → ${fmtD(ex.effective_date)} 시행`;
+        if(phr) html+=` <details style="display:inline-block;margin-left:6px;vertical-align:middle"><summary style="font-size:11px;color:#9a3412;cursor:pointer">원문</summary><div style="margin-top:4px;padding:6px 8px;background:#fff;border-radius:3px;font-size:11px;color:#451a03;max-width:600px">${phr}</div></details>`;
+        html+=`</div>`;
+      }
+      if(addenda.raw_text){
+        const rt=addenda.raw_text.replace(/</g,'&lt;').replace(/\n/g,'<br>');
+        html+=`<details style="margin-top:6px"><summary style="font-size:11px;color:#9a3412;cursor:pointer;font-weight:500">부칙 전체 원문 보기</summary><div style="margin-top:4px;padding:8px;background:#fff;border-radius:3px;font-size:11px;line-height:1.6;color:#451a03;max-height:300px;overflow-y:auto">${rt}</div></details>`;
+      }
+      html+=`</div>`;
+    }
+    // 전후비교 본문
+    html+=`<div style="padding:10px 14px">`;
+    html+=renderDiffView(d.이전||'', d.이후||'');
+    html+=`</div>`;
+    html+=`</div>`;  // _detail close
+    html+=`</div>`;  // card close
+  }
+  el.innerHTML=html;
+}
+
 // 시행령/시행규칙 렌더링 헬퍼
 function renderSubLaws(pid,decrees,rulesDirect){
   let html='';
@@ -1142,7 +1589,7 @@ function renderSubLaws(pid,decrees,rulesDirect){
       <span class="sub-title-text">${esc(dArt.조문제목||'')}</span>
       <div class="sub-btns">
         <button class="sub-btn" onclick="event.stopPropagation();togFull('${did}_full','시행령','${d.조키}','${d.항||''}')">전체보기</button>
-
+        <button class="sub-btn" onclick="event.stopPropagation();goToSubArticle('시행령','${d.조키}')" title="이 시행령 조문 화면으로 이동 (연혁·전후비교 확인)">📂 조문 화면</button>
       </div>
     </div>`;
     html+=`<div class="sub-content d-bg" id="${did}_c">${esc(dText)}</div>`;
@@ -1165,7 +1612,7 @@ function renderSubLaws(pid,decrees,rulesDirect){
           <span class="sub-title-text">${esc(rArt.조문제목||'')}</span>
           <div class="sub-btns">
             <button class="sub-btn" onclick="event.stopPropagation();togFull('${rid}_full','시행규칙','${r.조키}','${r.항||''}')">전체보기</button>
-
+            <button class="sub-btn" onclick="event.stopPropagation();goToSubArticle('시행규칙','${r.조키}')" title="이 시행규칙 조문 화면으로 이동">📂 조문 화면</button>
           </div>
         </div>`;
         html+=`<div class="sub-content r-bg" id="${rid}_c">${esc(rText)}</div>`;
@@ -1192,6 +1639,7 @@ function renderSubLaws(pid,decrees,rulesDirect){
       <span class="sub-title-text">${esc(rArt.조문제목||'')} (법률 직접 위임)</span>
       <div class="sub-btns">
         <button class="sub-btn" onclick="event.stopPropagation();togFull('${rid}_full','시행규칙','${r.조키}','${r.항||''}')">전체보기</button>
+        <button class="sub-btn" onclick="event.stopPropagation();goToSubArticle('시행규칙','${r.조키}')" title="이 시행규칙 조문 화면으로 이동">📂 조문 화면</button>
       </div>
     </div>`;
     html+=`<div class="sub-content r-bg" id="${rid}_c">${esc(rText)}</div>`;
@@ -1312,15 +1760,22 @@ function openTable(lawType,ref){
       h+=`</div>`;
       bodyEl.innerHTML=h;
     }else{
-      bodyEl.innerHTML=`<p>"${ref}"가 아직 제정되지 않았거나 다른 법령에 포함되어 있을 수 있습니다.</p>`;
+      // road 외 그룹은 별표·별지 자료를 제공하지 않으므로 법령정보센터로 안내
+      if(!IS_ROAD_GROUP){
+        bodyEl.innerHTML = nonRoadNotice({subject:`"${ref}"의 본문/PDF`, lawType:lawType});
+      } else {
+        bodyEl.innerHTML=`<p>"${ref}"가 아직 제정되지 않았거나 다른 법령에 포함되어 있을 수 있습니다.</p>`;
+      }
     }
   }else{
     titleEl.textContent=`${lawType} [${found.key}] ${found.val.제목||''}`;
     let html='';
 
-    // 파일명 생성: "도로교통법 시행규칙 [별표 16] 교통안전교육의 과목..."
+    // 파일명 생성: "{법령명} {시행령/규칙} [별표 16] 교통안전교육의 과목..."
+    // F12(2026-05-22): 도로교통법 하드코딩 제거 → mapData.기준법령.법률.법령명 사용
     const safeTitle=(found.val.제목||'').replace(/[\\/:*?"<>|]/g,'').slice(0,40);
-    const fileName=`도로교통법 ${lawType} [${found.key}] ${safeTitle}`;
+    const _lawBaseName = ((mapData.기준법령 && mapData.기준법령.법률 && mapData.기준법령.법률.법령명) || '도로교통법').replace(/[\\/:*?"<>|]/g,'');
+    const fileName=`${_lawBaseName} ${lawType} [${found.key}] ${safeTitle}`;
 
     // PDF 소스 결정:
     //   - 별지(서식): PDF_BASE64 (작아서 임베드 OK)
@@ -1458,6 +1913,11 @@ function countAddendaExceptions(addendaInfo){
 }
 
 function renderHistory(){
+  // Phase 3 S3-1-b-4-b: 시행령·시행규칙 직접 진입 시 단순 diff 연혁
+  if(currentLawType!=='법률'){
+    renderSubLawHistory(currentLawType);
+    return;
+  }
   const jo=document.getElementById('sel').value;
   const lawArt=artData.법률.조문[jo]||{};
   const el=document.getElementById('historyContent');
@@ -1503,9 +1963,13 @@ function renderHistory(){
   }
 
   // 이 조문이 포함된 캐스케이드 이벤트 찾기
-  const eventIndices=cascadeData.조문별이벤트인덱스[jo]||[];
+  // tlspc 등 캐스케이드 자료 미빌드 그룹 안전 접근 (Codex 사후검증)
+  const eventIndices=((cascadeData||{}).조문별이벤트인덱스||{})[jo]||[];
   if(eventIndices.length===0){
-    if(!relTables.length){
+    if(!IS_ROAD_GROUP){
+      // road 외 그룹은 연혁·캐스케이드 자료 미제공 — 법령정보센터로 안내
+      html+=nonRoadNotice({subject:`제${jo}조의 개정 연혁`, lawType:'법률', joKey:jo});
+    } else if(!relTables.length){
       html+=`<div style="color:var(--sub);padding:20px;font-size:13px;text-align:center">이 조문의 변경 이력이 없습니다.</div>`;
     }
     el.innerHTML=html;return;
@@ -1514,7 +1978,7 @@ function renderHistory(){
   html+=`<div style="font-size:13px;color:var(--sub);margin-bottom:12px">총 ${eventIndices.length}건의 개정 이벤트</div>`;
 
   for(let ei=0;ei<eventIndices.length;ei++){
-    const event=cascadeData.이벤트[eventIndices[ei]];
+    const event=((cascadeData||{}).이벤트||[])[eventIndices[ei]];
     if(!event)continue;
     const law=event.법률;
     const decs=event.시행령||[];
@@ -1601,7 +2065,10 @@ function renderHistory(){
       }
       const reasonLabel=isTalaw?'제개정이유 (타법개정 — 원인 법령의 이유)':'제개정이유 전문 보기';
       html+=`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--law);cursor:pointer">${reasonLabel}</summary>`;
-      if(isTalaw) html+=`<div style="font-size:11px;color:var(--warn);padding:4px 8px;margin-top:4px">* 타법개정: 다른 법률 개정에 따라 도로교통법이 연쇄 변경된 것으로, 아래 이유는 원인 법령의 제개정이유입니다.</div>`;
+      if(isTalaw){
+        const _talaName = (mapData.기준법령 && mapData.기준법령.법률 && mapData.기준법령.법률.법령명) || '본 법률';
+        html+=`<div style="font-size:11px;color:var(--warn);padding:4px 8px;margin-top:4px">* 타법개정: 다른 법률 개정에 따라 ${escHtmlSimple(_talaName)}이(가) 연쇄 변경된 것으로, 아래 이유는 원인 법령의 제개정이유입니다.</div>`;
+      }
       html+=`<div style="font-size:12px;line-height:1.7;padding:8px;background:#f9f9f7;border-radius:4px;margin-top:4px;max-height:400px;overflow-y:auto">${law.제개정이유.replace(/\n/g,'<br>')}</div>`;
       html+=`</details>`;
     }
@@ -1880,9 +2347,11 @@ function summarizeReason(reason){
 }
 
 // 로컬 PDF 경로 (download_table_pdfs.py 파일명 규칙과 일치)
+// 2026-05-25: multi-group 분리 — road는 기존 폴더, 그 외는 data/table_pdfs/{group}/ 하위
 function localPdfPath(lawType, tableName, pubDate){
   const safe = s => (s||'').replace(/[\\/:*?"<>|]/g,'_').replace(/ /g,'_');
-  return `data/table_pdfs/${safe(lawType)}_${safe(tableName)}_${pubDate}.pdf`;
+  const sub = IS_ROAD_GROUP ? '' : `${CURRENT_GROUP}/`;
+  return `data/table_pdfs/${sub}${safe(lawType)}_${safe(tableName)}_${pubDate}.pdf`;
 }
 
 // 별표 본문 정규화: 빈 줄 압축 + 줄 끝 공백 제거 + 연속 공백 1개로
@@ -2185,18 +2654,23 @@ function escPlain(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
 
 // 내부 조문 인용 클릭 시 — 모달로 미리보기 (원래 화면 유지). 더 깊이 보려면 "이 조문 화면으로 이동" 버튼.
-function popupArticle(joKey){
-  const art = artData.법률.조문[joKey];
+// F11(2026-05-22): lawType 인자 추가 — 시행령·시행규칙 본문의 자기참조 "제X조"도 자기법 모달로 표시
+function popupArticle(joKey, lawType){
+  lawType = lawType || '법률';
+  const artMap = getArtMap(lawType);
+  const art = artMap[joKey];
   if(!art){
-    alert('제'+joKey+'조를 찾을 수 없습니다.');
+    alert((lawType==='법률'?'':lawType+' ') + '제'+joKey+'조를 찾을 수 없습니다.');
     return;
   }
-  document.getElementById('modalTitle').textContent = `제${joKey}조 ${art.조문제목||''}`;
+  const labelColor = lawType==='시행령' ? 'var(--decree)' : (lawType==='시행규칙' ? 'var(--rule)' : 'var(--law)');
+  const titlePrefix = lawType==='법률' ? '' : lawType+' ';
+  document.getElementById('modalTitle').textContent = `${titlePrefix}제${joKey}조 ${art.조문제목||''}`;
   let body = `<div style="font-size:13px;line-height:1.9;color:var(--text)">`;
   if(art.조문내용) body += escHtml(art.조문내용).replace(/\n/g,'<br>');
   for(const h of (art.항||[])){
     body += `<div style="margin-top:10px;padding-left:14px">`;
-    if(h.항번호) body += `<span style="font-weight:600;color:var(--law);margin-right:6px">${escHtml(h.항번호)}</span>`;
+    if(h.항번호) body += `<span style="font-weight:600;color:${labelColor};margin-right:6px">${escHtml(h.항번호)}</span>`;
     body += escHtml(h.항내용||'').replace(/\n/g,'<br>');
     for(const ho of (h.호||[])){
       body += `<div style="margin-top:5px;padding-left:18px;color:var(--sub);font-size:12.5px">${escHtml(ho.호내용||'').replace(/\n/g,'<br>')}</div>`;
@@ -2205,8 +2679,8 @@ function popupArticle(joKey){
   }
   body += `</div>`;
   body += `<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);text-align:center">`;
-  body += `<button onclick="closeModal();goArticle('${joKey}')" style="padding:9px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">📂 이 조문 화면으로 이동</button>`;
-  body += `<div style="font-size:11px;color:var(--sub);margin-top:8px">참고용 미리보기 — 시행령·시행규칙·연혁까지 보려면 위 버튼 클릭</div>`;
+  body += `<button onclick="closeModal();switchLawType('${lawType}');goArticle('${joKey}')" style="padding:9px 18px;background:${labelColor};color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500">📂 이 조문 화면으로 이동</button>`;
+  body += `<div style="font-size:11px;color:var(--sub);margin-top:8px">참고용 미리보기 — 본문/연혁까지 보려면 위 버튼 클릭</div>`;
   body += `</div>`;
   document.getElementById('modalBody').innerHTML = body;
   document.getElementById('modalOverlay').classList.add('open');
@@ -2221,11 +2695,14 @@ function cleanHo(num, content){
   return cleaned;
 }
 
+// API 원본 호·목 내용에 빈 줄(\n\n+)이 다수 끼어있는 경우가 있어 단일 \n로 압축 (2026-05-22)
+function _normalizeBlankLines(s){return (s||'').replace(/\n\s*\n+/g,'\n')}
+
 function hoListHtml(hoArr){
   if(!hoArr||!hoArr.length)return'';
   let t='\n';
   for(const ho of hoArr){
-    const rawContent=ho.호내용||'';
+    const rawContent=_normalizeBlankLines(ho.호내용||'');
     // 내용에서 실제 번호 추출 (7의2. 등)
     const numMatch=rawContent.match(/^\s*(\d+(?:의\d+)?)\.\s*/);
     const displayNum=numMatch?numMatch[1]+'.':ho.호번호||'';
@@ -2233,7 +2710,7 @@ function hoListHtml(hoArr){
     t+='\n  '+displayNum+' '+content;
     // 목(가목·나목 등) — 호 아래 한 단계 더 들여쓰기
     for(const mok of (ho.목||[])){
-      const mc=(mok.목내용||'').trim();
+      const mc=_normalizeBlankLines((mok.목내용||'').trim());
       if(mc) t+='\n    '+mc;
     }
   }
@@ -2262,8 +2739,7 @@ function fullJoText(art){
   return t;
 }
 // 현재 표시중인 법령유형 (별표 클릭 시 사용)
-let _escLawType='시행규칙';
-function setEscLawType(t){_escLawType=t}
+// _escLawType / setEscLawType 정의는 init/render에서도 접근하므로 스크립트 상단으로 이동됨 (TDZ 회피)
 
 function esc(s){
   if(!s)return'';
@@ -2309,6 +2785,8 @@ function esc(s){
   // 3. 남은 "제X조" (접두어 없음) → 자기법 내부 링크
   // "법 제X조"와 "영 제X조"는 이미 2단계에서 치환됨, 남은 건 자기법 참조
   // 단, 플레이스홀더(___PH) 바로 뒤나, 조문 제목("제X조(제목)") 첫 번째는 제외
+  // F11(2026-05-22): currentLawType 기준 — 현재 화면 법령유형의 자기법 popupArticle 호출
+  // (_escLawType은 별표 변환 전용이라 여기선 안 씀. 별표는 시행규칙이 기본이라 _escLawType과 자기참조는 의미가 다름)
   t=t.replace(/제(\d+)조(?:의(\d+))?(?:\s*제(\d+)항)?/g, function(match,joNum,joBranch,hangNum,offset){
     // 이미 치환된 부분 뒤인지 확인 (___PH 바로 뒤면 skip)
     if(offset>0 && t.substring(Math.max(0,offset-7),offset).includes('___PH')) return match;
@@ -2317,7 +2795,10 @@ function esc(s){
     const idx=placeholders.length;
     const joKey=joBranch?joNum+'의'+joBranch:joNum;
     const display=match.trim();
-    placeholders.push('<a href="javascript:void(0)" onclick="popupArticle(\''+joKey+'\')" style="color:var(--law);text-decoration:underline;cursor:pointer" title="제'+joKey+'조 미리보기 (팝업)">'+display+'</a>');
+    const selfType = (typeof currentLawType !== 'undefined' && currentLawType) || '법률';
+    const linkColor = selfType==='시행령' ? 'var(--decree)' : (selfType==='시행규칙' ? 'var(--rule)' : 'var(--law)');
+    const tipPrefix = selfType==='법률' ? '' : selfType+' ';
+    placeholders.push('<a href="javascript:void(0)" onclick="popupArticle(\''+joKey+'\',\''+selfType+'\')" style="color:'+linkColor+';text-decoration:underline;cursor:pointer" title="'+tipPrefix+'제'+joKey+'조 미리보기 (팝업)">'+display+'</a>');
     return '___PH'+idx+'___';
   });
 
@@ -2356,18 +2837,24 @@ function esc(s){
 
 function openAlarmModal(){
   // iframe src는 HTML에서 미리 설정되어 페이지 로드 시 alarm.html 로딩 완료 상태
-  document.getElementById('alarmModal').style.display='flex';
+  // road 외 그룹에서는 알람 모달 자체가 HTML에서 제거되므로 null 체크
+  const m=document.getElementById('alarmModal');
+  if(!m) return;
+  m.style.display='flex';
   document.body.style.overflow='hidden';  // 배경 스크롤 잠금
 }
 
 function closeAlarmModal(){
-  document.getElementById('alarmModal').style.display='none';
+  const m=document.getElementById('alarmModal');
+  if(!m) return;
+  m.style.display='none';
   document.body.style.overflow='';
 }
 
 // ESC 키로 모달 닫기
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape' && document.getElementById('alarmModal').style.display==='flex'){
+  const m=document.getElementById('alarmModal');
+  if(e.key==='Escape' && m && m.style.display==='flex'){
     closeAlarmModal();
   }
 });
@@ -2380,6 +2867,8 @@ window.addEventListener('message',e=>{
   const url=new URL(window.location.href);
   url.searchParams.set('jo',e.data.jo);
   url.searchParams.set('tab','history');
+  // Phase 3 S3-1-b-4-b 사후검증: 알람은 항상 법률 조문 기준이므로 law 파라미터 잔존 시 제거
+  url.searchParams.delete('law');
   window.location.href=url.toString();
 });
 </script>

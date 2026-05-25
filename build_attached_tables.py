@@ -63,6 +63,9 @@ HISTORY_PATH = os.path.join(DATA_DIR, "attached_tables_history.json")
 ART_HISTORY_PATH = os.path.join(DATA_DIR, "article_history.json")
 OUTPUT_PATH = os.path.join(DATA_DIR, "attached_tables.json")
 
+# build_3tier_map에서 그룹 키 공유
+from build_3tier_map import LAW_GROUPS as _SHARED_LAW_GROUPS
+
 LAW_GO_KR = "https://www.law.go.kr"
 DOWNLOAD_DELAY = 0.6  # API 매너 — 호출 간격
 
@@ -98,34 +101,40 @@ def download_pdf_base64(pdf_url: str, retries: int = 3) -> str:
 
 
 def main():
-    p = argparse.ArgumentParser(description="별표/별지 최신 스냅샷 빌드")
+    p = argparse.ArgumentParser(description="별표/별지 최신 스냅샷 빌드 (multi-group)")
+    p.add_argument("--group", default="road", choices=list(_SHARED_LAW_GROUPS.keys()),
+                   help="법령 그룹 코드 (기본 road = 도로교통법)")
     p.add_argument("--no-base64", action="store_true",
                    help="서식 PDF base64 다운로드 건너뛰기 (테스트용)")
     args = p.parse_args()
+    suffix = "" if args.group == "road" else f"_{args.group}"
+    history_path = os.path.join(DATA_DIR, f"attached_tables_history{suffix}.json")
+    art_history_path = os.path.join(DATA_DIR, f"article_history{suffix}.json")
+    output_path = os.path.join(DATA_DIR, f"attached_tables{suffix}.json")
 
     print("=" * 60)
-    print("  별표/별지 최신 스냅샷 빌드 (attached_tables.json)")
+    print(f"  별표/별지 최신 스냅샷 빌드 — 그룹: {args.group}")
     print("=" * 60)
 
     # 입력 로드
-    if not os.path.exists(HISTORY_PATH):
-        print(f"❌ {HISTORY_PATH} 없음 — collect_attached_tables_history.py 먼저 실행")
+    if not os.path.exists(history_path):
+        print(f"❌ {history_path} 없음 — `py collect_attached_tables_history.py --group {args.group}` 먼저 실행")
         sys.exit(1)
-    if not os.path.exists(ART_HISTORY_PATH):
-        print(f"❌ {ART_HISTORY_PATH} 없음 — collect_full_history.py 먼저 실행")
+    if not os.path.exists(art_history_path):
+        print(f"❌ {art_history_path} 없음 — `py collect_article_history.py --group {args.group}` 먼저 실행")
         sys.exit(1)
 
     print("📖 입력 로딩...")
-    with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+    with open(history_path, "r", encoding="utf-8") as f:
         tab_hist = json.load(f)
-    with open(ART_HISTORY_PATH, "r", encoding="utf-8") as f:
+    with open(art_history_path, "r", encoding="utf-8") as f:
         art_hist = json.load(f)
 
     # 캐시 로드 (직전 빌드 결과 — 변경 없는 별지의 base64 재사용)
     cache = {}
-    if os.path.exists(OUTPUT_PATH):
+    if os.path.exists(output_path):
         try:
-            with open(OUTPUT_PATH, "r", encoding="utf-8") as f:
+            with open(output_path, "r", encoding="utf-8") as f:
                 cache = json.load(f)
             print(f"📦 직전 빌드 캐시 발견 (PDF_BASE64 재사용)")
         except Exception:
@@ -221,15 +230,15 @@ def main():
     # 저장
     print("\n💾 저장 중...")
     # 임시 파일에 쓴 후 rename — 빌드 도중 실패 시 기존 파일 보존
-    tmp_path = OUTPUT_PATH + ".tmp"
+    tmp_path = output_path + ".tmp"
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False)
-    os.replace(tmp_path, OUTPUT_PATH)
-    size_mb = os.path.getsize(OUTPUT_PATH) / (1024 * 1024)
+    os.replace(tmp_path, output_path)
+    size_mb = os.path.getsize(output_path) / (1024 * 1024)
 
     print()
     print("=" * 60)
-    print(f"✅ 완료: {OUTPUT_PATH} ({size_mb:.1f}MB)")
+    print(f"✅ 완료: {output_path} ({size_mb:.1f}MB)")
     # 디버그: 결과의 HWP·PDF·base64 보유 통계 — 회귀 즉시 감지용
     for lt in ["시행령", "시행규칙"]:
         items = result.get(lt, {})

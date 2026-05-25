@@ -29,16 +29,27 @@ HISTORY_LIST_URL = "https://www.law.go.kr/LSW/lsHstListR.do"
 REQUEST_DELAY = 0.6  # API 요청 간격 (초)
 SAVE_INTERVAL = 10   # 중간 저장 간격 (건)
 
-# Phase 3 S1-A: 법령 그룹 dict로 래핑. 향후 신규 그룹("tlspc" 등) 추가 시 키만 추가.
-# 기존 LAW_GROUP 변수는 alias로 유지 (S1 범위 minimal).
-LAW_GROUPS = {
-    "road": [
-        {"유형": "법률",     "법령명": "도로교통법",         "법령ID": "001638"},
-        {"유형": "시행령",   "법령명": "도로교통법 시행령",   "법령ID": "003395"},
-        {"유형": "시행규칙", "법령명": "도로교통법 시행규칙", "법령ID": "007079"},
-    ],
-}
-LAW_GROUP = LAW_GROUPS["road"]   # S1-A: 호환성 alias
+# Phase 3 (2026-05-22): build_3tier_map.LAW_GROUPS를 단일 출처로 사용 — 7개 그룹 공유.
+# build_3tier_map은 dict-of-dict 형태(법률/시행령/시행규칙 → {법령명, MST, 법령ID}),
+# 이 스크립트는 list-of-dict 형태(유형 포함)로 변환해 사용.
+from build_3tier_map import LAW_GROUPS as _SHARED_LAW_GROUPS
+
+def _to_collect_form(group_dict):
+    """build_3tier_map의 LAW_GROUPS[그룹] → collect 스크립트용 list-of-dict 변환."""
+    out = []
+    for law_type in ("법률", "시행령", "시행규칙"):
+        meta = group_dict.get(law_type)
+        if not meta:
+            continue  # 단일 법률·2단 구조 그룹은 키 자체가 없음
+        out.append({
+            "유형": law_type,
+            "법령명": meta["법령명"],
+            "법령ID": meta.get("법령ID", ""),
+        })
+    return out
+
+LAW_GROUPS = {g: _to_collect_form(d) for g, d in _SHARED_LAW_GROUPS.items()}
+LAW_GROUP = LAW_GROUPS["road"]   # S1-A 호환성 alias — main()에서 --group으로 재바인딩
 
 # 스크립트 위치 기준 경로
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -208,18 +219,23 @@ def _build_cache_index(prev_result: dict) -> dict:
     return cache
 
 
-def collect_all_history() -> dict:
+def collect_all_history(suffix: str = "") -> dict:
     """
-    3개 법령의 전체 개정 연혁을 수집합니다.
+    전체 개정 연혁을 수집합니다 (현재 LAW_GROUP 기준).
     기존 결과 파일을 캐시로 사용 — 신규 공포건만 API 본문 조회 (증분 수집).
     GitHub Actions 매주 자동 갱신 시 보통 0~3건만 처리하여 1분 이내 완료됩니다.
+
+    suffix: road는 빈 문자열(기존 파일명 유지). 그 외 그룹은 "_{group}" → 파일명 수정.
     """
-    output_path = os.path.join(DATA_DIR, "road_traffic_full_history.json")
-    checkpoint_path = os.path.join(DATA_DIR, "road_traffic_full_history_checkpoint.json")
+    base = f"road_traffic_full_history{suffix}.json"
+    output_path = os.path.join(DATA_DIR, base)
+    checkpoint_path = os.path.join(DATA_DIR, base.replace(".json", "_checkpoint.json"))
 
     print("=" * 55)
-    print("  도로교통법 전체 개정 연혁 수집기")
-    print("  대상: 도로교통법 / 시행령 / 시행규칙")
+    _hdr_name = (LAW_GROUP[0]["법령명"] if LAW_GROUP else "법령")
+    _hdr_targets = " / ".join(li["유형"] for li in LAW_GROUP) or "법령"
+    print(f"  {_hdr_name} 전체 개정 연혁 수집기")
+    print(f"  대상: {_hdr_targets}")
     print("=" * 55)
 
     # 1) 기존 최종 결과 로드 → 캐시 인덱스 구축 (증분 수집의 기준)
@@ -237,9 +253,12 @@ def collect_all_history() -> dict:
     else:
         print(f"\n📭 기존 결과 없음 — 전체 수집을 시작합니다 (첫 실행).")
 
+    # 현재 그룹의 첫 법령(법률) 기준 설명 문구 — multi-group 호환
+    _base_name = (LAW_GROUP[0]["법령명"] if LAW_GROUP else "법령")
+    _types_label = " · ".join(li["유형"] for li in LAW_GROUP) or "법령"
     result = {
         "생성일시": datetime.now().isoformat(),
-        "설명": "도로교통법, 시행령, 시행규칙 3개 법령의 전체 개정 연혁",
+        "설명": f"{_base_name} ({_types_label}) 전체 개정 연혁",
         "법령목록": [],
     }
 
@@ -411,7 +430,10 @@ def save_markdown(result: dict, output_path: str):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     lines = []
 
-    lines.append("# 도로교통법 전체 개정 연혁\n")
+    # 결과 메타에서 그룹 대표 법령명 추출 (multi-group 호환)
+    _md_first = (result.get("법령목록") or [{}])[0]
+    _md_name = _md_first.get("법령명", "법령")
+    lines.append(f"# {_md_name} 전체 개정 연혁\n")
     lines.append(f"생성일시: {result.get('생성일시', '')}\n")
 
     for law_data in result.get("법령목록", []):
@@ -490,11 +512,25 @@ def save_markdown(result: dict, output_path: str):
 
 
 def main():
-    json_path = os.path.join(DATA_DIR, "road_traffic_full_history.json")
-    md_path = os.path.join(DOCS_DIR, "road_traffic_full_history_summary.md")
+    import argparse
+    # Phase 3 (2026-05-22): --group 인자 — 도교법(road) 외 그룹 연혁 수집 지원
+    parser = argparse.ArgumentParser(description="법령 전체 개정 연혁 수집기 (multi-group)")
+    parser.add_argument("--group", default="road", choices=list(LAW_GROUPS.keys()),
+                        help="법령 그룹 코드 (기본 road = 도로교통법)")
+    args = parser.parse_args()
+
+    # 현재 그룹의 법령 목록으로 LAW_GROUP 재바인딩 (fetch_history_list 등이 module-level 참조)
+    global LAW_GROUP
+    LAW_GROUP = LAW_GROUPS[args.group]
+    suffix = "" if args.group == "road" else f"_{args.group}"
+
+    json_path = os.path.join(DATA_DIR, f"road_traffic_full_history{suffix}.json")
+    md_path = os.path.join(DOCS_DIR, f"road_traffic_full_history_summary{suffix}.md")
+
+    print(f"\n🏷️  법령 그룹: {args.group} ({len(LAW_GROUP)}개 법령 단위)")
 
     # 전체 연혁 수집 (10건마다 중간 저장)
-    result = collect_all_history()
+    result = collect_all_history(suffix=suffix)
 
     # 연쇄 개정 매칭
     match_chain_amendments(result)
