@@ -46,10 +46,19 @@ from case_llm import (
     generate_case_learning_content,
 )
 
-# 평일 운영 모델 (메모리 — 일 단위 인접 페어):
-# 월=조문A · 화=조문A 관련 판례 · 수=조문B · 목=조문B 관련 판례 · 금=조문C 단독
-WEEKDAY_CASE = (1, 3)        # 화·목 — 전날 조문에 페어링된 case 카드
-WEEKDAY_ARTICLE = (0, 2, 4)  # 월·수·금 — 조문 카드
+# Phase 3 S5 — 평일 5장 multi-law 슬롯 (메모리 사용자 결정 2026-05-20: 도교법 3 + 교특법 1 + 회전 1)
+# WEEKDAY_SLOTS[weekday] = (card_type, group)
+WEEKDAY_SLOTS = {
+    0: ('article', 'road'),     # 월 — 도교법 article A
+    1: ('case',    'road'),     # 화 — 도교법 case (전날 article A 페어링)
+    2: ('article', 'road'),     # 수 — 도교법 article B
+    3: ('article', 'tlspc'),    # 목 — 교통사고처리 특례법
+    4: ('article', 'tkga'),     # 금 — 회전 (PR-A는 tkga 임시 고정. PR-B에서 5법령 회전 알고리즘)
+}
+
+# 옛 호환 (string schedule 형식 처리용. 새 코드는 WEEKDAY_SLOTS 우선)
+WEEKDAY_CASE = (1,)              # 도교법 case (옛 모델은 1·3, 새 모델은 1만)
+WEEKDAY_ARTICLE = (0, 2, 4)      # 옛 호환 (월·수·금 도교법 article)
 
 SCRIPT_DIR = Path(__file__).parent
 OUTPUT_DIR = SCRIPT_DIR / 'data'
@@ -274,6 +283,7 @@ def _try_case_selection(target_date, articles, schedule, indexes, pool_size,
         return None
     return {
         'card_type': 'case',
+        'group': 'road',
         'jo': prev_jo,
         'jo_title': jo_title,
         'info': jo_entry,
@@ -293,6 +303,7 @@ def _make_article_selection(jo, articles):
     info = articles[jo]
     return {
         'card_type': 'article',
+        'group': 'road',
         'jo': jo,
         'info': info,
         'basis': {
@@ -304,52 +315,189 @@ def _make_article_selection(jo, articles):
     }
 
 
+# Phase 3 S5 — 다른 그룹 article 카드 (도교법 외)
+def _load_other_group_article(group, jo):
+    """메인 워크트리 data/three_tier_articles_{group}.json에서 법률 조문 본문 로드.
+    SCRIPT_DIR = .../도로교통법-한눈에/tutor → parent = .../도로교통법-한눈에 → data/...
+    캐시 글로벌(_other_art_cache)로 반복 IO 회피. JSON 손상 시 None 폴백."""
+    cache = globals().setdefault('_other_art_cache', {})
+    if group not in cache:
+        suffix = '' if group == 'road' else f'_{group}'
+        art_path = SCRIPT_DIR.parent / 'data' / f'three_tier_articles{suffix}.json'
+        if not art_path.exists():
+            cache[group] = None
+        else:
+            try:
+                with open(art_path, 'r', encoding='utf-8') as f:
+                    cache[group] = json.load(f)
+            except (json.JSONDecodeError, OSError) as e:
+                print(f"  ⚠️ three_tier_articles{suffix}.json 로드 실패: {e}")
+                cache[group] = None
+    data = cache[group]
+    if not data:
+        return None
+    return ((data.get('법률') or {}).get('조문') or {}).get(jo)
+
+
+def _load_study_whitelist():
+    """tutor/data/study_whitelist.json 캐시 로드. JSON 손상 시 빈 dict 폴백."""
+    cache = globals().setdefault('_wl_cache', {})
+    if 'wl' not in cache:
+        wl_path = OUTPUT_DIR / 'study_whitelist.json'
+        if not wl_path.exists():
+            cache['wl'] = {}
+        else:
+            try:
+                with open(wl_path, 'r', encoding='utf-8') as f:
+                    cache['wl'] = json.load(f)
+            except (json.JSONDecodeError, OSError) as e:
+                print(f"  ⚠️ study_whitelist.json 로드 실패: {e}")
+                cache['wl'] = {}
+    return cache['wl']
+
+
+def _extract_recent_group_articles(schedule, target_date, group, lookback_days=21):
+    """같은 그룹 최근 사용 조문 set. 회전 시 중복 회피용."""
+    used = set()
+    for d in range(1, lookback_days + 1):
+        prev = (target_date - timedelta(days=d)).strftime('%Y-%m-%d')
+        entry = schedule.get(prev)
+        if isinstance(entry, dict) and entry.get('group') == group and entry.get('article'):
+            used.add(entry['article'])
+    return used
+
+
+def _select_other_group_article(group, target_date, schedule):
+    """study_whitelist에서 그룹 조문 선택 — 최근 사용 회피 + 결정론적 stride.
+    study_mode='all': 메인 워크트리의 three_tier_articles_{group}.json에서 법률 조문 키 전체.
+    study_mode='whitelist': articles list(dict {article,title,topic} 또는 str)에서 선택."""
+    import hashlib
+    wl = _load_study_whitelist()
+    group_info = wl.get(group) or {}
+    mode = group_info.get('study_mode', 'whitelist')
+
+    if mode == 'all':
+        # 메인 워크트리 three_tier_articles_{group}.json — _load_other_group_article 캐시 활용
+        cache = globals().setdefault('_other_art_cache', {})
+        if group not in cache:
+            suffix = '' if group == 'road' else f'_{group}'
+            art_path = SCRIPT_DIR.parent / 'data' / f'three_tier_articles{suffix}.json'
+            if not art_path.exists():
+                cache[group] = None
+            else:
+                with open(art_path, 'r', encoding='utf-8') as f:
+                    cache[group] = json.load(f)
+        data = cache[group]
+        if not data:
+            return None
+        arts = list(((data.get('법률') or {}).get('조문') or {}).keys())
+    else:
+        # whitelist 모드 — dict 리스트면 'article' 키 안전 추출, str 리스트면 그대로
+        raw = group_info.get('articles') or []
+        arts = [a.get('article') if isinstance(a, dict) else a for a in raw if a]
+        arts = [a for a in arts if a]   # None·빈 문자열 제거 (study_whitelist 손상 방어)
+
+    if not arts:
+        return None
+
+    used = _extract_recent_group_articles(schedule, target_date, group)
+    candidates = [a for a in arts if a not in used] or arts
+    seed = f'group:{group}:{target_date.strftime("%Y-%m-%d")}'
+    idx = int(hashlib.md5(seed.encode('utf-8')).hexdigest(), 16) % len(candidates)
+    return candidates[idx]
+
+
+def _other_group_label(group):
+    """그룹 표시명 — study_whitelist의 label·name·group 폴백."""
+    wl = _load_study_whitelist()
+    info = wl.get(group) or {}
+    return info.get('label') or info.get('name') or group
+
+
+def _make_other_group_article_selection(group, jo):
+    """다른 그룹 article selection. info·basis는 study_whitelist 메타로 최소 채움."""
+    return {
+        'card_type': 'article',
+        'group': group,
+        'jo': jo,
+        'info': {},
+        'basis': {
+            'weight_score': 0,
+            'category': _other_group_label(group),
+            'admin_case_count': 0,
+            'court_case_count': 0,
+        },
+    }
+
+
 def select_card_for_date(articles, target_date, schedule, indexes=None, pool_size=WEIGHT_POOL_SIZE):
-    """Phase 2 2b-γ: 평일 5장 운영 모델.
-    월·수·금 = article, 화·목 = case 페어링 (실패 시 article fallback).
-    기존 schedule 형식(string jo)·신규 형식(dict {type, article, source, case_no}) 둘 다 호환."""
+    """Phase 3 S5: 평일 5장 multi-law 운영 모델 (WEEKDAY_SLOTS).
+    - 월·수: 도교법 article — 가중치 풀에서 선정 (기존 stride)
+    - 화: 도교법 case — 전날 article에 페어링
+    - 목: 교특법 article — study_whitelist에서 선정
+    - 금: 회전 (PR-A는 tkga 임시, PR-B에서 5법령 회전)
+    schedule 형식: 옛 string (도교법 article) + 신규 dict {type, group, article, ...} 모두 호환."""
     if not articles:
         return None
     key = target_date.strftime('%Y-%m-%d')
     existing = schedule.get(key)
 
-    # 기존 dict (이미 case 또는 article로 지정)
-    if isinstance(existing, dict):
-        if existing.get('type') == 'case' and indexes is not None:
-            sel = _try_case_selection(target_date, articles, schedule, indexes, pool_size)
-            if sel:
-                return sel
-            # case 자료가 사라진 경우 fallback to article (jo는 그대로)
-            jo = existing.get('article')
-            if jo and jo in articles:
-                return _make_article_selection(jo, articles)
-        elif existing.get('type') == 'article':
-            jo = existing.get('article')
-            if jo and jo in articles:
-                return _make_article_selection(jo, articles)
-
-    # 기존 string 형식 (Phase 1·R8 E 호환)
+    # 옛 string 형식 호환 — 도교법 article로 해석
     if isinstance(existing, str) and existing in articles:
         return _make_article_selection(existing, articles)
 
-    # 신규 배정 — 요일에 따라 case 또는 article
-    weekday = target_date.weekday()
-    if weekday in WEEKDAY_CASE and indexes is not None:
-        sel = _try_case_selection(target_date, articles, schedule, indexes, pool_size)
-        if sel:
-            schedule[key] = {
-                'type': 'case',
-                'article': sel['jo'],
-                'source': sel['case']['source'],
-                'case_no': sel['case']['case_no'],
-            }
-            return sel
-        # 페어링 실패 → article로 fallback (조용히)
+    # 신규 dict 형식 — group 없으면 road 가정 (옛 dict 호환)
+    if isinstance(existing, dict):
+        ex_group = existing.get('group', 'road')
+        ex_type = existing.get('type')
+        if ex_type == 'case' and ex_group == 'road' and indexes is not None:
+            sel = _try_case_selection(target_date, articles, schedule, indexes, pool_size)
+            if sel:
+                return sel
+            # case 페어링 실패 → article 폴백
+            jo = existing.get('article')
+            if jo and jo in articles:
+                return _make_article_selection(jo, articles)
+        elif ex_type == 'article':
+            jo = existing.get('article')
+            if ex_group == 'road' and jo and jo in articles:
+                return _make_article_selection(jo, articles)
+            elif ex_group != 'road' and jo:
+                return _make_other_group_article_selection(ex_group, jo)
 
-    # 월·수·금 또는 case fallback → article 신규 배정
-    jo = _select_article_stride(articles, target_date, schedule, pool_size)
-    schedule[key] = jo   # 기존 형식 호환 — string으로 저장
-    return _make_article_selection(jo, articles)
+    # 신규 배정 — WEEKDAY_SLOTS에서 슬롯 결정
+    weekday = target_date.weekday()
+    slot = WEEKDAY_SLOTS.get(weekday)
+    if slot is None:
+        return None
+    card_type, slot_group = slot
+
+    if slot_group == 'road':
+        if card_type == 'case' and indexes is not None:
+            sel = _try_case_selection(target_date, articles, schedule, indexes, pool_size)
+            if sel:
+                schedule[key] = {
+                    'type': 'case',
+                    'group': 'road',
+                    'article': sel['jo'],
+                    'source': sel['case']['source'],
+                    'case_no': sel['case']['case_no'],
+                }
+                return sel
+            # case 페어링 실패 → article 폴백
+        # 도교법 article (월·수 또는 case 페어링 실패)
+        jo = _select_article_stride(articles, target_date, schedule, pool_size)
+        schedule[key] = {'type': 'article', 'group': 'road', 'article': jo}
+        return _make_article_selection(jo, articles)
+
+    # 다른 그룹 article (목·금)
+    jo = _select_other_group_article(slot_group, target_date, schedule)
+    if jo:
+        schedule[key] = {'type': 'article', 'group': slot_group, 'article': jo}
+        return _make_other_group_article_selection(slot_group, jo)
+    # whitelist 자료 없는 그룹 (study_mode='all' 등) — 다음 PR에서 풀 인덱스 지원
+    print(f"  ⚠️ 그룹 '{slot_group}' 자료 없음 — schedule 미배정 (PR-B 회전 알고리즘 필요)")
+    return None
 
 
 def find_resources(jo, indexes, category=None, jo_title=''):
@@ -1107,10 +1255,59 @@ def build_case_card(selection, indexes, target_date=None, use_llm=True):
     return card
 
 
+def build_other_group_article_card(selection):
+    """Phase 3 S5 PR-A: 다른 그룹 article 단순 카드.
+    조문 본문 + 화이트리스트 메타. LLM 없음 (PR-B 이후 build_indexes multi-group 확장 시 풍부화)."""
+    group = selection['group']
+    jo = selection['jo']
+    art = _load_other_group_article(group, jo) or {}
+    label = _other_group_label(group)
+    # 본문 텍스트 결합 — 항·호·목내용에는 이미 번호(①·1.·가.) 포함되어 있으므로 번호 prefix 생략
+    parts = [art.get('조문내용', '')]
+    for h in (art.get('항') or []):
+        if h.get('항내용'):
+            parts.append(h['항내용'])
+        for ho in (h.get('호') or []):
+            if ho.get('호내용'):
+                parts.append('  ' + ho['호내용'])
+            for mo in (ho.get('목') or []):   # 목 순회 — Codex 권장
+                if mo.get('목내용'):
+                    parts.append('    ' + mo['목내용'])
+    article_text = '\n'.join(p for p in parts if p.strip())
+
+    return {
+        'card_id': 'card-1',
+        'rank': 1,
+        'card_type': 'article',
+        'group': group,
+        'selection_basis': selection.get('basis', {}),
+        'law_info': {
+            '법령유형': '법률',
+            '법령명': label,
+            '매핑법률조문': jo,
+            '매핑법률조문제목': art.get('조문제목', ''),
+            'is_recent_revision': False,
+            'categories': [label],
+            'viewer_link': f'../viewer_{group}.html?jo={jo}' if group != 'road' else f'../viewer.html?jo={jo}',
+            'article_text': article_text,
+            'resources_found': {
+                'has_law_comment': False,
+                'admin_cases_count': 0,
+                'court_cases_count': 0,
+                'candidates_before_filter': 0,
+            },
+        },
+        'llm_status': 'simple_other_group',
+    }
+
+
 def build_card(selection, indexes, target_date=None, use_llm=True):
     # Phase 2 2b-γ: card_type 분기. case 카드는 별도 빌드.
     if selection.get('card_type') == 'case':
         return build_case_card(selection, indexes, target_date, use_llm)
+    # Phase 3 S5 PR-A: 다른 그룹 article은 단순 카드 (조문 본문만, LLM 없음)
+    if selection.get('group') and selection['group'] != 'road':
+        return build_other_group_article_card(selection)
 
     jo = selection['jo']
     jo_entry = indexes['law'].get(jo)
