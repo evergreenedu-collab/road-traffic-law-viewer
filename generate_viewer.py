@@ -26,7 +26,6 @@ WEB_DATA_DIR = os.path.join(SCRIPT_DIR, "web_data")    # 분리된 데이터 JS 
 MAP_PATH = os.path.join(DATA_DIR, "three_tier_map.json")
 ART_PATH = os.path.join(DATA_DIR, "three_tier_articles.json")
 TABLE_PATH = os.path.join(DATA_DIR, "attached_tables.json")
-TIMELINE_PATH = os.path.join(DATA_DIR, "article_timeline.json")
 
 # Phase 3 S3-1-b-3: 그룹 활성화 옵션 — viewer 드롭다운에서 selectable
 # (road는 항상 활성, tlspc는 시행령까지 빌드되면 활성). 향후 다른 법령 추가 시 키 추가.
@@ -273,7 +272,7 @@ def main():
     # 입력 파일 경로 (group별 suffix)
     map_path = os.path.join(DATA_DIR, f"three_tier_map{suffix}.json")
     art_path = os.path.join(DATA_DIR, f"three_tier_articles{suffix}.json")
-    timeline_path = os.path.join(DATA_DIR, f"article_timeline{suffix}.json")
+    # PR-H4-γ-1: article_timeline JSON은 viewer에서 미사용이라 입력에서 제외
     cascade_path = os.path.join(DATA_DIR, f"cascade_events{suffix}.json")
     diff_path = os.path.join(DATA_DIR, f"text_diff{suffix}.json")
     tbl_diff_path = os.path.join(DATA_DIR, f"attached_tables_diff{suffix}.json")
@@ -302,16 +301,9 @@ def main():
                 val.pop("내용", None)
                 val.pop("내용HTML", None)
 
-    # 타임라인 데이터 (graceful — multi-law에서 없을 수 있음)
-    timeline_data = _load_json_or_empty(timeline_path, {"조문별연혁": {}})
-    for law_type in ["법률", "시행령", "시행규칙"]:
-        for jo_key, entries in timeline_data.get("조문별연혁", {}).get(law_type, {}).items():
-            for e in entries:
-                if e.get("조문내용"):
-                    e["조문내용"] = e["조문내용"][:200]
-                for p in e.get("항", []):
-                    if p.get("항내용"):
-                        p["항내용"] = p["항내용"][:150]
+    # PR-H4-γ-1: data_timeline (구 _DATA_TIMELINE) 제거 — viewer JS에서 변수 선언만 있고
+    # 실제 사용처가 0개. 연혁 탭은 cascadeData/diffData/tblDiffData 중심으로 동작.
+    # 22MB 절감 (도교법 그룹 기준).
 
     # 캐스케이드 이벤트 데이터 (graceful)
     cascade_data = _load_json_or_empty(cascade_path, {})
@@ -398,7 +390,7 @@ def main():
         "diffData": diff_data,
         "tableData": table_data_lite,
     }))
-    sizes.append(write_data("data_timeline", "_DATA_TIMELINE", timeline_data))
+    # PR-H4-γ-1: data_timeline 빌드 제거 (미사용 22MB)
     sizes.append(write_data("data_tbl_diff_decree", "_DATA_TBL_DIFF_DECREE", tbl_diff_data.get("시행령", {})))
     sizes.append(write_data("data_tbl_diff_rule", "_DATA_TBL_DIFF_RULE", tbl_diff_data.get("시행규칙", {})))
     sizes.append(write_data("data_tbl_pdf", "_DATA_TBL_PDF", tbl_pdf_data))
@@ -841,8 +833,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
+<!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <script src="web_data/data_core.js"></script>
-<script src="web_data/data_timeline.js"></script>
 <script src="web_data/data_tbl_diff_decree.js"></script>
 <script src="web_data/data_tbl_diff_rule.js"></script>
 <script src="web_data/data_tbl_pdf.js"></script>
@@ -854,7 +846,6 @@ const artData = window._DATA_CORE.artData;
 const tableData = window._DATA_CORE.tableData;
 const cascadeData = window._DATA_CORE.cascadeData;
 const diffData = window._DATA_CORE.diffData;
-const timelineData = window._DATA_TIMELINE;
 const tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE, 시행규칙: window._DATA_TBL_DIFF_RULE};
 const tblPdfData = window._DATA_TBL_PDF;
 const tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};

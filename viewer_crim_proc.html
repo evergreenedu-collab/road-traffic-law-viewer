@@ -355,12 +355,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core_crim_proc.js?v=20260527000502"></script>
-<script src="web_data/data_timeline_crim_proc.js?v=20260527000502"></script>
-<script src="web_data/data_tbl_diff_decree_crim_proc.js?v=20260527000502"></script>
-<script src="web_data/data_tbl_diff_rule_crim_proc.js?v=20260527000502"></script>
-<script src="web_data/data_tbl_pdf_crim_proc.js?v=20260527000502"></script>
-<script src="web_data/data_tbl_history_crim_proc.js?v=20260527000502"></script>
+<!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
+<script src="web_data/data_core_crim_proc.js?v=20260527000929"></script>
+<script src="web_data/data_tbl_diff_decree_crim_proc.js?v=20260527000929"></script>
+<script src="web_data/data_tbl_diff_rule_crim_proc.js?v=20260527000929"></script>
+<script src="web_data/data_tbl_pdf_crim_proc.js?v=20260527000929"></script>
+<script src="web_data/data_tbl_history_crim_proc.js?v=20260527000929"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -368,7 +368,6 @@ const artData = window._DATA_CORE.artData;
 const tableData = window._DATA_CORE.tableData;
 const cascadeData = window._DATA_CORE.cascadeData;
 const diffData = window._DATA_CORE.diffData;
-const timelineData = window._DATA_TIMELINE;
 const tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE, 시행규칙: window._DATA_TBL_DIFF_RULE};
 const tblPdfData = window._DATA_TBL_PDF;
 const tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};
