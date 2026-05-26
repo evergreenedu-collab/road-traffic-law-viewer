@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>📚 출근길 법령 튜터 — 도로교통법 한눈에</title>
+<!-- PWA PR-H1 — manifest + theme color -->
+<link rel="manifest" href="../manifest.json">
+<meta name="theme-color" content="#1e40af">
+<link rel="apple-touch-icon" href="../icons/icon-192.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -656,6 +660,15 @@ function init() {
   render(date);
 }
 init();
+
+// PWA PR-H1 — Service Worker 등록 (HTTPS·localhost 한정. 알림 권한 요청은 PR-H2에서)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('../service-worker.js', { scope: '../' })
+      .then(reg => console.log('SW 등록 OK:', reg.scope))
+      .catch(err => console.warn('SW 등록 실패:', err));
+  });
+}
 </script>
 </body>
 </html>
