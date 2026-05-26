@@ -122,8 +122,27 @@ jobs:
 
           const subscription = JSON.parse(process.env.PUSH_SUBSCRIPTION_JSON);
           const payload = JSON.stringify({ title, body, url });
+          console.log('payload size:', payload.length, 'bytes');
+          console.log('endpoint host:', new URL(subscription.endpoint).host);
 
-          webpush.sendNotification(subscription, payload, { TTL: 86400 })
-            .then(r => console.log('푸시 발송 성공 statusCode=' + r.statusCode))
-            .catch(e => { console.error('푸시 발송 실패:', e); process.exit(1); });
+          // urgency: high + TTL — FCM이 즉시 디바이스로 푸시 (battery saver 회피)
+          webpush.sendNotification(subscription, payload, {
+            TTL: 86400,
+            urgency: 'high',
+            headers: { Urgency: 'high' },
+          })
+            .then(r => {
+              console.log('==RESULT==');
+              console.log('statusCode:', r.statusCode);
+              console.log('headers:', JSON.stringify(r.headers, null, 2));
+              console.log('body:', r.body || '(empty)');
+            })
+            .catch(e => {
+              console.error('==FAILED==');
+              console.error('statusCode:', e.statusCode);
+              console.error('headers:', JSON.stringify(e.headers, null, 2));
+              console.error('body:', e.body);
+              console.error('message:', e.message);
+              process.exit(1);
+            });
           EOF
