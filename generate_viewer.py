@@ -431,8 +431,13 @@ def main():
     else:
         alarm_button = ""
         alarm_modal = ""
-    # 좌측 액션 래퍼 — 알람(road)이 있으면 둘 다, 없으면 튜터만
-    left_actions = f'<div class="header-left-actions">{alarm_button}{tutor_button}</div>'
+    # 좌측 액션 래퍼 — 알람(road) + 튜터 + 알림받기 셋 다 한 flex 그룹으로 묶음
+    # (이전: pushBtn이 우측 absolute라 헤더 통계와 충돌. 사용자 보고 2026-05-27 → 좌측 그룹화)
+    push_button = (
+        '<button id="pushBtn" type="button" class="header-action-btn push" onclick="subscribePush()">'
+        '🔔 알림 받기</button>'
+    )
+    left_actions = f'<div class="header-left-actions">{alarm_button}{tutor_button}{push_button}</div>'
     # 튜터 페이지 본인이면 자기 자신으로 가는 버튼 의미 없음 — 하지만 viewer는 튜터가 아니므로 항상 표시
     # 단, road group viewer의 경우 튜터 가는 경로는 ./tutor/, 다른 그룹 viewer도 동일 위치(루트 기준)
     html = html.replace("{{ALARM_BUTTON}}", left_actions).replace("{{ALARM_MODAL}}", alarm_modal)
@@ -510,18 +515,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .header .header-stats{position:absolute;top:14px;right:20px;font-size:11px;opacity:.85;text-align:right;line-height:1.5}
 .header .header-stats b{font-size:14px;display:block;font-weight:600}
 @media(max-width:768px){.header .header-stats{display:none}}
-/* PR-H4-β: 헤더 좌측 액션 그룹 (최근 개정 알림 + 튜터 복귀) — flex 래퍼로 절대좌표 충돌 회피 */
-.header-left-actions{position:absolute;top:12px;left:20px;display:flex;gap:8px;flex-wrap:wrap;z-index:5}
-.header-action-btn{border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;box-shadow:0 2px 4px rgba(0,0,0,0.15);line-height:1.2}
+/* PR-H4-β/fix: 헤더 좌측 액션 그룹 — 3개 버튼 모두 한 flex 컨테이너에 묶어 우측 header-stats와 충돌 회피
+   (이전: pushBtn이 우측 absolute라 통계 표시와 같은 위치에서 겹침) */
+.header-left-actions{position:absolute;top:12px;left:20px;display:flex;gap:8px;flex-wrap:wrap;z-index:5;max-width:calc(100% - 200px)}
+.header-action-btn{border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;box-shadow:0 2px 4px rgba(0,0,0,0.15);line-height:1.2;text-decoration:none}
 .header-action-btn.alarm{background:#c0392b;color:#fff}
 .header-action-btn.tutor{background:#fff;color:var(--law);border:1px solid var(--border)}
-.header-push-link{position:absolute;top:12px;right:20px;padding:8px 14px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:13px;color:var(--law);font-weight:600;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.15);display:inline-flex;align-items:center;gap:6px;line-height:1.2}
-/* 모바일에서 헤더 버튼 3개 — 작게 + wrap 허용 (h1 가리지 않게) */
+.header-action-btn.push{background:#fff;color:var(--law);border:1px solid var(--border)}
+/* 모바일에서 헤더 버튼 그룹 — 작게 + wrap 허용 + stats 숨김으로 우측 폭 회수 */
 @media(max-width:600px){
   .header{padding-top:52px}
-  .header-left-actions{top:8px!important;left:8px!important;gap:6px}
+  .header-left-actions{top:8px!important;left:8px!important;gap:6px;max-width:calc(100% - 16px)}
   .header-action-btn{padding:5px 10px!important;font-size:11px!important}
-  .header-push-link{top:8px!important;right:8px!important;padding:5px 10px!important;font-size:11px!important}
 }
 
 .toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
@@ -718,11 +723,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="header" style="position:relative">
   <div class="header-stats" id="headerStats"></div>
-  {{ALARM_BUTTON}}
-  <!-- PR-H2-α / PR-H4-β: 알림 구독 버튼 (우상단) — 좌측 액션과 동일 크기 (color로 위계 구분) -->
-  <button id="pushBtn" type="button" class="header-push-link" onclick="subscribePush()">
-    🔔 알림 받기
-  </button>
+  {{ALARM_BUTTON}}<!-- left_actions 안에 alarm·tutor·push 셋 다 포함 (PR-H4-β/fix) -->
   <h1>{{LAW_TITLE}} 한눈에</h1>
   <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
 </div>
