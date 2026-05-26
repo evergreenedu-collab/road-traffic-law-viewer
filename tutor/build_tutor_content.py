@@ -47,14 +47,17 @@ from case_llm import (
 )
 
 # Phase 3 S5 — 평일 5장 multi-law 슬롯 (메모리 사용자 결정 2026-05-20: 도교법 3 + 교특법 1 + 회전 1)
-# WEEKDAY_SLOTS[weekday] = (card_type, group)
+# WEEKDAY_SLOTS[weekday] = (card_type, group). group=None은 ROTATION_GROUPS에서 주차 cursor로 결정.
 WEEKDAY_SLOTS = {
     0: ('article', 'road'),     # 월 — 도교법 article A
     1: ('case',    'road'),     # 화 — 도교법 case (전날 article A 페어링)
     2: ('article', 'road'),     # 수 — 도교법 article B
     3: ('article', 'tlspc'),    # 목 — 교통사고처리 특례법
-    4: ('article', 'tkga'),     # 금 — 회전 (PR-A는 tkga 임시 고정. PR-B에서 5법령 회전 알고리즘)
+    4: ('article', None),       # 금 — 회전 (ROTATION_GROUPS에서 주차 cursor 결정)
 }
+
+# Phase 3 S8 — 금요일 회전 그룹 5개 (주차 cursor % 5로 순환)
+ROTATION_GROUPS = ('tkga', 'car_mgmt', 'passenger_transport', 'cargo_transport', 'crim_proc')
 
 # 옛 호환 (string schedule 형식 처리용. 새 코드는 WEEKDAY_SLOTS 우선)
 WEEKDAY_CASE = (1,)              # 도교법 case (옛 모델은 1·3, 새 모델은 1만)
@@ -367,17 +370,45 @@ def _extract_recent_group_articles(schedule, target_date, group, lookback_days=2
     return used
 
 
+def _jokey_order(k):
+    """조키 '5의3' → (5, 3) 튜플. 'all' 모드 article 정렬용.
+    Codex 권장 — `$`로 손상 키 방어. 끝까지 형식 일치하지 않는 키는 정렬 끝에."""
+    import re
+    m = re.match(r'^(\d+)(?:의(\d+))?$', str(k or ''))
+    if not m:
+        return (999999, 0)
+    return (int(m.group(1)), int(m.group(2)) if m.group(2) else 0)
+
+
+def _resolve_rotation_group(target_date):
+    """Phase 3 S8 — 금요일 회전 슬롯의 그룹 결정. EPOCH 기준 주차 % len(ROTATION_GROUPS)."""
+    delta_days = (target_date - EPOCH).days
+    week_index = delta_days // 7
+    return ROTATION_GROUPS[week_index % len(ROTATION_GROUPS)]
+
+
+def _group_occurrence_index(group, target_date):
+    """EPOCH 이후 이 그룹이 평일 슬롯에서 몇 번째로 등장하는지(0-based).
+    - tlspc (목 고정): 매주 1번 → week_index
+    - 회전 그룹 (금): len(ROTATION_GROUPS)주마다 1번 → week_index // 5
+    - 그 외: week_index 기본"""
+    delta_days = (target_date - EPOCH).days
+    week_index = delta_days // 7
+    if group in ROTATION_GROUPS:
+        return week_index // len(ROTATION_GROUPS)
+    return week_index
+
+
 def _select_other_group_article(group, target_date, schedule):
-    """study_whitelist에서 그룹 조문 선택 — 최근 사용 회피 + 결정론적 stride.
-    study_mode='all': 메인 워크트리의 three_tier_articles_{group}.json에서 법률 조문 키 전체.
-    study_mode='whitelist': articles list(dict {article,title,topic} 또는 str)에서 선택."""
-    import hashlib
+    """Phase 3 S8 — 그룹별 article 선택. 정렬된 후보 + occurrence cursor로 엄밀 회전.
+    study_mode='all': three_tier_articles_{group}.json 법률 조문 키 전체 (조키 순 정렬).
+    study_mode='whitelist': articles 리스트 (사용자 정의 순서 유지).
+    Codex S5 PR-A 사소 권장 반영 — 해시 기반 → cursor 기반, 전체 후보 한 바퀴 보장."""
     wl = _load_study_whitelist()
     group_info = wl.get(group) or {}
     mode = group_info.get('study_mode', 'whitelist')
 
     if mode == 'all':
-        # 메인 워크트리 three_tier_articles_{group}.json — _load_other_group_article 캐시 활용
         cache = globals().setdefault('_other_art_cache', {})
         if group not in cache:
             suffix = '' if group == 'road' else f'_{group}'
@@ -385,26 +416,27 @@ def _select_other_group_article(group, target_date, schedule):
             if not art_path.exists():
                 cache[group] = None
             else:
-                with open(art_path, 'r', encoding='utf-8') as f:
-                    cache[group] = json.load(f)
+                try:
+                    with open(art_path, 'r', encoding='utf-8') as f:
+                        cache[group] = json.load(f)
+                except (json.JSONDecodeError, OSError) as e:
+                    print(f"  ⚠️ three_tier_articles{suffix}.json 로드 실패: {e}")
+                    cache[group] = None
         data = cache[group]
         if not data:
             return None
-        arts = list(((data.get('법률') or {}).get('조문') or {}).keys())
+        raw_keys = list(((data.get('법률') or {}).get('조문') or {}).keys())
+        arts = sorted(raw_keys, key=_jokey_order)
     else:
-        # whitelist 모드 — dict 리스트면 'article' 키 안전 추출, str 리스트면 그대로
         raw = group_info.get('articles') or []
         arts = [a.get('article') if isinstance(a, dict) else a for a in raw if a]
-        arts = [a for a in arts if a]   # None·빈 문자열 제거 (study_whitelist 손상 방어)
+        arts = [a for a in arts if a]
 
     if not arts:
         return None
 
-    used = _extract_recent_group_articles(schedule, target_date, group)
-    candidates = [a for a in arts if a not in used] or arts
-    seed = f'group:{group}:{target_date.strftime("%Y-%m-%d")}'
-    idx = int(hashlib.md5(seed.encode('utf-8')).hexdigest(), 16) % len(candidates)
-    return candidates[idx]
+    occurrence = _group_occurrence_index(group, target_date)
+    return arts[occurrence % len(arts)]
 
 
 def _other_group_label(group):
@@ -490,13 +522,14 @@ def select_card_for_date(articles, target_date, schedule, indexes=None, pool_siz
         schedule[key] = {'type': 'article', 'group': 'road', 'article': jo}
         return _make_article_selection(jo, articles)
 
-    # 다른 그룹 article (목·금)
-    jo = _select_other_group_article(slot_group, target_date, schedule)
+    # 다른 그룹 article (목·금) — slot_group=None이면 회전(금요일)에서 동적 결정
+    resolved_group = slot_group or _resolve_rotation_group(target_date)
+    jo = _select_other_group_article(resolved_group, target_date, schedule)
     if jo:
-        schedule[key] = {'type': 'article', 'group': slot_group, 'article': jo}
-        return _make_other_group_article_selection(slot_group, jo)
-    # whitelist 자료 없는 그룹 (study_mode='all' 등) — 다음 PR에서 풀 인덱스 지원
-    print(f"  ⚠️ 그룹 '{slot_group}' 자료 없음 — schedule 미배정 (PR-B 회전 알고리즘 필요)")
+        schedule[key] = {'type': 'article', 'group': resolved_group, 'article': jo}
+        return _make_other_group_article_selection(resolved_group, jo)
+    # 자료 없는 그룹 (study_whitelist 누락·articles 빈 배열 등) — 미배정
+    print(f"  ⚠️ 그룹 '{resolved_group}' 자료 없음 — schedule 미배정")
     return None
 
 
