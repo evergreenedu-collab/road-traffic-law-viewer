@@ -96,25 +96,19 @@ jobs:
           const dow = parseInt(process.env.DOW, 10);    // 1=월 ~ 5=금
           const dayLabel = ['월','화','수','목','금'][dow - 1] || '';
           const cardPath = `tutor/data/daily_${today}.json`;
-          let title = `🚗 ${today.slice(5)} (${dayLabel}) 법령튜터`;
-          let body = '오늘의 카드가 준비됐어요.';
-          let url = `./tutor/?date=${today}`;
+          // PR-H3-β 디버그 — 최소 ASCII 페이로드 (이모지·줄바꿈 X)
+          // 알림 도착 확인 후 한글·이모지·줄바꿈 복원 (Codex 권장 순서)
+          let title = `Push test ${today}`;
+          let body = `Daily card ready for ${today}`;
+          let url = `/road-traffic-law-viewer/tutor/?date=${today}`;
 
           try {
             const daily = JSON.parse(fs.readFileSync(cardPath, 'utf-8'));
             const card = (daily.cards || [])[0];
             if (card) {
-              const group = card.group || 'road';
-              const colorMap = { road: '🟦', tlspc: '🟩', tkga: '🟪', car_mgmt: '🟪', passenger_transport: '🟪', cargo_transport: '🟪', crim_proc: '🟪' };
-              const color = colorMap[group] || '🟦';
               const li = card.law_info || {};
-              const lawName = li['법령명'] || '도로교통법';
               const jo = li['매핑법률조문'] || '?';
-              const joTitle = li['매핑법률조문제목'] || '';
-              const oneliner = (card.learning_content || {}).oneliner || '';
-              title = `🚗 ${today.slice(5)} (${dayLabel}) 출근길 법령튜터`;
-              const onelinerShort = oneliner.length > 100 ? oneliner.slice(0, 100) + '…' : oneliner;
-              body = `${color} ${lawName} 제${jo}조 ${joTitle}\n${onelinerShort}`;
+              title = `Card ${today} (Article ${jo})`;
             }
           } catch (e) {
             console.error('카드 읽기 실패:', e.message);

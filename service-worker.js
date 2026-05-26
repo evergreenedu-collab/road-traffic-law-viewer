@@ -20,24 +20,29 @@ self.addEventListener('activate', (event) => {
 //     "body":  "🟦월 음주운전 · 🟦화 음주판례 · 🟦수 무면허 · 🟩목 양벌 · 🟪금 화물종사자격",
 //     "url":   "./tutor/?date=2026-05-26" }
 self.addEventListener('push', (event) => {
-  let payload = { title: '출근길 법령튜터', body: '오늘의 카드가 도착했어요.', url: './tutor/' };
+  // PR-H3-β 디버그 — push 이벤트 도달 자체 진단 (chrome://inspect SW 콘솔에서 확인 가능)
+  console.log('[push]', new Date().toISOString(), event.data && event.data.text());
+  let payload = { title: '출근길 법령튜터', body: '오늘의 카드가 도착했어요.', url: '/road-traffic-law-viewer/tutor/' };
   if (event.data) {
     try {
       payload = Object.assign(payload, event.data.json());
     } catch (e) {
-      // payload가 JSON이 아니면 텍스트로
       payload.body = event.data.text() || payload.body;
     }
   }
+  // Codex 권장 — icon/badge 옵션 제거 (SVG가 Android Chrome notification에서 표시 안 되는 경우 회피)
+  // 알림 표시 자체가 안 되는 1순위 원인 검증용. 도착 확인 후 PNG로 보강 예정.
   const opts = {
     body: payload.body,
-    icon: './icons/icon-192.svg',
-    badge: './icons/icon-192.svg',
-    data: { url: payload.url || './tutor/' },
+    data: { url: payload.url || '/road-traffic-law-viewer/tutor/' },
     tag: 'daily-tutor',
     renotify: true,
   };
-  event.waitUntil(self.registration.showNotification(payload.title, opts));
+  event.waitUntil(
+    self.registration.showNotification(payload.title, opts)
+      .then(() => console.log('[push] showNotification OK'))
+      .catch(e => console.error('[push] showNotification 실패:', e))
+  );
 });
 
 // 알림 클릭 — 튜터 페이지로 진입 (이미 열려 있으면 focus)
