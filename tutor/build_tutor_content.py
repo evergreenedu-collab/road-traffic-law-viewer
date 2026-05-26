@@ -350,6 +350,56 @@ def _load_other_group_article(group, jo):
     return ((data.get('법률') or {}).get('조문') or {}).get(jo)
 
 
+def _load_other_group_history(group):
+    """Phase 3 PR-F — 다른 그룹 article_history_{group}.json 캐시 로드.
+    조문 연혁(history_evolution) 추출용. JSON 손상 시 None 폴백."""
+    cache = globals().setdefault('_other_history_cache', {})
+    if group not in cache:
+        suffix = '' if group == 'road' else f'_{group}'
+        path = SCRIPT_DIR.parent / 'data' / f'article_history{suffix}.json'
+        if not path.exists():
+            cache[group] = None
+        else:
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    cache[group] = json.load(f)
+            except (json.JSONDecodeError, OSError) as e:
+                print(f"  ⚠️ article_history{suffix}.json 로드 실패: {e}")
+                cache[group] = None
+    return cache[group]
+
+
+def _extract_jo_history(group, jo, max_changes=3):
+    """Phase 3 PR-F — 특정 조문(jo)의 변경 이력 N건 추출 (공포일 desc).
+    반환: [{공포일자, 시행일자, 제개정구분, 제개정이유}, ...] 또는 []."""
+    data = _load_other_group_history(group)
+    if not data:
+        return []
+    law_versions = ((data.get('법령') or {}).get('법률') or {}).get('버전', [])
+    matches = []
+    for v in law_versions:
+        if jo in (v.get('변경조문키') or []):
+            reason = (v.get('제개정이유') or '').strip()
+            if len(reason) > 220:
+                reason = reason[:220].replace('\n', ' ').strip() + '…'
+            matches.append({
+                '공포일자': v.get('공포일자', ''),
+                '시행일자': v.get('시행일자', ''),
+                '제개정구분': v.get('제개정구분', ''),
+                '제개정이유': reason,
+            })
+    matches.sort(key=lambda x: x.get('공포일자', ''), reverse=True)
+    # 같은 공포일자 중복 제거 (article_history는 같은 공포일에 여러 버전 분리 추적할 수 있음)
+    seen, deduped = set(), []
+    for m in matches:
+        pub = m.get('공포일자', '')
+        if pub and pub in seen:
+            continue
+        seen.add(pub)
+        deduped.append(m)
+    return deduped[:max_changes]
+
+
 def _load_study_whitelist():
     """tutor/data/study_whitelist.json 캐시 로드. JSON 손상 시 빈 dict 폴백."""
     cache = globals().setdefault('_wl_cache', {})
@@ -1404,6 +1454,11 @@ def build_other_group_article_card(selection, use_llm=True):
         },
         'llm_status': 'simple_other_group',
     }
+
+    # PR-F: 조문 연혁(history_evolution) 추가 — article_history_{group}.json 활용
+    history = _extract_jo_history(group, jo, max_changes=3)
+    if history:
+        card['history_evolution'] = history
 
     # PR-C: 간단 LLM 콘텐츠 추가 (실패 시 simple_other_group 그대로)
     if use_llm and GEMINI_API_KEY and article_text:
