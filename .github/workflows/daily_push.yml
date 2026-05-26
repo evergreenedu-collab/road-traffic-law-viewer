@@ -61,16 +61,19 @@ jobs:
           python build_tutor_content.py --date ${{ steps.date.outputs.today }} --days 1
 
       - name: 카드 자료 commit·push (master)
+        continue-on-error: true   # push race로 rejected돼도 알림 발송은 계속 진행
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git add tutor/data/daily_*.json tutor/data/schedule.json
           if git diff --cached --quiet; then
             echo "변경 없음 — commit 스킵"
-          else
-            git commit -m "data: ${{ steps.date.outputs.today }} 카드 자동 빌드"
-            git push origin master
+            exit 0
           fi
+          git commit -m "data: ${{ steps.date.outputs.today }} 카드 자동 빌드"
+          # PR 머지·재trigger와 race 회피 — rebase 후 push, 그래도 실패하면 무시
+          git pull --rebase origin master || true
+          git push origin master || echo "⚠️ push 실패 — race condition. 알림 발송은 계속 진행"
 
       - name: 푸시 알림 발송
         env:
