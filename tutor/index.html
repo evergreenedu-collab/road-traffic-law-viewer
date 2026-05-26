@@ -561,15 +561,41 @@ function renderCaseCard(card) {
     + '</article>';
 }
 
+// Phase 3 PR-F — 다른 그룹 단순 카드의 조문 연혁 섹션
+function renderOtherGroupHistory(card) {
+  const hist = card.history_evolution;
+  if (!Array.isArray(hist) || hist.length === 0) return '';
+  const lawName = (card.law_info && card.law_info.법령명) || '';
+  const items = hist.map(h => {
+    const pub = h.공포일자 ? fmtDate(h.공포일자) : '';
+    const eff = h.시행일자 ? fmtDate(h.시행일자) : '';
+    const reason = h.제개정이유 || '';
+    const reasonHtml = reason ? '<div style="font-size:13px;color:#374151;margin-top:4px;line-height:1.6">' + esc(reason) + '</div>' : '';
+    return '<div style="padding:10px 12px;border-bottom:1px solid #f3f4f6">'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--sub)">'
+      + '<span style="font-weight:600;color:var(--text)">공포 ' + esc(pub) + '</span>'
+      + (eff ? '<span>· 시행 ' + esc(eff) + '</span>' : '')
+      + (h.제개정구분 ? '<span class="badge cat" style="background:#fef3c7;color:#92400e;font-size:11px">' + esc(h.제개정구분) + '</span>' : '')
+      + '</div>'
+      + reasonHtml + '</div>';
+  }).join('');
+  return '<details class="section history-evolution" open>'
+    + '<summary>📜 ' + esc(lawName) + ' 최근 개정 ' + hist.length + '건</summary>'
+    + '<div style="background:#fff;border:1px solid var(--border);border-radius:6px;overflow:hidden">' + items + '</div>'
+    + '</details>';
+}
+
 function renderCard(card) {
   // Phase 2: case 카드는 별도 렌더링. card_type 없으면 article 폴백.
   if (card && card.card_type === 'case') return renderCaseCard(card);
   // 순서(R9): 메인 → 조문 원문 → 법리분석 → 학습포인트
   //          → 관련판례 → 핵심쟁점 → 참고자료 → 법령본문보기
   // Phase 3 PR-D — content_tier='simple' (다른 그룹 단순 카드)는 도교법 풀 콘텐츠용 섹션 차단 (자료 없음).
+  // PR-F — 단순 카드에도 history_evolution은 추가 (article_history_{group}.json 자료 기반).
   const lc = card.learning_content || {};
   const llmOk = isLlmOk(card.llm_status);
   const isFull = llmOk && card.content_tier !== 'simple';
+  const isSimple = card.content_tier === 'simple';
   return [
     renderMainCard(card),
     renderArticleText(card),
@@ -578,6 +604,7 @@ function renderCard(card) {
     isFull ? renderCases(card) : '',
     isFull ? renderIssues(lc) : '',
     isFull ? renderRefs(card) : '',
+    isSimple ? renderOtherGroupHistory(card) : '',
     renderViewLaw(card)
   ].join('');
 }
