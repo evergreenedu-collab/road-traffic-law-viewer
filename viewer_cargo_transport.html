@@ -7,6 +7,10 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<!-- PWA PR-H1 — manifest + theme color -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e40af">
+<link rel="apple-touch-icon" href="icons/icon-192.svg">
 <title>화물자동차 운수사업법 한눈에 — 법률·시행령·시행규칙·별표 통합 비교</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
@@ -26,10 +30,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .header .header-stats{position:absolute;top:14px;right:20px;font-size:11px;opacity:.85;text-align:right;line-height:1.5}
 .header .header-stats b{font-size:14px;display:block;font-weight:600}
 @media(max-width:768px){.header .header-stats{display:none}}
-/* 모바일에서 헤더 알림 버튼 — 작게 + 좌상단으로 (h1 가리지 않게) */
+/* PR-H4-β: 헤더 좌측 액션 그룹 (최근 개정 알림 + 튜터 복귀) — flex 래퍼로 절대좌표 충돌 회피 */
+.header-left-actions{position:absolute;top:12px;left:20px;display:flex;gap:8px;flex-wrap:wrap;z-index:5}
+.header-action-btn{border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;box-shadow:0 2px 4px rgba(0,0,0,0.15);line-height:1.2}
+.header-action-btn.alarm{background:#c0392b;color:#fff}
+.header-action-btn.tutor{background:#fff;color:var(--law);border:1px solid var(--border)}
+.header-push-link{position:absolute;top:12px;right:20px;padding:8px 14px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:13px;color:var(--law);font-weight:600;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.15);display:inline-flex;align-items:center;gap:6px;line-height:1.2}
+/* 모바일에서 헤더 버튼 3개 — 작게 + wrap 허용 (h1 가리지 않게) */
 @media(max-width:600px){
-  .header{padding-top:44px}
-  .header-alarm-link{top:8px!important;left:8px!important;padding:5px 10px!important;font-size:11px!important}
+  .header{padding-top:52px}
+  .header-left-actions{top:8px!important;left:8px!important;gap:6px}
+  .header-action-btn{padding:5px 10px!important;font-size:11px!important}
+  .header-push-link{top:8px!important;right:8px!important;padding:5px 10px!important;font-size:11px!important}
 }
 
 .toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
@@ -226,9 +238,32 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="header" style="position:relative">
   <div class="header-stats" id="headerStats"></div>
-  
+  <div class="header-left-actions"><a href="./tutor/" class="header-action-btn tutor" title="출근길 법령튜터로 이동">📚 출근길 튜터</a></div>
+  <!-- PR-H2-α / PR-H4-β: 알림 구독 버튼 (우상단) — 좌측 액션과 동일 크기 (color로 위계 구분) -->
+  <button id="pushBtn" type="button" class="header-push-link" onclick="subscribePush()">
+    🔔 알림 받기
+  </button>
   <h1>화물자동차 운수사업법 한눈에</h1>
   <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
+</div>
+
+<!-- PR-H2-α — 구독 결과 JSON 모달 -->
+<div id="subModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+  <div style="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2 style="margin:0;font-size:18px">🔔 알림 구독 완료</h2>
+      <button type="button" onclick="document.getElementById('subModal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 12px">
+      아래 JSON을 <b>전부 복사</b>해서 Claude에 붙여넣어 주세요.
+      GitHub Secret <code style="background:#f3f4f6;padding:2px 6px;border-radius:3px">PUSH_SUBSCRIPTION_JSON</code>으로 자동 등록됩니다.
+      매일 아침 06:30에 푸시 알림 도착.
+    </p>
+    <textarea id="subJson" readonly style="width:100%;height:200px;font-family:Menlo,Consolas,monospace;font-size:12px;padding:10px;border:1px solid var(--border);border-radius:6px;background:#f9fafb"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button type="button" onclick="copySubJson()" style="padding:8px 16px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📋 복사</button>
+    </div>
+  </div>
 </div>
 
 
@@ -320,12 +355,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core_cargo_transport.js?v=20260525222331"></script>
-<script src="web_data/data_timeline_cargo_transport.js?v=20260525222331"></script>
-<script src="web_data/data_tbl_diff_decree_cargo_transport.js?v=20260525222331"></script>
-<script src="web_data/data_tbl_diff_rule_cargo_transport.js?v=20260525222331"></script>
-<script src="web_data/data_tbl_pdf_cargo_transport.js?v=20260525222331"></script>
-<script src="web_data/data_tbl_history_cargo_transport.js?v=20260525222331"></script>
+<script src="web_data/data_core_cargo_transport.js?v=20260527000502"></script>
+<script src="web_data/data_timeline_cargo_transport.js?v=20260527000502"></script>
+<script src="web_data/data_tbl_diff_decree_cargo_transport.js?v=20260527000502"></script>
+<script src="web_data/data_tbl_diff_rule_cargo_transport.js?v=20260527000502"></script>
+<script src="web_data/data_tbl_pdf_cargo_transport.js?v=20260527000502"></script>
+<script src="web_data/data_tbl_history_cargo_transport.js?v=20260527000502"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -2392,6 +2427,74 @@ window.addEventListener('message',e=>{
   // Phase 3 S3-1-b-4-b 사후검증: 알람은 항상 법률 조문 기준이므로 law 파라미터 잔존 시 제거
   url.searchParams.delete('law');
   window.location.href=url.toString();
+});
+
+// PWA PR-H1 — Service Worker 등록 (HTTPS·localhost 한정. 알림 권한 요청은 PR-H2)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js', { scope: './' })
+      .then(reg => console.log('SW 등록 OK:', reg.scope))
+      .catch(err => console.warn('SW 등록 실패:', err));
+  });
+}
+
+// PWA PR-H2-α — 알림 구독 UI (viewer 헤더 우상단 [🔔 알림 받기])
+const VAPID_PUBLIC_KEY = 'BB5tBlvRBOMhfWHazK68THkT2t5oQo7S2SBKP7WsT1TmHWikV_gIukOlfkDGoLiy5Gb6TlN-HJ7osXVjEOzoRBM';
+
+function urlBase64ToUint8Array(b64) {
+  const padding = '='.repeat((4 - b64.length % 4) % 4);
+  const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function subscribePush() {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('이 브라우저는 Web Push를 지원하지 않아요.\n(iOS는 16.4+ Safari 또는 홈 화면 추가된 PWA에서 가능)');
+      return;
+    }
+    if (location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+      alert('Web Push는 HTTPS에서만 동작해요. GitHub Pages에서 다시 시도해주세요.');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { alert('알림 권한을 허용해야 구독할 수 있어요.'); return; }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    const json = JSON.stringify(sub.toJSON(), null, 2);
+    document.getElementById('subJson').value = json;
+    document.getElementById('subModal').style.display = 'flex';
+    try { localStorage.setItem('pushSubscription', json); } catch (e) {}
+    const btn = document.getElementById('pushBtn');
+    if (btn) btn.textContent = '🔔 구독 중';
+  } catch (e) {
+    console.error('구독 실패:', e);
+    alert('알림 구독 실패: ' + (e.message || e));
+  }
+}
+
+function copySubJson() {
+  const ta = document.getElementById('subJson');
+  ta.select();
+  document.execCommand('copy');
+  alert('JSON을 복사했어요. Claude에 붙여넣어 주세요.');
+}
+
+window.addEventListener('load', async () => {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    const btn = document.getElementById('pushBtn');
+    if (sub && btn) btn.textContent = '🔔 구독 중';
+  } catch (e) {}
 });
 </script>
 </body>
