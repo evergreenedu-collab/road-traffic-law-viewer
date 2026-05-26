@@ -522,11 +522,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .header-action-btn.alarm{background:#c0392b;color:#fff}
 .header-action-btn.tutor{background:#fff;color:var(--law);border:1px solid var(--border)}
 .header-action-btn.push{background:#fff;color:var(--law);border:1px solid var(--border)}
-/* 모바일에서 헤더 버튼 그룹 — 작게 + wrap 허용 + stats 숨김으로 우측 폭 회수 */
+/* 모바일에서 헤더 버튼 그룹 — absolute 빼고 자연 흐름으로 위→아래 stacking (h1 겹침 회피) */
 @media(max-width:600px){
-  .header{padding-top:52px}
-  .header-left-actions{top:8px!important;left:8px!important;gap:6px;max-width:calc(100% - 16px)}
-  .header-action-btn{padding:5px 10px!important;font-size:11px!important}
+  .header{padding:14px 14px 16px;display:flex;flex-direction:column;align-items:stretch}
+  .header-left-actions{position:static!important;top:auto!important;left:auto!important;display:flex;justify-content:center;gap:6px;max-width:100%;margin-bottom:10px;flex-wrap:wrap}
+  .header-action-btn{padding:6px 10px!important;font-size:11px!important;flex-shrink:0}
+  .header h1{font-size:18px}
+  .header p{font-size:12px}
 }
 
 .toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
