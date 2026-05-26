@@ -416,11 +416,15 @@ def main():
     law_title = map_data.get("기준법령", {}).get("법률", {}).get("법령명", "도로교통법")
     html = HTML_TEMPLATE.replace("{{LAW_TITLE}}", law_title)
 
-    # 알람 UI는 도교법(road) 전용 자료라 다른 그룹에서는 숨김 (Codex 사후검증 2026-05-22)
+    # PR-H4-β: 헤더 좌측 액션 그룹 — flex 래퍼 안에 알람(road 전용) + 튜터 복귀(전 그룹)
+    # 튜터 복귀 버튼은 모든 그룹 viewer에 표시 — 어느 viewer에서도 튜터로 돌아갈 수 있도록 (Codex 권장 위치=왼쪽)
+    tutor_button = (
+        '<a href="./tutor/" class="header-action-btn tutor" title="출근길 법령튜터로 이동">'
+        '📚 출근길 튜터</a>'
+    )
     if group == "road":
         alarm_button = (
-            '<button type="button" class="header-alarm-link" id="alarmLink" onclick="openAlarmModal()"'
-            ' style="position:absolute;top:12px;left:20px;background:#c0392b;color:white;border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;box-shadow:0 2px 4px rgba(0,0,0,0.15);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;z-index:5">'
+            '<button type="button" class="header-action-btn alarm header-alarm-link" id="alarmLink" onclick="openAlarmModal()">'
             '📢 최근 개정 알림</button>'
         )
         alarm_modal = (
@@ -435,7 +439,11 @@ def main():
     else:
         alarm_button = ""
         alarm_modal = ""
-    html = html.replace("{{ALARM_BUTTON}}", alarm_button).replace("{{ALARM_MODAL}}", alarm_modal)
+    # 좌측 액션 래퍼 — 알람(road)이 있으면 둘 다, 없으면 튜터만
+    left_actions = f'<div class="header-left-actions">{alarm_button}{tutor_button}</div>'
+    # 튜터 페이지 본인이면 자기 자신으로 가는 버튼 의미 없음 — 하지만 viewer는 튜터가 아니므로 항상 표시
+    # 단, road group viewer의 경우 튜터 가는 경로는 ./tutor/, 다른 그룹 viewer도 동일 위치(루트 기준)
+    html = html.replace("{{ALARM_BUTTON}}", left_actions).replace("{{ALARM_MODAL}}", alarm_modal)
     html = html.replace("{{CURRENT_GROUP}}", group)
 
     # 1) script src에 group suffix + 캐시버스팅
@@ -508,10 +516,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .header .header-stats{position:absolute;top:14px;right:20px;font-size:11px;opacity:.85;text-align:right;line-height:1.5}
 .header .header-stats b{font-size:14px;display:block;font-weight:600}
 @media(max-width:768px){.header .header-stats{display:none}}
-/* 모바일에서 헤더 알림 버튼 — 작게 + 좌상단으로 (h1 가리지 않게) */
+/* PR-H4-β: 헤더 좌측 액션 그룹 (최근 개정 알림 + 튜터 복귀) — flex 래퍼로 절대좌표 충돌 회피 */
+.header-left-actions{position:absolute;top:12px;left:20px;display:flex;gap:8px;flex-wrap:wrap;z-index:5}
+.header-action-btn{border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;box-shadow:0 2px 4px rgba(0,0,0,0.15);line-height:1.2}
+.header-action-btn.alarm{background:#c0392b;color:#fff}
+.header-action-btn.tutor{background:#fff;color:var(--law);border:1px solid var(--border)}
+.header-push-link{position:absolute;top:12px;right:20px;padding:8px 14px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:13px;color:var(--law);font-weight:600;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.15);display:inline-flex;align-items:center;gap:6px;line-height:1.2}
+/* 모바일에서 헤더 버튼 3개 — 작게 + wrap 허용 (h1 가리지 않게) */
 @media(max-width:600px){
-  .header{padding-top:44px}
-  .header-alarm-link{top:8px!important;left:8px!important;padding:5px 10px!important;font-size:11px!important}
+  .header{padding-top:52px}
+  .header-left-actions{top:8px!important;left:8px!important;gap:6px}
+  .header-action-btn{padding:5px 10px!important;font-size:11px!important}
+  .header-push-link{top:8px!important;right:8px!important;padding:5px 10px!important;font-size:11px!important}
 }
 
 .toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
@@ -709,9 +725,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <div class="header" style="position:relative">
   <div class="header-stats" id="headerStats"></div>
   {{ALARM_BUTTON}}
-  <!-- PR-H2-α — 알림 구독 버튼 (우상단) -->
-  <button id="pushBtn" type="button" onclick="subscribePush()"
-          style="position:absolute;top:8px;right:8px;padding:6px 12px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-size:12px;color:var(--law);font-weight:600;z-index:10">
+  <!-- PR-H2-α / PR-H4-β: 알림 구독 버튼 (우상단) — 좌측 액션과 동일 크기 (color로 위계 구분) -->
+  <button id="pushBtn" type="button" class="header-push-link" onclick="subscribePush()">
     🔔 알림 받기
   </button>
   <h1>{{LAW_TITLE}} 한눈에</h1>
