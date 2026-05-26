@@ -1,0 +1,129 @@
+name: 매일 카드 + 푸시 알림
+
+# 평일(월~금) 06:30 KST = 21:30 UTC (전날)
+on:
+  schedule:
+    - cron: '30 21 * * 0-4'   # UTC 일·월·화·수·목 21:30 = KST 월·화·수·목·금 06:30
+  workflow_dispatch:           # 수동 트리거 (PR-H3 테스트용)
+
+permissions:
+  contents: write              # 카드 자료 commit·push 위해 필요
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: requirements 설치
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install requests
+
+      - name: Node 설정 (web-push)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: web-push 설치
+        run: npm install --no-save web-push
+
+      - name: KST 오늘 날짜 산정
+        id: date
+        run: |
+          # GitHub Actions runner는 UTC. KST = UTC + 9h.
+          # 21:30 UTC 실행 시 KST 다음날 06:30 — 다음날을 "오늘" 날짜로
+          KST_TODAY=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+          KST_DOW=$(TZ='Asia/Seoul' date +%u)   # 1=월 ~ 7=일
+          echo "today=$KST_TODAY" >> $GITHUB_OUTPUT
+          echo "dow=$KST_DOW" >> $GITHUB_OUTPUT
+          echo "KST 오늘=$KST_TODAY (요일=$KST_DOW)"
+
+      - name: 평일만 진행 (주말 스킵)
+        if: steps.date.outputs.dow == '6' || steps.date.outputs.dow == '7'
+        run: |
+          echo "주말이라 스킵"
+          exit 0
+
+      - name: 그날 카드 1장 빌드
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          cd tutor
+          python build_tutor_content.py --date ${{ steps.date.outputs.today }} --days 1
+
+      - name: 카드 자료 commit·push (master)
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add tutor/data/daily_*.json tutor/data/schedule.json
+          if git diff --cached --quiet; then
+            echo "변경 없음 — commit 스킵"
+          else
+            git commit -m "data: ${{ steps.date.outputs.today }} 카드 자동 빌드"
+            git push origin master
+          fi
+
+      - name: 푸시 알림 발송
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          VAPID_PUBLIC_KEY: BB5tBlvRBOMhfWHazK68THkT2t5oQo7S2SBKP7WsT1TmHWikV_gIukOlfkDGoLiy5Gb6TlN-HJ7osXVjEOzoRBM
+          PUSH_SUBSCRIPTION_JSON: ${{ secrets.PUSH_SUBSCRIPTION_JSON }}
+          TODAY: ${{ steps.date.outputs.today }}
+          DOW: ${{ steps.date.outputs.dow }}
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const webpush = require('web-push');
+
+          webpush.setVapidDetails(
+            process.env.VAPID_SUBJECT,
+            process.env.VAPID_PUBLIC_KEY,
+            process.env.VAPID_PRIVATE_KEY,
+          );
+
+          // 그날 카드에서 oneliner·법령명·조문번호 추출
+          const today = process.env.TODAY;
+          const dow = parseInt(process.env.DOW, 10);    // 1=월 ~ 5=금
+          const dayLabel = ['월','화','수','목','금'][dow - 1] || '';
+          const cardPath = `tutor/data/daily_${today}.json`;
+          let title = `🚗 ${today.slice(5)} (${dayLabel}) 법령튜터`;
+          let body = '오늘의 카드가 준비됐어요.';
+          let url = `./tutor/?date=${today}`;
+
+          try {
+            const daily = JSON.parse(fs.readFileSync(cardPath, 'utf-8'));
+            const card = (daily.cards || [])[0];
+            if (card) {
+              const group = card.group || 'road';
+              const colorMap = { road: '🟦', tlspc: '🟩', tkga: '🟪', car_mgmt: '🟪', passenger_transport: '🟪', cargo_transport: '🟪', crim_proc: '🟪' };
+              const color = colorMap[group] || '🟦';
+              const li = card.law_info || {};
+              const lawName = li['법령명'] || '도로교통법';
+              const jo = li['매핑법률조문'] || '?';
+              const joTitle = li['매핑법률조문제목'] || '';
+              const oneliner = (card.learning_content || {}).oneliner || '';
+              title = `🚗 ${today.slice(5)} (${dayLabel}) 출근길 법령튜터`;
+              const onelinerShort = oneliner.length > 100 ? oneliner.slice(0, 100) + '…' : oneliner;
+              body = `${color} ${lawName} 제${jo}조 ${joTitle}\n${onelinerShort}`;
+            }
+          } catch (e) {
+            console.error('카드 읽기 실패:', e.message);
+          }
+
+          const subscription = JSON.parse(process.env.PUSH_SUBSCRIPTION_JSON);
+          const payload = JSON.stringify({ title, body, url });
+
+          webpush.sendNotification(subscription, payload, { TTL: 86400 })
+            .then(r => console.log('푸시 발송 성공 statusCode=' + r.statusCode))
+            .catch(e => { console.error('푸시 발송 실패:', e); process.exit(1); });
+          EOF
