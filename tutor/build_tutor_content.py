@@ -56,8 +56,16 @@ WEEKDAY_SLOTS = {
     4: ('article', None),       # 금 — 회전 (ROTATION_GROUPS에서 주차 cursor 결정)
 }
 
-# Phase 3 S8 — 금요일 회전 그룹 5개 (주차 cursor % 5로 순환)
+# Phase 3 S8 — 금요일 회전 그룹 5개 (주차 cursor % ROTATION_PERIOD 로 순환)
 ROTATION_GROUPS = ('tkga', 'car_mgmt', 'passenger_transport', 'cargo_transport', 'crim_proc')
+# ROTATION_PERIOD: 회전 주기. ROTATION_GROUPS 길이와 분리해서 명시 상수로 고정 —
+# 미래에 그룹을 6개로 늘려도 기존 schedule의 cursor 안정성 유지 (Codex PR-B 권장).
+# ROTATION_GROUPS 길이가 ROTATION_PERIOD 초과 시 초과분은 회전에 포함 안 됨(추후 의도 결정).
+ROTATION_PERIOD = 5
+assert len(ROTATION_GROUPS) <= ROTATION_PERIOD, (
+    f"ROTATION_GROUPS({len(ROTATION_GROUPS)}) > ROTATION_PERIOD({ROTATION_PERIOD}) — "
+    "회전에서 일부 그룹 누락. ROTATION_PERIOD를 늘리거나 그룹 분리 정책 확정 필요."
+)
 
 # 옛 호환 (string schedule 형식 처리용. 새 코드는 WEEKDAY_SLOTS 우선)
 WEEKDAY_CASE = (1,)              # 도교법 case (옛 모델은 1·3, 새 모델은 1만)
@@ -381,21 +389,22 @@ def _jokey_order(k):
 
 
 def _resolve_rotation_group(target_date):
-    """Phase 3 S8 — 금요일 회전 슬롯의 그룹 결정. EPOCH 기준 주차 % len(ROTATION_GROUPS)."""
+    """Phase 3 S8 — 금요일 회전 슬롯의 그룹 결정. EPOCH 기준 주차 % ROTATION_PERIOD.
+    ROTATION_GROUPS의 처음 ROTATION_PERIOD 개만 회전. 초과분은 회전에 포함 안 됨(추후 정책 결정)."""
     delta_days = (target_date - EPOCH).days
     week_index = delta_days // 7
-    return ROTATION_GROUPS[week_index % len(ROTATION_GROUPS)]
+    return ROTATION_GROUPS[week_index % ROTATION_PERIOD]
 
 
 def _group_occurrence_index(group, target_date):
     """EPOCH 이후 이 그룹이 평일 슬롯에서 몇 번째로 등장하는지(0-based).
     - tlspc (목 고정): 매주 1번 → week_index
-    - 회전 그룹 (금): len(ROTATION_GROUPS)주마다 1번 → week_index // 5
+    - 회전 그룹 (금): ROTATION_PERIOD주마다 1번 → week_index // ROTATION_PERIOD
     - 그 외: week_index 기본"""
     delta_days = (target_date - EPOCH).days
     week_index = delta_days // 7
     if group in ROTATION_GROUPS:
-        return week_index // len(ROTATION_GROUPS)
+        return week_index // ROTATION_PERIOD
     return week_index
 
 
