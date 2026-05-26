@@ -1288,13 +1288,73 @@ def build_case_card(selection, indexes, target_date=None, use_llm=True):
     return card
 
 
-def build_other_group_article_card(selection):
-    """Phase 3 S5 PR-A: 다른 그룹 article 단순 카드.
-    조문 본문 + 화이트리스트 메타. LLM 없음 (PR-B 이후 build_indexes multi-group 확장 시 풍부화)."""
+def generate_other_group_article_content(group, jo, jo_title, article_text, label):
+    """Phase 3 PR-C — 다른 그룹 article 카드용 간단 LLM 콘텐츠 (oneliner + explanation).
+    case_llm.py 스타일 보수적 프롬프트(본문 외 만들지 마라·일반론 금지).
+    학습 콘텐츠 생성 실패 시 None 반환 → 호출자는 simple_other_group 폴백."""
+    if not GEMINI_API_KEY:
+        return None
+    # Codex 권장 — 절단 발생 시 프롬프트에 명시 (제공된 범위 밖 추정 금지)
+    BODY_LIMIT = 3000
+    truncated = len(article_text) > BODY_LIMIT
+    body = article_text[:BODY_LIMIT]
+    trunc_note = (
+        "\n[주의] 아래 본문은 앞부분 일부(절단됨)이므로 제공된 범위만 요약한다. 본문 끝에 단정 표현 자제.\n"
+        if truncated else ""
+    )
+    prompt = f"""당신은 한국도로교통공단 교수의 학습 콘텐츠 작성자입니다. 교수들이 매일 아침 읽는 자료이므로 정확성이 최우선입니다.
+
+[학습 대상]
+{label} 제{jo}조 {jo_title}
+
+[작성 규칙 — 위반 시 자료 신뢰도 훼손, 반드시 지킬 것]
+1. 아래 조문 본문에 명시된 내용만 사용한다. 본문에 없는 사례·통계·정책 평가는 절대 쓰지 않는다.
+2. 법률 용어는 본문 표현을 그대로 쓴다. 일상어로 의역하지 않는다.
+3. '항상'·'모든 경우'·'반드시'·'예외 없이' 같은 단정·일반화는 본문이 명확히 그렇게 규정할 때만. 불명확하면 유보적 표현.
+4. 법령명·조문번호 외 외부 법령 관계를 본문이 명시하지 않은 한 추정하지 않는다.
+5. 불명확하면 빈 문자열로 둔다. 추측보다 빈 채로 두는 게 낫다.
+
+[출력 형식 — 순수 JSON 객체 1개. 마크다운 코드블럭 금지. 한국어]
+{{
+  "oneliner": "이 조문의 핵심을 한 줄(50~100자)로. 마침표로 끝.",
+  "explanation": "이 조문이 무엇을 규정하는지 본문 기반 풀이 (3~5문장). 각 항·호의 핵심을 요약."
+}}
+{trunc_note}
+[조문 본문]
+{body}
+"""
+    raw = call_gemini_api(prompt, temperature=0.2)
+    if not raw:
+        return None
+    cleaned = re.sub(r'^```(?:json)?\s*|\s*```$', '', raw.strip(), flags=re.MULTILINE).strip()
+    try:
+        parsed = json.loads(cleaned)
+    except (json.JSONDecodeError, TypeError):
+        print(f"    ⚠️ JSON 파싱 실패", flush=True)   # Codex 권장 — 실패 사유 구분
+        return None
+    if not isinstance(parsed, dict):
+        print(f"    ⚠️ 응답이 dict 아님 ({type(parsed).__name__})", flush=True)
+        return None
+    oneliner = parsed.get('oneliner', '')
+    explanation = parsed.get('explanation', '')
+    if not isinstance(oneliner, str) or not isinstance(explanation, str):
+        print(f"    ⚠️ 필드 타입 오류 (oneliner·explanation 비-문자열)", flush=True)
+        return None
+    oneliner, explanation = oneliner.strip(), explanation.strip()
+    if not oneliner or not explanation:
+        print(f"    ⚠️ 빈 필드 (oneliner·explanation 중 비어 있음) — 보수적 회피 정상", flush=True)
+        return None
+    return {'oneliner': oneliner, 'explanation': explanation}
+
+
+def build_other_group_article_card(selection, use_llm=True):
+    """Phase 3 S5 PR-A: 다른 그룹 article 카드. 조문 본문 + 화이트리스트 메타.
+    Phase 3 PR-C: use_llm=True면 간단 LLM 콘텐츠(oneliner + explanation) 추가."""
     group = selection['group']
     jo = selection['jo']
     art = _load_other_group_article(group, jo) or {}
     label = _other_group_label(group)
+    jo_title = art.get('조문제목', '')
     # 본문 텍스트 결합 — 항·호·목내용에는 이미 번호(①·1.·가.) 포함되어 있으므로 번호 prefix 생략
     parts = [art.get('조문내용', '')]
     for h in (art.get('항') or []):
@@ -1308,7 +1368,7 @@ def build_other_group_article_card(selection):
                     parts.append('    ' + mo['목내용'])
     article_text = '\n'.join(p for p in parts if p.strip())
 
-    return {
+    card = {
         'card_id': 'card-1',
         'rank': 1,
         'card_type': 'article',
@@ -1318,7 +1378,7 @@ def build_other_group_article_card(selection):
             '법령유형': '법률',
             '법령명': label,
             '매핑법률조문': jo,
-            '매핑법률조문제목': art.get('조문제목', ''),
+            '매핑법률조문제목': jo_title,
             'is_recent_revision': False,
             'categories': [label],
             'viewer_link': f'../viewer_{group}.html?jo={jo}' if group != 'road' else f'../viewer.html?jo={jo}',
@@ -1333,14 +1393,27 @@ def build_other_group_article_card(selection):
         'llm_status': 'simple_other_group',
     }
 
+    # PR-C: 간단 LLM 콘텐츠 추가 (실패 시 simple_other_group 그대로)
+    if use_llm and GEMINI_API_KEY and article_text:
+        print(f"  🤖 {label} 제{jo}조 단순 LLM 호출 (oneliner + explanation)", flush=True)
+        lc = generate_other_group_article_content(group, jo, jo_title, article_text, label)
+        if lc:
+            card['learning_content'] = lc
+            card['llm_status'] = 'ok'
+            print(f"    ✅ 완료 ({len(lc['oneliner'])}자 + {len(lc['explanation'])}자)", flush=True)
+        else:
+            print(f"    ⚠️ LLM 실패 — simple_other_group 폴백 유지", flush=True)
+
+    return card
+
 
 def build_card(selection, indexes, target_date=None, use_llm=True):
     # Phase 2 2b-γ: card_type 분기. case 카드는 별도 빌드.
     if selection.get('card_type') == 'case':
         return build_case_card(selection, indexes, target_date, use_llm)
-    # Phase 3 S5 PR-A: 다른 그룹 article은 단순 카드 (조문 본문만, LLM 없음)
+    # Phase 3 S5 PR-A: 다른 그룹 article은 단순 카드 + PR-C LLM 콘텐츠
     if selection.get('group') and selection['group'] != 'road':
-        return build_other_group_article_card(selection)
+        return build_other_group_article_card(selection, use_llm=use_llm)
 
     jo = selection['jo']
     jo_entry = indexes['law'].get(jo)
