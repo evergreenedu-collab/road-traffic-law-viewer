@@ -216,10 +216,31 @@ footer a { color: var(--sub); text-decoration: underline; }
 </head>
 <body>
 
-<header>
+<header style="position:relative">
   <h1>📚 출근길 법령 튜터</h1>
   <p>매일 한 건 — 도로교통법 현행 + 해설 + 판례 통합 학습 — <a href="../viewer.html">전체 뷰어</a></p>
+  <!-- PR-H2 — 알림 구독 UI -->
+  <button id="pushBtn" onclick="subscribePush()" style="position:absolute;top:14px;right:14px;padding:8px 14px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-size:13px;color:var(--law);font-weight:600">🔔 알림 받기</button>
 </header>
+
+<!-- PR-H2 — 구독 결과 모달 -->
+<div id="subModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+  <div style="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2 style="margin:0;font-size:18px">🔔 알림 구독 완료</h2>
+      <button onclick="document.getElementById('subModal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 12px">
+      아래 JSON을 <b>전부 복사</b>해서 알려주세요.
+      Claude가 GitHub Secret <code style="background:#f3f4f6;padding:2px 6px;border-radius:3px">PUSH_SUBSCRIPTION_JSON</code>으로 자동 등록합니다.
+      등록되면 매일 아침 06:30에 푸시 알림이 도착해요.
+    </p>
+    <textarea id="subJson" readonly style="width:100%;height:200px;font-family:Menlo,Consolas,monospace;font-size:12px;padding:10px;border:1px solid var(--border);border-radius:6px;background:#f9fafb"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button onclick="copySubJson()" style="padding:8px 16px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📋 복사</button>
+    </div>
+  </div>
+</div>
 
 <nav class="date-nav">
   <label for="dateInput">날짜:</label>
@@ -669,6 +690,71 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.warn('SW 등록 실패:', err));
   });
 }
+
+// PWA PR-H2 — 알림 구독 UI
+const VAPID_PUBLIC_KEY = 'BB5tBlvRBOMhfWHazK68THkT2t5oQo7S2SBKP7WsT1TmHWikV_gIukOlfkDGoLiy5Gb6TlN-HJ7osXVjEOzoRBM';
+
+function urlBase64ToUint8Array(b64) {
+  const padding = '='.repeat((4 - b64.length % 4) % 4);
+  const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function subscribePush() {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('이 브라우저는 Web Push를 지원하지 않아요.\\n(iOS는 16.4+ Safari 또는 홈 화면 추가된 PWA에서 가능)');
+      return;
+    }
+    if (location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+      alert('Web Push는 HTTPS에서만 동작해요. GitHub Pages에서 다시 시도해주세요.');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      alert('알림 권한을 허용해야 구독할 수 있어요.');
+      return;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    // 기존 구독 있으면 재사용
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    const json = JSON.stringify(sub.toJSON(), null, 2);
+    document.getElementById('subJson').value = json;
+    document.getElementById('subModal').style.display = 'flex';
+    // 로컬에도 저장 — 재방문 시 상태 표시
+    try { localStorage.setItem('pushSubscription', json); } catch (e) {}
+    const btn = document.getElementById('pushBtn');
+    if (btn) btn.textContent = '🔔 구독 중';
+  } catch (e) {
+    console.error('구독 실패:', e);
+    alert('알림 구독 실패: ' + (e.message || e));
+  }
+}
+
+function copySubJson() {
+  const ta = document.getElementById('subJson');
+  ta.select();
+  document.execCommand('copy');
+  alert('JSON을 복사했어요. Claude에 붙여넣어 주세요.');
+}
+
+// 페이지 로드 시 기존 구독 상태 표시
+window.addEventListener('load', async () => {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    const btn = document.getElementById('pushBtn');
+    if (sub && btn) btn.textContent = '🔔 구독 중';
+  } catch (e) { /* SW 미준비 — 무시 */ }
+});
 </script>
 </body>
 </html>
