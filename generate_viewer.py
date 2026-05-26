@@ -437,6 +437,8 @@ def main():
     # 단, road group viewer의 경우 튜터 가는 경로는 ./tutor/, 다른 그룹 viewer도 동일 위치(루트 기준)
     html = html.replace("{{ALARM_BUTTON}}", left_actions).replace("{{ALARM_MODAL}}", alarm_modal)
     html = html.replace("{{CURRENT_GROUP}}", group)
+    # PR-H4-γ-2: lazy load 인프라용 BUILD_TS, SUFFIX placeholder 치환
+    html = html.replace("{{BUILD_TS}}", build_ts).replace("{{SUFFIX}}", suffix)
 
     # 1) script src에 group suffix + 캐시버스팅
     html = _re.sub(
@@ -834,21 +836,64 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
+<!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <script src="web_data/data_core.js"></script>
-<script src="web_data/data_tbl_diff_decree.js"></script>
-<script src="web_data/data_tbl_diff_rule.js"></script>
-<script src="web_data/data_tbl_pdf.js"></script>
-<script src="web_data/data_tbl_history.js"></script>
 <script>
-// 분리 로드된 데이터를 기존 변수명에 매핑
+// 분리 로드된 데이터를 기존 변수명에 매핑 — 본문(data_core)은 즉시 사용 가능
 const mapData = window._DATA_CORE.mapData;
 const artData = window._DATA_CORE.artData;
 const tableData = window._DATA_CORE.tableData;
 const cascadeData = window._DATA_CORE.cascadeData;
 const diffData = window._DATA_CORE.diffData;
-const tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE, 시행규칙: window._DATA_TBL_DIFF_RULE};
-const tblPdfData = window._DATA_TBL_PDF;
-const tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};
+// PR-H4-γ-2: 별표 자료는 빈 객체로 초기화 — lazy load 후 ensureTableExtras()에서 교체
+let tblDiffData = {시행령:{}, 시행규칙:{}};
+let tblPdfData = {};
+let tblHistoryData = {시행령:{}, 시행규칙:{}};
+const _lazyTable = { status: 'idle', promise: null };
+const _LAZY_TS = '{{BUILD_TS}}';
+const _LAZY_SFX = '{{SUFFIX}}';
+function _loadScriptOnce(src){
+  return new Promise(function(resolve, reject){
+    var s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ reject(new Error('load failed: '+src)); };
+    document.head.appendChild(s);
+  });
+}
+function ensureTableExtras(){
+  if (_lazyTable.status === 'ready') return Promise.resolve();
+  if (_lazyTable.promise) return _lazyTable.promise;
+  _lazyTable.status = 'loading';
+  _lazyTable.promise = Promise.all([
+    _loadScriptOnce('web_data/data_tbl_diff_decree'+_LAZY_SFX+'.js?v='+_LAZY_TS),
+    _loadScriptOnce('web_data/data_tbl_diff_rule'+_LAZY_SFX+'.js?v='+_LAZY_TS),
+    _loadScriptOnce('web_data/data_tbl_pdf'+_LAZY_SFX+'.js?v='+_LAZY_TS),
+    _loadScriptOnce('web_data/data_tbl_history'+_LAZY_SFX+'.js?v='+_LAZY_TS),
+  ]).then(function(){
+    tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE || {}, 시행규칙: window._DATA_TBL_DIFF_RULE || {}};
+    tblPdfData = window._DATA_TBL_PDF || {};
+    tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};
+    _lazyTable.status = 'ready';
+  }).catch(function(e){
+    _lazyTable.status = 'error';
+    _lazyTable.promise = null;   // 재시도 허용
+    console.warn('별표 자료 lazy load 실패:', e);
+    throw e;
+  });
+  return _lazyTable.promise;
+}
+// 본문 렌더링 후 1.5초 idle 시점에 백그라운드 prefetch — 사용자가 별표 클릭하기 전에 보통 완료
+function _kickPrefetchTableExtras(){
+  setTimeout(function(){
+    if (_lazyTable.status === 'idle') ensureTableExtras().catch(function(){});
+  }, 1500);
+}
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  _kickPrefetchTableExtras();
+} else {
+  window.addEventListener('DOMContentLoaded', _kickPrefetchTableExtras);
+}
 
 let opts=[];
 // Phase 3: 현재 viewer가 어느 법령 그룹인지 (road 외 그룹은 안내 메시지로 법령정보센터 유도)
@@ -1732,6 +1777,23 @@ function togFull(id,lawType,joKey,hang){
 }
 
 function openTable(lawType,ref){
+  // PR-H4-γ-2: 별표 자료 lazy load 가드 — 준비 안 됐으면 모달 스피너 후 데이터 도착 시 재호출
+  if (_lazyTable.status !== 'ready') {
+    const overlay=document.getElementById('modalOverlay');
+    const titleEl=document.getElementById('modalTitle');
+    const bodyEl=document.getElementById('modalBody');
+    if (overlay && titleEl && bodyEl) {
+      overlay.style.display='flex';
+      titleEl.textContent=`${lawType} ${ref}`;
+      if (_lazyTable.status === 'error') {
+        bodyEl.innerHTML='<div style="text-align:center;padding:40px;color:#c0392b;font-size:14px">별표 자료를 불러오지 못했습니다.<br><br><button onclick="openTable(\''+lawType+'\',\''+ref+'\')" style="padding:8px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer">🔄 다시 시도</button></div>';
+      } else {
+        bodyEl.innerHTML='<div style="text-align:center;padding:60px 20px;color:var(--sub);font-size:14px"><div style="font-size:24px;margin-bottom:12px">⏳</div>별표 자료 로딩 중...<br><span style="font-size:11px;opacity:.7">(첫 클릭 시에만 다운로드)</span></div>';
+      }
+    }
+    ensureTableExtras().then(function(){ openTable(lawType, ref); }).catch(function(){});
+    return;
+  }
   // ref: "별표 16", "별지 제39호서식" 등
   const tables=tableData[lawType]||{};
   // 번호 추출: "별지 제39호서식" → "39", "별표 16의2" → "16의2"
@@ -1947,6 +2009,19 @@ function countAddendaExceptions(addendaInfo){
 }
 
 function renderHistory(){
+  // PR-H4-γ-2: 별표 자료 lazy load 가드 — 준비 안 됐으면 historyContent 스피너 후 도착 시 재호출
+  if (_lazyTable.status !== 'ready') {
+    const hc = document.getElementById('historyContent');
+    if (hc) {
+      if (_lazyTable.status === 'error') {
+        hc.innerHTML = '<div class="main"><div style="text-align:center;padding:40px;color:#c0392b">연혁 자료를 불러오지 못했습니다.<br><br><button onclick="renderHistory()" style="padding:8px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer">🔄 다시 시도</button></div></div>';
+      } else {
+        hc.innerHTML = '<div class="main"><div style="text-align:center;padding:60px 20px;color:var(--sub)"><div style="font-size:24px;margin-bottom:12px">⏳</div>연혁 자료 로딩 중...<br><span style="font-size:11px;opacity:.7">(첫 진입 시에만 다운로드)</span></div></div>';
+      }
+    }
+    ensureTableExtras().then(function(){ renderHistory(); }).catch(function(){});
+    return;
+  }
   // Phase 3 S3-1-b-4-b: 시행령·시행규칙 직접 진입 시 단순 diff 연혁
   if(currentLawType!=='법률'){
     renderSubLawHistory(currentLawType);
