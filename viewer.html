@@ -7,6 +7,10 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<!-- PWA PR-H1 — manifest + theme color -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e40af">
+<link rel="apple-touch-icon" href="icons/icon-192.svg">
 <title>도로교통법 한눈에 — 법률·시행령·시행규칙·별표 통합 비교</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
@@ -321,12 +325,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
-<script src="web_data/data_core.js?v=20260525222326"></script>
-<script src="web_data/data_timeline.js?v=20260525222326"></script>
-<script src="web_data/data_tbl_diff_decree.js?v=20260525222326"></script>
-<script src="web_data/data_tbl_diff_rule.js?v=20260525222326"></script>
-<script src="web_data/data_tbl_pdf.js?v=20260525222326"></script>
-<script src="web_data/data_tbl_history.js?v=20260525222326"></script>
+<script src="web_data/data_core.js?v=20260526203441"></script>
+<script src="web_data/data_timeline.js?v=20260526203441"></script>
+<script src="web_data/data_tbl_diff_decree.js?v=20260526203441"></script>
+<script src="web_data/data_tbl_diff_rule.js?v=20260526203441"></script>
+<script src="web_data/data_tbl_pdf.js?v=20260526203441"></script>
+<script src="web_data/data_tbl_history.js?v=20260526203441"></script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑
 const mapData = window._DATA_CORE.mapData;
@@ -2394,6 +2398,15 @@ window.addEventListener('message',e=>{
   url.searchParams.delete('law');
   window.location.href=url.toString();
 });
+
+// PWA PR-H1 — Service Worker 등록 (HTTPS·localhost 한정. 알림 권한 요청은 PR-H2)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js', { scope: './' })
+      .then(reg => console.log('SW 등록 OK:', reg.scope))
+      .catch(err => console.warn('SW 등록 실패:', err));
+  });
+}
 </script>
 </body>
 </html>

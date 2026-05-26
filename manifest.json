@@ -1,0 +1,26 @@
+{
+  "name": "출근길 법령튜터 + 도로교통법 한눈에",
+  "short_name": "법령튜터",
+  "description": "한국도로교통공단 교통안전교육 교수의 출근길 5분 학습 — 매일 5장의 법령 카드 + 도교법 한눈에 viewer.",
+  "start_url": "./tutor/",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f4ed",
+  "theme_color": "#1e40af",
+  "orientation": "portrait-primary",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

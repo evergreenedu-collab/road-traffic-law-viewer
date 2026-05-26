@@ -485,6 +485,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<!-- PWA PR-H1 — manifest + theme color -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e40af">
+<link rel="apple-touch-icon" href="icons/icon-192.svg">
 <title>{{LAW_TITLE}} 한눈에 — 법률·시행령·시행규칙·별표 통합 비교</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
@@ -2871,6 +2875,15 @@ window.addEventListener('message',e=>{
   url.searchParams.delete('law');
   window.location.href=url.toString();
 });
+
+// PWA PR-H1 — Service Worker 등록 (HTTPS·localhost 한정. 알림 권한 요청은 PR-H2)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js', { scope: './' })
+      .then(reg => console.log('SW 등록 OK:', reg.scope))
+      .catch(err => console.warn('SW 등록 실패:', err));
+  });
+}
 </script>
 </body>
 </html>
