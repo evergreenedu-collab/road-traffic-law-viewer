@@ -1373,6 +1373,9 @@ def build_other_group_article_card(selection, use_llm=True):
         'rank': 1,
         'card_type': 'article',
         'group': group,
+        # Phase 3 PR-D — content_tier로 도교법 6필드 풀 카드와 다른 그룹 단순 2필드 카드 구분.
+        # llm_status='ok'가 두 케이스를 섞지 않도록 명시 표지 (Codex PR-C 권장).
+        'content_tier': 'simple',
         'selection_basis': selection.get('basis', {}),
         'law_info': {
             '법령유형': '법률',
