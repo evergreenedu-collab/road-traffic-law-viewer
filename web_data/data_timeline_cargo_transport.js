@@ -1,1 +1,0 @@
-window._DATA_TIMELINE={"조문별연혁": {}};
