@@ -216,12 +216,13 @@ footer a { color: var(--sub); text-decoration: underline; }
 </head>
 <body>
 
-<header style="position:relative">
-  <h1>📚 출근길 법령 튜터</h1>
-  <p>매일 한 건 — 도로교통법 현행 + 해설 + 판례 통합 학습 — <a href="../viewer.html">전체 뷰어</a></p>
-  <!-- PR-H2 — 알림 구독 UI -->
-  <button id="pushBtn" onclick="subscribePush()" style="position:absolute;top:14px;right:14px;padding:8px 14px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-size:13px;color:var(--law);font-weight:600">🔔 알림 받기</button>
-  <button id="testNotifyBtn" onclick="testNotify()" style="position:absolute;top:50px;right:14px;padding:6px 10px;border:1px solid #fde68a;background:#fef3c7;border-radius:6px;cursor:pointer;font-size:11px;color:#92400e">🧪 로컬 알림 테스트</button>
+<header style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
+  <div style="flex:1;min-width:0">
+    <h1 style="margin:0 0 4px;font-size:22px">📚 출근길 법령 튜터</h1>
+    <p style="margin:0;font-size:13px;color:var(--sub);line-height:1.5">매일 한 건 — 도로교통법 현행 + 해설 + 판례 통합 학습 — <a href="../viewer.html">전체 뷰어</a></p>
+  </div>
+  <!-- PR-H2 — 알림 구독 UI (헤더 우측 flex 배치, 모바일 wrap 대응) -->
+  <button id="pushBtn" onclick="subscribePush()" style="flex-shrink:0;padding:8px 12px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-size:13px;color:var(--law);font-weight:600;white-space:nowrap">🔔 알림 받기</button>
 </header>
 
 <!-- PR-H2 — 구독 결과 모달 -->
@@ -744,27 +745,6 @@ function copySubJson() {
   ta.select();
   document.execCommand('copy');
   alert('JSON을 복사했어요. Claude에 붙여넣어 주세요.');
-}
-
-// PR-H3-δ 진단 — SW의 showNotification을 직접 호출. push 우회 — 알림 표시 layer만 검증.
-// 이게 작동하면: 권한·SW·디바이스 알림 표시 OK. push 도달 layer 문제.
-// 안 작동하면: 권한 또는 시스템 알림 차단.
-async function testNotify() {
-  try {
-    if (Notification.permission !== 'granted') {
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') { alert('알림 권한 필요'); return; }
-    }
-    const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification('Local test', {
-      body: 'If you see this — notifications work. Tap to dismiss.',
-      tag: 'local-test',
-    });
-    alert('showNotification 호출 완료. 알림이 뜨는지 확인해보세요.');
-  } catch (e) {
-    alert('테스트 실패: ' + (e.message || e));
-    console.error(e);
-  }
 }
 
 // 페이지 로드 시 기존 구독 상태 표시
