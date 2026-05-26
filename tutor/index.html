@@ -322,8 +322,12 @@ function renderMainCard(card) {
     : '';
 
   if (llmOk) {
+    // Phase 3 PR-D — 단순 카드(content_tier='simple')는 도교법 풀 카드와 다른 작은 표지
+    const tierBadge = card.content_tier === 'simple'
+      ? '<span class="badge cat" style="background:#e0e7ff;color:#3730a3;font-size:10px" title="다른 그룹 단순 콘텐츠 — 도교법 6필드 풀 콘텐츠와 다름">📘 간략판</span>'
+      : '';
     return '<article class="card ' + lawClass + '">'
-      + '<div class="card-header">' + badge + groupBadge + catBadge + dateInfo + '</div>'
+      + '<div class="card-header">' + badge + groupBadge + tierBadge + catBadge + dateInfo + '</div>'
       + '<div class="jo-label">📖 ' + esc(lc.source_article || (lawName + ' 제' + jo + '조')) + '</div>'
       + '<h2 class="oneliner">' + esc(String(lc.oneliner || '').replace(/[.\s]+$/, '')) + '</h2>'
       + '<p class="explanation">' + esc(lc.explanation) + '</p>'
@@ -562,16 +566,18 @@ function renderCard(card) {
   if (card && card.card_type === 'case') return renderCaseCard(card);
   // 순서(R9): 메인 → 조문 원문 → 법리분석 → 학습포인트
   //          → 관련판례 → 핵심쟁점 → 참고자료 → 법령본문보기
+  // Phase 3 PR-D — content_tier='simple' (다른 그룹 단순 카드)는 도교법 풀 콘텐츠용 섹션 차단 (자료 없음).
   const lc = card.learning_content || {};
   const llmOk = isLlmOk(card.llm_status);
+  const isFull = llmOk && card.content_tier !== 'simple';
   return [
     renderMainCard(card),
     renderArticleText(card),
-    llmOk ? renderAnalysis(card) : '',
-    llmOk ? renderStudy(lc) : '',
-    llmOk ? renderCases(card) : '',
-    llmOk ? renderIssues(lc) : '',
-    llmOk ? renderRefs(card) : '',
+    isFull ? renderAnalysis(card) : '',
+    isFull ? renderStudy(lc) : '',
+    isFull ? renderCases(card) : '',
+    isFull ? renderIssues(lc) : '',
+    isFull ? renderRefs(card) : '',
     renderViewLaw(card)
   ].join('');
 }
