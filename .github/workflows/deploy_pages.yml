@@ -1,0 +1,42 @@
+name: Pages 배포 (Actions 모드)
+
+# legacy Jekyll 빌드가 큰 web_data 폴더로 계속 errored — Actions 모드로 우회.
+# master push마다 실행 + 수동 dispatch.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 동시 배포 방지 (한 번에 하나만)
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Pages 환경 설정
+        uses: actions/configure-pages@v5
+
+      - name: Artifact 업로드 (전체 repo, .nojekyll 포함)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: GitHub Pages 배포
+        id: deployment
+        uses: actions/deploy-pages@v4
