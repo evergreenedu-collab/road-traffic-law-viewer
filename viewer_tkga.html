@@ -47,11 +47,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 }
 
 .toolbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
-.toolbar label{font-size:13px;font-weight:600;color:var(--law);flex-shrink:0}
-.toolbar select{flex:1;min-width:180px;max-width:500px;padding:7px 28px 7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;text-overflow:ellipsis}
-.toolbar select:focus{border-color:var(--law);outline:none}
-.toolbar input{flex:1;min-width:120px;max-width:250px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit}
-.toolbar input:focus{border-color:var(--law);outline:none}
+.toolbar label{font-size:12px;font-weight:600;color:var(--sub);flex-shrink:0;letter-spacing:.3px}
+/* PR-H8: 법령 선택 드롭다운 — 짙은 law 톤 (1차 컨텍스트) */
+.toolbar select#lawSel{flex:1;min-width:180px;max-width:500px;padding:8px 28px 8px 12px;border:1.5px solid var(--law);border-radius:6px;font-size:13px;font-family:inherit;text-overflow:ellipsis;background:var(--law-bg);color:var(--law);font-weight:600}
+.toolbar select#lawSel:focus{outline:2px solid var(--law);outline-offset:1px}
+/* 조문 선택 드롭다운 — 일반 톤 (2차 컨텍스트) */
+.toolbar select#sel{flex:1;min-width:180px;max-width:500px;padding:7px 28px 7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;text-overflow:ellipsis;background:#fff}
+.toolbar select#sel:focus{border-color:var(--law);outline:none}
+/* 검색 input — 명확한 차별화 (action UI). 돋보기 아이콘 prefix + 다른 배경·테두리 */
+.toolbar input#q{flex:1;min-width:120px;max-width:250px;padding:7px 10px 7px 32px;border:1.5px dashed var(--decree);border-radius:6px;font-size:13px;font-family:inherit;background:#faf7ff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235b4b8a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") no-repeat 9px center}
+.toolbar input#q:focus{border-style:solid;border-color:var(--decree);outline:none;background-color:#fff}
+.toolbar input#q::placeholder{color:#9c8fb8;font-weight:500}
 .toolbar .stats{font-size:11px;color:var(--sub);margin-left:auto;white-space:nowrap}
 
 .main{padding:16px;max-width:1200px;margin:0 auto}
@@ -189,6 +195,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   .toolbar label{display:none}
   .toolbar select,.toolbar input{min-width:100px;max-width:none;font-size:14px;padding:8px 10px}
   .toolbar select{padding-right:28px}
+  /* PR-H8: 모바일에서도 검색 input의 돋보기 아이콘 위치 유지 */
+  .toolbar input#q{padding-left:36px}
   .tab-switch{width:100%;order:99}
   .tab-btn{flex:1;text-align:center}
   .main{padding:10px}
@@ -298,16 +306,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <option value="crim_proc">형사소송법 (대법원규칙)</option>
   </select>
   <!-- Phase 3 S3-1-b-4-b: 법령유형 토글 (법률·시행령·시행규칙 직접 진입) -->
-  <!-- PR-H6-fix: 자식 background:#fff가 컨테이너 1px border를 일부 덮어 시행규칙 우측 border가 안 보이던 문제 -->
-  <!-- box-shadow inset으로 outline 보강 + 시행규칙 버튼 자체에 border-right 명시 (이중 안전) -->
-  <div id="lawTypeToggle" style="display:inline-flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--border)" role="group" aria-label="법령유형 선택">
-    <button type="button" class="lt-btn active" data-lawtype="법률" onclick="switchLawType('법률')" style="padding:6px 10px;border:none;background:var(--law);color:#fff;cursor:pointer;font-size:12px;font-weight:600">법률</button>
-    <button type="button" class="lt-btn" data-lawtype="시행령" onclick="switchLawType('시행령')" style="padding:6px 10px;border:none;border-left:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-size:12px">시행령</button>
-    <button type="button" class="lt-btn" data-lawtype="시행규칙" onclick="switchLawType('시행규칙')" style="padding:6px 10px;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-size:12px">시행규칙</button>
+  <!-- PR-H8: 토글 시각 강조 — pill 형태 + active 버튼 그림자 + 더 부드러운 패딩 -->
+  <!-- 모바일에서 자연 wrap 시 한 행 차지하여 시각적 그룹 분리 (flex-basis:100% 강제) -->
+  <div id="lawTypeToggle" style="display:inline-flex;gap:4px;padding:4px;border:1px solid var(--law-light);border-radius:8px;background:var(--law-bg)" role="group" aria-label="법령유형 선택">
+    <button type="button" class="lt-btn active" data-lawtype="법률" onclick="switchLawType('법률')" style="padding:6px 14px;border:none;background:var(--law);color:#fff;cursor:pointer;font-size:12px;font-weight:700;border-radius:5px;box-shadow:0 1px 3px rgba(30,58,95,.25);transition:all .15s">법률</button>
+    <button type="button" class="lt-btn" data-lawtype="시행령" onclick="switchLawType('시행령')" style="padding:6px 14px;border:none;background:transparent;color:var(--law);cursor:pointer;font-size:12px;font-weight:500;border-radius:5px;transition:all .15s">시행령</button>
+    <button type="button" class="lt-btn" data-lawtype="시행규칙" onclick="switchLawType('시행규칙')" style="padding:6px 14px;border:none;background:transparent;color:var(--law);cursor:pointer;font-size:12px;font-weight:500;border-radius:5px;transition:all .15s">시행규칙</button>
   </div>
   <label>조문</label>
   <select id="sel" onchange="onArticleChange()" autocomplete="off"></select>
-  <input type="text" id="q" placeholder="🔍 조문/키워드 검색 (예: 안전띠)" oninput="filter()" onkeydown="if(event.key==='Escape'){this.value='';filter();}">
+  <input type="text" id="q" placeholder="조문·키워드 검색 (예: 안전띠)" oninput="filter()" onkeydown="if(event.key==='Escape'){this.value='';filter();}">
   <div class="tab-switch" id="tabSwitch">
     <button class="tab-btn active" data-tab="compare" onclick="switchTab('compare')">3단 비교</button>
     <button class="tab-btn" data-tab="history" onclick="switchTab('history')">연혁</button>
@@ -377,7 +385,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
-<script src="web_data/data_core_tkga.js?v=20260527212739"></script>
+<script src="web_data/data_core_tkga.js?v=20260527215740"></script>
 <!-- PR-H6: data_core.js 로드 완료 직후 loading overlay 숨김 (사용자에게 즉시 컨텐츠 노출) -->
 <script>(function(){var o=document.getElementById('loadingOverlay');if(o)o.style.display='none';})();</script>
 <script>
@@ -392,7 +400,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260527212739';
+const _LAZY_TS = '20260527215740';
 const _LAZY_SFX = '_tkga';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
@@ -560,15 +568,16 @@ function buildOpts(lawType){
   return list;
 }
 
-// 토글 버튼 시각 상태 동기화
+// 토글 버튼 시각 상태 동기화 (PR-H8: pill 디자인 active/inactive)
 function syncLawTypeToggle(){
   const btns=document.querySelectorAll('#lawTypeToggle .lt-btn');
   btns.forEach(b=>{
     const isActive=b.dataset.lawtype===currentLawType;
     b.classList.toggle('active', isActive);
-    b.style.background = isActive ? 'var(--law)' : '#fff';
-    b.style.color = isActive ? '#fff' : 'var(--text)';
-    b.style.fontWeight = isActive ? '600' : '400';
+    b.style.background = isActive ? 'var(--law)' : 'transparent';
+    b.style.color = isActive ? '#fff' : 'var(--law)';
+    b.style.fontWeight = isActive ? '700' : '500';
+    b.style.boxShadow = isActive ? '0 1px 3px rgba(30,58,95,.25)' : 'none';
     // 시행규칙 자료가 없는 그룹(예: tlspc)에서는 자동 비활성
     if(b.dataset.lawtype!=='법률'){
       const ok=hasLawTypeData(b.dataset.lawtype);
