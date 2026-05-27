@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write              # 카드 자료 commit·push 위해 필요
+  actions: write               # deploy_pages workflow_dispatch 트리거 위해 필요 (github-actions[bot] push가 자동 재trigger 안 되는 정책 우회)
 
 jobs:
   build-and-push:
@@ -61,6 +62,7 @@ jobs:
           python build_tutor_content.py --date ${{ steps.date.outputs.today }} --days 1
 
       - name: 카드 자료 commit·push (master)
+        id: card_commit
         continue-on-error: true   # push race로 rejected돼도 알림 발송은 계속 진행
         run: |
           git config user.name 'github-actions[bot]'
@@ -68,12 +70,26 @@ jobs:
           git add tutor/data/daily_*.json tutor/data/schedule.json
           if git diff --cached --quiet; then
             echo "변경 없음 — commit 스킵"
+            echo "pushed=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           git commit -m "data: ${{ steps.date.outputs.today }} 카드 자동 빌드"
           # PR 머지·재trigger와 race 회피 — rebase 후 push, 그래도 실패하면 무시
           git pull --rebase origin master || true
-          git push origin master || echo "⚠️ push 실패 — race condition. 알림 발송은 계속 진행"
+          if git push origin master; then
+            echo "pushed=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ push 실패 — race condition. 알림 발송은 계속 진행"
+            echo "pushed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Pages 배포 트리거 (github-actions[bot] push는 자동 재trigger 안 됨)
+        if: steps.card_commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run deploy_pages.yml --ref master
+          echo "✅ deploy_pages workflow_dispatch 트리거 완료"
 
       - name: 푸시 알림 발송
         env:
