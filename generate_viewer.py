@@ -433,9 +433,12 @@ def main():
         alarm_modal = ""
     # 좌측 액션 래퍼 — 알람(road) + 튜터 + 알림받기 셋 다 한 flex 그룹으로 묶음
     # (이전: pushBtn이 우측 absolute라 헤더 통계와 충돌. 사용자 보고 2026-05-27 → 좌측 그룹화)
+    # PR-H6: pushBtn 직후 인라인 스크립트로 localStorage 즉시 적용 — viewer 간 이동 시 깜빡임 차단
     push_button = (
         '<button id="pushBtn" type="button" class="header-action-btn push" onclick="subscribePush()">'
         '🔔 알림 받기</button>'
+        '<script>try{if(localStorage.getItem("pushSubscription")){'
+        'document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script>'
     )
     left_actions = f'<div class="header-left-actions">{alarm_button}{tutor_button}{push_button}</div>'
     # 튜터 페이지 본인이면 자기 자신으로 가는 버튼 의미 없음 — 하지만 viewer는 튜터가 아니므로 항상 표시
@@ -723,6 +726,26 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </head>
 <body>
 
+<!-- PR-H6: 데이터 로딩 인디케이터 — data_core.js (~35MB) 다운로드·파싱 동안 빈 화면 회피 -->
+<div id="loadingOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#1e3a5f 0%,#2c4f7a 100%);color:#fff;display:flex;align-items:center;justify-content:center;z-index:99999;font-family:'Noto Sans KR',sans-serif">
+  <div style="text-align:center;padding:20px">
+    <div style="font-size:48px;margin-bottom:16px">📚</div>
+    <div style="font-size:18px;font-weight:600;margin-bottom:8px">{{LAW_TITLE}} 한눈에</div>
+    <div style="font-size:14px;opacity:0.85">법령 자료 로딩 중...</div>
+    <div style="font-size:11px;opacity:0.6;margin-top:12px">첫 진입은 약 5~10초 소요됩니다<br>(다음 진입부터 브라우저 캐시로 빠름)</div>
+    <div style="margin-top:20px;width:200px;height:3px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden">
+      <div style="height:100%;background:rgba(255,255,255,0.7);animation:loading-bar 1.5s ease-in-out infinite"></div>
+    </div>
+  </div>
+</div>
+<style>
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); width:30%; }
+  50% { width:60%; }
+  100% { transform: translateX(330%); width:30%; }
+}
+</style>
+
 <div class="header" style="position:relative">
   <div class="header-stats" id="headerStats"></div>
   {{ALARM_BUTTON}}<!-- left_actions 안에 alarm·tutor·push 셋 다 포함 (PR-H4-β/fix) -->
@@ -841,6 +864,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <script src="web_data/data_core.js"></script>
+<!-- PR-H6: data_core.js 로드 완료 직후 loading overlay 숨김 (사용자에게 즉시 컨텐츠 노출) -->
+<script>(function(){var o=document.getElementById('loadingOverlay');if(o)o.style.display='none';})();</script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑 — 본문(data_core)은 즉시 사용 가능
 const mapData = window._DATA_CORE.mapData;

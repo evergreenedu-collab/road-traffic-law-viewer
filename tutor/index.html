@@ -225,7 +225,9 @@ footer a { color: var(--sub); text-decoration: underline; }
     <p style="margin:0;font-size:13px;line-height:1.5;opacity:0.92">매일 한 건 — 도로교통법 현행 + 해설 + 판례 통합 학습 — <a href="../viewer.html">📖 도로교통법 통합 조회</a></p>
   </div>
   <!-- PR-H2 — 알림 구독 UI (헤더 우측 flex 배치, 모바일 wrap 대응) -->
+  <!-- PR-H6: pushBtn 직후 인라인 스크립트 — localStorage 즉시 적용으로 viewer↔tutor 이동 시 깜빡임 차단 -->
   <button id="pushBtn" onclick="subscribePush()" style="flex-shrink:0;padding:8px 12px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-size:13px;color:var(--law);font-weight:600;white-space:nowrap">🔔 알림 받기</button>
+  <script>try{if(localStorage.getItem("pushSubscription")){document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script>
 </header>
 
 <!-- PR-H2 — 구독 결과 모달 -->
