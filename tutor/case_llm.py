@@ -123,7 +123,7 @@ def _extract_case_body(case_data, source):
 # 프롬프트 (Codex 권고 반영)
 # ────────────────────────────────────────────────────────────────
 
-def _build_case_prompt(case_data, source, paired_jo, paired_jo_title):
+def _build_case_prompt(case_data, source, paired_jo, paired_jo_title, paired_article_text=''):
     title = _extract_case_title(case_data, source)
     body = _extract_case_body(case_data, source)[:CASE_BODY_CHARS]
     court = case_data.get('court', '')
@@ -131,12 +131,23 @@ def _build_case_prompt(case_data, source, paired_jo, paired_jo_title):
     case_no = case_data.get('case_no', '')
     paired_label = f"제{paired_jo}조 {paired_jo_title}".strip()
 
+    # PR-H5-θ: paired_jo 본문(항·호 전문) 명시 — 페어링 미스매치 예방.
+    # 옛 도교법 조문번호 인용 판례가 현행 조문에 잘못 매칭되는 함정을 LLM 차원에서 인식 가능하게.
+    article_block = (
+        f"\n[학습 대상 조문 — 현행 본문 (항·호 전문)]\n{paired_article_text}\n"
+        if paired_article_text else ""
+    )
+
     return f"""당신은 한국도로교통공단 교수의 학습 콘텐츠 작성자입니다. 교수들이 매일 아침 읽는 자료이므로 정확성이 최우선입니다.
 
 [학습 대상 조문 — 이 판례가 보조하는 조문]
 도로교통법 {paired_label}
-
+{article_block}
 [작성 규칙 — 위반 시 자료 신뢰도 훼손, 반드시 지킬 것]
+0. ★★★ 페어링 미스매치 점검 — 판례의 핵심 쟁점이 [학습 대상 조문 본문]에 명시된 처벌
+   대상·행위 유형과 직접 일치하는지 먼저 확인하라. 일치하지 않으면 (예: 본문에 음주측정거부가
+   없는데 판례는 음주측정거부 사안) 모든 필드를 빈 문자열로 두고 status="skip"으로 응답하라.
+   옛 도교법 조문번호 인용 때문에 잘못 매칭된 판례일 가능성이 높으니 절대 억지로 연결하지 말 것.
 1. 아래 판례 본문을 '{paired_label} 학습을 설명·보충하는 사례'로만 정리한다.
    판례 자체의 일반 요약이 아니라, 왜 이 판례가 이 조문 카드에 붙는지 관점을 잡는다.
 2. 판례 본문에 명시된 사실만 사용한다. 없는 수치·해석·사례는 추가하지 않는다.
@@ -170,8 +181,11 @@ def _build_case_prompt(case_data, source, paired_jo, paired_jo_title):
 # 메인: 6필드 생성
 # ────────────────────────────────────────────────────────────────
 
-def generate_case_learning_content(case_data, source, paired_jo, paired_jo_title, use_llm=True):
+def generate_case_learning_content(case_data, source, paired_jo, paired_jo_title,
+                                    use_llm=True, paired_article_text=''):
     """
+    Args:
+      paired_article_text: paired_jo 조문 본문(항·호 전문). PR-H5-θ 페어링 미스매치 예방용.
     Returns:
       use_llm=False  → None
       성공          → {'oneliner': ..., 'fact_summary': ..., ...}  (6키 보장, str)
@@ -180,7 +194,7 @@ def generate_case_learning_content(case_data, source, paired_jo, paired_jo_title
     """
     if not use_llm:
         return None
-    prompt = _build_case_prompt(case_data, source, paired_jo, paired_jo_title)
+    prompt = _build_case_prompt(case_data, source, paired_jo, paired_jo_title, paired_article_text)
     raw = call_gemini_api(prompt, temperature=0.2)
     if not raw:
         return None
