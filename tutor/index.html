@@ -219,18 +219,15 @@ footer a { color: var(--sub); text-decoration: underline; }
 </head>
 <body>
 
-<header style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
-  <div style="flex:1;min-width:0">
-    <h1 style="margin:0 0 4px;font-size:22px">📚 출근길 법령 튜터</h1>
-    <p style="margin:0;font-size:13px;line-height:1.5;opacity:0.92">매일 한 건 — 도로교통법 현행 + 해설 + 판례 통합 학습</p>
-  </div>
-  <!-- PR-H7: 통합 조회 베너 + 구독 베너 한 그룹으로 (모바일 wrap 대응) -->
-  <!-- localStorage 즉시 적용으로 viewer↔tutor 이동 시 깜빡임 차단 (PR-H6) -->
-  <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
-    <a href="../viewer.html" style="padding:8px 12px;border:1px solid var(--border);background:#fff;border-radius:8px;font-size:13px;color:var(--law);font-weight:600;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;gap:4px">📖 도로교통법 통합 조회</a>
-    <button id="pushBtn" onclick="subscribePush()" style="padding:8px 12px;border:1px solid var(--border);background:#fff;border-radius:8px;cursor:pointer;font-size:13px;color:var(--law);font-weight:600;white-space:nowrap">🔔 알림 받기</button>
+<header>
+  <!-- PR-H7-fix: 베너 그룹을 헤더 최상단으로 (viewer header-action-btn 사이즈와 통일: padding:8px 14px font-size:13px) -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <a href="../viewer.html" style="padding:8px 14px;border:1px solid var(--border);background:#fff;border-radius:6px;font-size:13px;color:var(--law);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 4px rgba(0,0,0,0.15);line-height:1.2">📖 도로교통법 통합 조회</a>
+    <button id="pushBtn" onclick="subscribePush()" style="padding:8px 14px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:13px;color:var(--law);font-weight:600;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 4px rgba(0,0,0,0.15);line-height:1.2;font-family:inherit">🔔 알림 받기</button>
   </div>
   <script>try{if(localStorage.getItem("pushSubscription")){document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script>
+  <h1 style="margin:0 0 4px;font-size:22px">📚 출근길 법령 튜터</h1>
+  <p style="margin:0;font-size:13px;line-height:1.5;opacity:0.92">매일 한 건 — 도로교통법 현행 + 해설 + 판례 통합 학습</p>
 </header>
 
 <!-- PR-H2 — 구독 결과 모달 -->
