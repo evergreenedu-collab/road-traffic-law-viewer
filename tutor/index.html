@@ -734,17 +734,25 @@ function urlBase64ToUint8Array(b64) {
 }
 
 async function subscribePush() {
+  // PR-H8-audit (Claude#2): 권한 거부·미지원·에러 시 subModal이 떠 있을 수 있어 명시 정리
+  const _closeSubModal = function(){
+    const m = document.getElementById('subModal');
+    if (m) m.style.display = 'none';
+  };
   try {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      _closeSubModal();
       alert('이 브라우저는 Web Push를 지원하지 않아요.\\n(iOS는 16.4+ Safari 또는 홈 화면 추가된 PWA에서 가능)');
       return;
     }
     if (location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+      _closeSubModal();
       alert('Web Push는 HTTPS에서만 동작해요. GitHub Pages에서 다시 시도해주세요.');
       return;
     }
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') {
+      _closeSubModal();
       alert('알림 권한을 허용해야 구독할 수 있어요.');
       return;
     }
@@ -765,6 +773,7 @@ async function subscribePush() {
     const btn = document.getElementById('pushBtn');
     if (btn) btn.textContent = '🔔 구독 중';
   } catch (e) {
+    _closeSubModal();
     console.error('구독 실패:', e);
     alert('알림 구독 실패: ' + (e.message || e));
   }
