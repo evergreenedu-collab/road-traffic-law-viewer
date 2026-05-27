@@ -1240,16 +1240,21 @@ def enrich_card(card, jo, jo_title, version, resources):
         return
     print(f"    ✅ PASS")
 
-    # PR-H5-δ: 사후 검증 — 외부 키워드 누출 감지 (할루시네이션 안전망)
-    # 현 단계는 기록·경고만 (자동 폴백 승격은 효과 측정 후). 카드 콘텐츠는 그대로 게시하되
-    # card['verification']에 누출 정보 박아 viewer/검토자가 확인 가능하도록.
+    # PR-H5-δ → ε: 사후 검증 — 외부 키워드 누출 감지 + 자동 폴백 승격
+    # 누출 감지 시 LLM 콘텐츠 신뢰도 X — 카드에 적용하지 않고 article 폴백 (조문 본문만 노출).
+    # 잘못된 카드가 사용자에게 그대로 노출되는 위험 차단.
     leaked = detect_external_keywords(generated, resources.get('article_text') or '')
     card['verification'] = {
         'external_keywords_leaked': leaked,
         'status': 'clean' if not leaked else 'external_keywords_detected',
     }
     if leaked:
-        print(f"    ⚠️ 외부 키워드 누출 감지: {leaked} (조문 본문에 없는 다른 조문 처벌 사유)")
+        # 자동 폴백 — LLM 콘텐츠 미적용, llm_draft에 원본 보존(디버깅용)
+        card['llm_status'] = 'skip_external_keywords_leaked'
+        card['llm_note'] = f'leaked: {leaked}'
+        card['llm_draft'] = generated
+        print(f"    ⚠️ 외부 키워드 누출 감지: {leaked} → article 폴백 (LLM 콘텐츠 미적용)")
+        return
     rc = generated.get('related_cases', [])
     # R12-D: case_analysis가 언급한 사건번호가 related_cases에 빠졌으면 보강 —
     # UI 전문 펼침이 related_cases 기준이라, 누락 시 인용 판례를 못 펼침.
