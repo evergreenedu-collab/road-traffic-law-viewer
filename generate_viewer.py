@@ -2158,7 +2158,6 @@ function renderHistory(){
           el.textContent = Math.floor((Date.now() - startedAt)/1000) + '초 경과';
         }, 1000);
       }
-    }
     ensureTableExtras().then(function(){
       if (window._lazyElapsedTimerH) { clearInterval(window._lazyElapsedTimerH); window._lazyElapsedTimerH = null; }
       renderHistory();
