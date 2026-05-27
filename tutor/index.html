@@ -624,11 +624,26 @@ function renderOtherGroupHistory(card) {
     + '</details>';
 }
 
+// PR-H5-ι: 카드 footer에 verification 상태 배지 — 운영 관찰용 + 안전망 동작 가시화
+function renderVerification(card) {
+  const v = card.verification;
+  if (!v) return '';
+  if (v.status === 'clean') {
+    return '<div style="text-align:center;font-size:11px;color:var(--sub);padding:10px 0 4px;opacity:0.7">🛡️ 콘텐츠 검증 정상</div>';
+  }
+  if (v.status === 'external_keywords_detected') {
+    const themes = (v.external_keywords_leaked || []).join('·');
+    return '<div style="text-align:center;font-size:11px;color:#92400e;padding:10px 0 4px">⚠️ 외부 키워드 감지'
+      + (themes ? ' (' + esc(themes) + ')' : '') + ' — 안전 모드 적용</div>';
+  }
+  return '';
+}
+
 function renderCard(card) {
   // Phase 2: case 카드는 별도 렌더링. card_type 없으면 article 폴백.
   if (card && card.card_type === 'case') return renderCaseCard(card);
   // 순서(R9): 메인 → 조문 원문 → 법리분석 → 학습포인트
-  //          → 관련판례 → 핵심쟁점 → 참고자료 → 법령본문보기
+  //          → 관련판례 → 핵심쟁점 → 참고자료 → 법령본문보기 → verification 배지
   // Phase 3 PR-D — content_tier='simple' (다른 그룹 단순 카드)는 도교법 풀 콘텐츠용 섹션 차단 (자료 없음).
   // PR-F — 단순 카드에도 history_evolution은 추가 (article_history_{group}.json 자료 기반).
   const lc = card.learning_content || {};
@@ -644,7 +659,8 @@ function renderCard(card) {
     isFull ? renderIssues(lc) : '',
     isFull ? renderRefs(card) : '',
     isSimple ? renderOtherGroupHistory(card) : '',
-    renderViewLaw(card)
+    renderViewLaw(card),
+    renderVerification(card)
   ].join('');
 }
 
