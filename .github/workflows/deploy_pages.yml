@@ -29,6 +29,27 @@ jobs:
       - name: 체크아웃
         uses: actions/checkout@v6
 
+      # PR-H9: viewer JS 스모크 테스트 — brace mismatch·syntax 회귀 차단
+      # 실패 시 Pages 배포 차단 (사용자에게 깨진 viewer 도달 방지)
+      - name: Node.js 설정 (smoke test용)
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: jsdom 설치
+        run: npm install --no-save jsdom
+
+      - name: viewer JS 스모크 테스트
+        run: |
+          node tests/smoke_viewer.js \
+            viewer.html \
+            viewer_tlspc.html \
+            viewer_tkga.html \
+            viewer_car_mgmt.html \
+            viewer_passenger_transport.html \
+            viewer_cargo_transport.html \
+            viewer_crim_proc.html
+
       - name: Pages 환경 설정
         uses: actions/configure-pages@v6
 
