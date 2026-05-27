@@ -1675,6 +1675,12 @@ def build_card(selection, indexes, target_date=None, use_llm=True):
     card = {
         'card_id': 'card-1',
         'rank': 1,
+        # PR-H7-fix: 카드 메타 필드 누락 보강 — selection에서 박힌 card_type/group을 card에 전달
+        # (build_case_card·build_other_group_article_card는 박는데 도교법 article 빌더만 누락)
+        # content_tier='full'은 명시성을 위한 추가 — viewer는 simple/full 구분으로 분기
+        'card_type': selection.get('card_type', 'article'),
+        'group': selection.get('group', 'road'),
+        'content_tier': 'full',
         'selection_basis': selection['basis'],
         'law_info': {
             '매핑법률조문': jo,
