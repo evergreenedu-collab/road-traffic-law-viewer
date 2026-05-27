@@ -1,0 +1,1 @@
+window._DATA_TBL_FORM_PDF={"시행령": {}, "시행규칙": {}};

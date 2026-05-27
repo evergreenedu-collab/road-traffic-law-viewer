@@ -348,14 +348,22 @@ def main():
             tbl_pdf_data[sub_type][tname] = latest_pub
 
     # tableData 슬림화 — 별표는 큰 PDF가 base64 임베드 한도(~2MB) 초과하므로 PDF_BASE64 제거 (로컬 경로 사용)
-    # 별지(서식)는 작아서 base64 임베드 OK — 유지하여 모달에서 미리보기 가능
+    # PR-H6-minify: 별지(서식) PDF_BASE64도 별도 lazy 파일로 분리
+    # (이전엔 "별지는 작아서 임베드 OK"였으나 220개 누적 ~16MB가 data_core에 박혀 있음 — 첫 화면 부담)
+    # 별표는 로컬 PDF 경로 사용(이전부터), 별지는 새로 data_tbl_form_pdf.js로 분리
     table_data_lite = {}
+    form_pdf_data = {"시행령": {}, "시행규칙": {}}
     for sub_type, items in table_data.items():
         table_data_lite[sub_type] = {}
         for tname, tdata in items.items():
             slim = dict(tdata)
             if slim.get("구분") == "별표":
                 slim.pop("PDF_BASE64", None)  # 별표는 별도 처리(로컬 경로)
+            else:
+                # 별지(서식) — PDF_BASE64를 form_pdf_data로 이동
+                b64 = slim.pop("PDF_BASE64", None)
+                if b64:
+                    form_pdf_data.setdefault(sub_type, {})[tname] = b64
             table_data_lite[sub_type][tname] = slim
 
     print(f"  매핑: {len(map_data['매핑'])}개 조문")
@@ -395,6 +403,8 @@ def main():
     sizes.append(write_data("data_tbl_diff_rule", "_DATA_TBL_DIFF_RULE", tbl_diff_data.get("시행규칙", {})))
     sizes.append(write_data("data_tbl_pdf", "_DATA_TBL_PDF", tbl_pdf_data))
     sizes.append(write_data("data_tbl_history", "_DATA_TBL_HISTORY", tbl_hist_slim))
+    # PR-H6-minify: 별지 PDF base64 lazy load 파일
+    sizes.append(write_data("data_tbl_form_pdf", "_DATA_TBL_FORM_PDF", form_pdf_data))
 
     for name, sz in sizes:
         warn = " ⚠️ 100MB 한도 초과!" if sz > 100 else ""
@@ -900,10 +910,20 @@ function ensureTableExtras(){
     _loadScriptOnce('web_data/data_tbl_diff_rule'+_LAZY_SFX+'.js?v='+_LAZY_TS),
     _loadScriptOnce('web_data/data_tbl_pdf'+_LAZY_SFX+'.js?v='+_LAZY_TS),
     _loadScriptOnce('web_data/data_tbl_history'+_LAZY_SFX+'.js?v='+_LAZY_TS),
+    _loadScriptOnce('web_data/data_tbl_form_pdf'+_LAZY_SFX+'.js?v='+_LAZY_TS),
   ]).then(function(){
     tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE || {}, 시행규칙: window._DATA_TBL_DIFF_RULE || {}};
     tblPdfData = window._DATA_TBL_PDF || {};
     tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};
+    // PR-H6-minify: 별지 PDF_BASE64를 lazy 로드 후 tableData에 재주입 — viewer JS 변경 없이 동작
+    var formPdf = window._DATA_TBL_FORM_PDF || {};
+    for (var subType in formPdf) {
+      if (!tableData[subType]) continue;
+      var forms = formPdf[subType] || {};
+      for (var name in forms) {
+        if (tableData[subType][name]) tableData[subType][name].PDF_BASE64 = forms[name];
+      }
+    }
     _lazyTable.status = 'ready';
   }).catch(function(e){
     _lazyTable.status = 'error';
