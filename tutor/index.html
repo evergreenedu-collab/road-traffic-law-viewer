@@ -219,11 +219,11 @@ footer a { color: var(--sub); text-decoration: underline; }
 </head>
 <body>
 
-<header>
-  <!-- PR-H7-fix: 베너 그룹을 헤더 최상단으로 (viewer header-action-btn 사이즈와 통일: padding:8px 14px font-size:13px) -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    <a href="../viewer.html" style="padding:8px 14px;border:1px solid var(--border);background:#fff;border-radius:6px;font-size:13px;color:var(--law);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 4px rgba(0,0,0,0.15);line-height:1.2">📖 도로교통법 통합 조회</a>
-    <button id="pushBtn" onclick="subscribePush()" style="padding:8px 14px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:13px;color:var(--law);font-weight:600;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 4px rgba(0,0,0,0.15);line-height:1.2;font-family:inherit">🔔 알림 받기</button>
+<header style="text-align:center">
+  <!-- PR-H8: 베너·제목·부제목 모두 가운데 정렬 + 베너 사이즈 약간 축소 (7px 11px, 12px) -->
+  <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px">
+    <a href="../viewer.html" style="padding:7px 11px;border:1px solid var(--border);background:#fff;border-radius:6px;font-size:12px;color:var(--law);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 4px rgba(0,0,0,0.12);line-height:1.2">📖 도로교통법 통합 조회</a>
+    <button id="pushBtn" onclick="subscribePush()" style="padding:7px 11px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--law);font-weight:600;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 4px rgba(0,0,0,0.12);line-height:1.2;font-family:inherit">🔔 알림 받기</button>
   </div>
   <script>try{if(localStorage.getItem("pushSubscription")){document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script>
   <h1 style="margin:0 0 4px;font-size:22px">📚 출근길 법령 튜터</h1>
