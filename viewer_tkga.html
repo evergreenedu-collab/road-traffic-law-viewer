@@ -386,7 +386,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core_tkga.js?v=20260527234427" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core_tkga.js?v=20260528002109" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -402,26 +402,63 @@ const mapData = window._DATA_CORE.mapData;
 const artData = window._DATA_CORE.artData;
 const tableData = window._DATA_CORE.tableData;
 const cascadeData = window._DATA_CORE.cascadeData;
-// PR-H9-Q1C: diffData는 lazy 로드 (연혁 탭 진입 시점에 ensureTableExtras에서 채움)
+// PR-H9-Q1C + PR-H10: diffData는 lazy 로드 (연혁 탭 진입 시점에 ensureHistoryData에서 채움)
 // 핫픽스: _DATA_CORE.diffData가 stub({})이라도 안전. 옛/새 코드 양쪽 호환.
 let diffData = (window._DATA_CORE && window._DATA_CORE.diffData) || {};
-// PR-H4-γ-2: 별표 자료는 빈 객체로 초기화 — lazy load 후 ensureTableExtras()에서 교체
+// PR-H4-γ-2: 별표 자료는 빈 객체로 초기화 — lazy load 후 ensureTableData()에서 교체
 let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
+// PR-H10: lazy 로더 상태머신 분리 — history(연혁 탭)와 table(별표 모달) 독립
+const _lazyHistory = { status: 'idle', promise: null };
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260527234427';
+const _LAZY_TS = '20260528002109';
 const _LAZY_SFX = '_tkga';
+// PR-H10: URL→Promise Map 캐시 — 같은 script 중복 삽입 차단 (history·table 로더가 tbl_history·tbl_pdf 공유)
+const _scriptCache = new Map();
 function _loadScriptOnce(src){
-  return new Promise(function(resolve, reject){
+  if (_scriptCache.has(src)) return _scriptCache.get(src);
+  const p = new Promise(function(resolve, reject){
     var s = document.createElement('script');
     s.src = src; s.async = true;
     s.onload = function(){ resolve(); };
-    s.onerror = function(){ reject(new Error('load failed: '+src)); };
+    s.onerror = function(){ _scriptCache.delete(src); reject(new Error('load failed: '+src)); };
     document.head.appendChild(s);
   });
+  _scriptCache.set(src, p);
+  return p;
 }
-function ensureTableExtras(){
+// PR-H10: 연혁 탭 전용 데이터 로더 — 법률 본문 diff + 별표 연혁/PDF 메타 (≈16MB)
+// Codex 권장 #1: Promise.allSettled로 부분 실패 허용 — 하나 실패해도 나머지 데이터로 표시 가능 (prefetch 일시 실패가 영구 error 되지 않도록)
+function ensureHistoryData(){
+  if (_lazyHistory.status === 'ready') return Promise.resolve();
+  if (_lazyHistory.promise) return _lazyHistory.promise;
+  _lazyHistory.status = 'loading';
+  _lazyHistory.promise = Promise.allSettled([
+    _loadScriptOnce('web_data/data_law_diff'+_LAZY_SFX+'.js?v='+_LAZY_TS),
+    _loadScriptOnce('web_data/data_tbl_history'+_LAZY_SFX+'.js?v='+_LAZY_TS),
+    _loadScriptOnce('web_data/data_tbl_pdf'+_LAZY_SFX+'.js?v='+_LAZY_TS),
+  ]).then(function(results){
+    // 성공한 전역만 대입 — 실패한 파일은 기존 빈 객체 유지 (부분 표시 가능)
+    if (window._DATA_LAW_DIFF) diffData = window._DATA_LAW_DIFF;
+    if (window._DATA_TBL_HISTORY) tblHistoryData = window._DATA_TBL_HISTORY;
+    if (window._DATA_TBL_PDF) tblPdfData = window._DATA_TBL_PDF;
+    var failed = results.filter(function(r){ return r.status === 'rejected'; });
+    if (failed.length === results.length) {
+      _lazyHistory.status = 'error';
+      _lazyHistory.promise = null;   // 재시도 허용
+      console.warn('연혁 데이터 lazy load 전체 실패');
+      throw new Error('all history files failed');
+    }
+    _lazyHistory.status = 'ready';
+    _lazyHistory.partialFail = failed.length > 0;
+    if (failed.length) console.warn('연혁 데이터 일부 로드 실패: '+failed.length+'/'+results.length);
+  });
+  return _lazyHistory.promise;
+}
+// PR-H10: 별표 모달 전용 데이터 로더 — 별표 본문 diff + 별지 PDF base64 (≈91MB)
+// 주: 연혁 탭과 독립 (data_law_diff 실패에 발목 잡히지 않음). tbl_history·tbl_pdf는 _scriptCache로 중복 차단.
+function ensureTableData(){
   if (_lazyTable.status === 'ready') return Promise.resolve();
   if (_lazyTable.promise) return _lazyTable.promise;
   _lazyTable.status = 'loading';
@@ -431,13 +468,10 @@ function ensureTableExtras(){
     _loadScriptOnce('web_data/data_tbl_pdf'+_LAZY_SFX+'.js?v='+_LAZY_TS),
     _loadScriptOnce('web_data/data_tbl_history'+_LAZY_SFX+'.js?v='+_LAZY_TS),
     _loadScriptOnce('web_data/data_tbl_form_pdf'+_LAZY_SFX+'.js?v='+_LAZY_TS),
-    // PR-H9-Q1C: 법률 본문 전후비교 데이터 (data_core에서 분리, 연혁 탭에서만 사용)
-    _loadScriptOnce('web_data/data_law_diff'+_LAZY_SFX+'.js?v='+_LAZY_TS),
   ]).then(function(){
     tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE || {}, 시행규칙: window._DATA_TBL_DIFF_RULE || {}};
-    tblPdfData = window._DATA_TBL_PDF || {};
-    tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};
-    diffData = window._DATA_LAW_DIFF || {};   // PR-H9-Q1C
+    tblPdfData = window._DATA_TBL_PDF || tblPdfData;
+    tblHistoryData = window._DATA_TBL_HISTORY || tblHistoryData;
     // PR-H6-minify: 별지 PDF_BASE64를 lazy 로드 후 tableData에 재주입 — viewer JS 변경 없이 동작
     var formPdf = window._DATA_TBL_FORM_PDF || {};
     for (var subType in formPdf) {
@@ -450,26 +484,24 @@ function ensureTableExtras(){
     _lazyTable.status = 'ready';
   }).catch(function(e){
     _lazyTable.status = 'error';
-    _lazyTable.promise = null;   // 재시도 허용
+    _lazyTable.promise = null;
     console.warn('별표 자료 lazy load 실패:', e);
     throw e;
   });
   return _lazyTable.promise;
 }
-// PR-H9-revert: 모바일도 prefetch 활성화 (사용자 결정 — 첫 클릭 즉시 표시 우선)
-// PR-H8-cleanup에서 모바일 차단했으나 사용자 체감 우선순위로 재활성화
-// 단, 저속망(slow-2g/2g)·saveData 모드는 여전히 차단 — 사용자 데이터 보호
-function _kickPrefetchTableExtras(){
+// PR-H10: prefetch는 연혁 데이터만 — 별표 본문(91MB)은 클릭 시점에만 시작
+function _kickPrefetchHistory(){
   const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   if (c && (c.saveData || /^(slow-2g|2g)$/.test(c.effectiveType || ''))) return;
   setTimeout(function(){
-    if (_lazyTable.status === 'idle') ensureTableExtras().catch(function(){});
+    if (_lazyHistory.status === 'idle') ensureHistoryData().catch(function(){});
   }, 1500);
 }
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
-  _kickPrefetchTableExtras();
+  _kickPrefetchHistory();
 } else {
-  window.addEventListener('DOMContentLoaded', _kickPrefetchTableExtras);
+  window.addEventListener('DOMContentLoaded', _kickPrefetchHistory);
 }
 
 let opts=[];
@@ -1391,7 +1423,7 @@ function openTable(lawType,ref){
         }, 1000);
       }
     }
-    ensureTableExtras().then(function(){
+    ensureTableData().then(function(){
       if (window._lazyElapsedTimer) { clearInterval(window._lazyElapsedTimer); window._lazyElapsedTimer = null; }
       // PR-H8-audit: 사용자가 로딩 중 X 눌렀으면 재호출 skip (모달 다시 열리는 문제 방지)
       if (window._modalClosedByUser) return;
@@ -1620,11 +1652,16 @@ function countAddendaExceptions(addendaInfo){
 }
 
 function renderHistory(){
-  // PR-H4-γ-2 + PR-H7 + PR-H8-audit (Codex#2):
-  // error 상태도 정상 흐름 통과시킴 — tblDiffData 등이 빈 객체로 초기화돼 있어
-  // 법률 조문 연혁(cascadeData·diffData)은 정상 표시, 별표 비교 부분만 누락.
-  // 사용자에게 부분 실패 안내 배너만 페이지 상단에 추가 (renderHistoryBody에서 처리).
-  if (_lazyTable.status === 'loading' || _lazyTable.status === 'idle') {
+  // PR-H4-γ-2 + PR-H7 + PR-H8-audit (Codex#2) + PR-H10:
+  // 별표 텍스트 전후비교 details는 tblDiffData가 비어있으면 자연스레 안 그려짐
+  // (B안: 별표 모달 열어 tblDiffData 채운 후, 사용자가 조문 변경/탭 재진입하면 노출 — DOM 자동 재렌더 X)
+  // Codex 권장 #2: error 상태 분기 추가 — 재시도 UI 제공
+  if (_lazyHistory.status === 'error') {
+    const hc = document.getElementById('historyContent');
+    if (hc) hc.innerHTML = '<div class="main"><div style="text-align:center;padding:60px 20px;color:#c0392b;font-size:14px"><div style="font-size:40px;margin-bottom:14px">⚠️</div><div style="font-weight:600;margin-bottom:8px">연혁 자료를 불러오지 못했습니다</div><div style="font-size:12px;color:var(--sub);margin-bottom:14px">네트워크를 확인해주세요</div><button onclick="_lazyHistory.status=\'idle\';renderHistory()" style="padding:8px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">🔄 다시 시도</button></div></div>';
+    return;
+  }
+  if (_lazyHistory.status === 'loading' || _lazyHistory.status === 'idle') {
     const hc = document.getElementById('historyContent');
     if (hc) {
       hc.innerHTML = `
@@ -1649,7 +1686,7 @@ function renderHistory(){
           el.textContent = Math.floor((Date.now() - startedAt)/1000) + '초 경과';
         }, 1000);
       }
-    ensureTableExtras().then(function(){
+    ensureHistoryData().then(function(){
       if (window._lazyElapsedTimerH) { clearInterval(window._lazyElapsedTimerH); window._lazyElapsedTimerH = null; }
       renderHistory();
     }).catch(function(){
