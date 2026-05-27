@@ -45,3 +45,7 @@ desktop.ini
 *.bak
 *.bak.*.json
 _backup_*/
+
+node_modules/
+package-lock.json
+package.json
