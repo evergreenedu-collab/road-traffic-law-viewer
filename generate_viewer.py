@@ -2810,7 +2810,14 @@ function lcsLines(a,b){
 
 function escPlain(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
-function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
+function closeModal(){
+  // PR-H7-fix: lazy 가드가 inline style.display='flex'로 모달 열어둔 경우도 정리
+  // (classList.remove만 하면 inline style 남아 X 클릭이 무시되던 문제)
+  const el = document.getElementById('modalOverlay');
+  if (!el) return;
+  el.classList.remove('open');
+  el.style.display = '';
+}
 
 // 내부 조문 인용 클릭 시 — 모달로 미리보기 (원래 화면 유지). 더 깊이 보려면 "이 조문 화면으로 이동" 버튼.
 // F11(2026-05-22): lawType 인자 추가 — 시행령·시행규칙 본문의 자기참조 "제X조"도 자기법 모달로 표시
