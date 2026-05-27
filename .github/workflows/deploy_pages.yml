@@ -27,16 +27,16 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: 체크아웃
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Pages 환경 설정
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Artifact 업로드 (전체 repo, .nojekyll 포함)
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: '.'
 
       - name: GitHub Pages 배포
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
