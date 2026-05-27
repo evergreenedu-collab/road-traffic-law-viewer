@@ -377,7 +377,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
-<script src="web_data/data_core_car_mgmt.js?v=20260527205715"></script>
+<script src="web_data/data_core_car_mgmt.js?v=20260527211859"></script>
 <!-- PR-H6: data_core.js 로드 완료 직후 loading overlay 숨김 (사용자에게 즉시 컨텐츠 노출) -->
 <script>(function(){var o=document.getElementById('loadingOverlay');if(o)o.style.display='none';})();</script>
 <script>
@@ -392,7 +392,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260527205715';
+const _LAZY_TS = '20260527211859';
 const _LAZY_SFX = '_car_mgmt';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
@@ -2312,7 +2312,14 @@ function lcsLines(a,b){
 
 function escPlain(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
-function closeModal(){document.getElementById('modalOverlay').classList.remove('open')}
+function closeModal(){
+  // PR-H7-fix: lazy 가드가 inline style.display='flex'로 모달 열어둔 경우도 정리
+  // (classList.remove만 하면 inline style 남아 X 클릭이 무시되던 문제)
+  const el = document.getElementById('modalOverlay');
+  if (!el) return;
+  el.classList.remove('open');
+  el.style.display = '';
+}
 
 // 내부 조문 인용 클릭 시 — 모달로 미리보기 (원래 화면 유지). 더 깊이 보려면 "이 조문 화면으로 이동" 버튼.
 // F11(2026-05-22): lawType 인자 추가 — 시행령·시행규칙 본문의 자기참조 "제X조"도 자기법 모달로 표시
