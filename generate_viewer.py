@@ -392,12 +392,15 @@ def main():
     print(f"\n📦 데이터 분리 저장 (web_data/, group={group}):")
     sizes = []
     # PR-H9-Q1C: diffData를 data_core에서 분리 — 첫 페인트 5.6MB 추가 절감
-    # diffData는 연혁 탭에서만 사용. 별도 lazy 파일 + ensureTableExtras에 합류
+    # 핫픽스: 옛 viewer.html(브라우저/PWA 캐시) 호환 — diffData: {} stub 유지
+    # (옛 코드 `const diffData = window._DATA_CORE.diffData` 시 undefined → 후속 코드 깨짐)
+    # 실제 데이터는 data_law_diff.js (lazy). stub은 빈 dict 몇 바이트라 사이즈 영향 X.
     sizes.append(write_data("data_core", "_DATA_CORE", {
         "mapData": map_data,
         "artData": art_data,
         "cascadeData": cascade_data,
         "tableData": table_data_lite,
+        "diffData": {},   # 호환 stub
     }))
     sizes.append(write_data("data_law_diff", "_DATA_LAW_DIFF", diff_data))
     # PR-H4-γ-1: data_timeline 빌드 제거 (미사용 22MB)
@@ -903,7 +906,8 @@ const artData = window._DATA_CORE.artData;
 const tableData = window._DATA_CORE.tableData;
 const cascadeData = window._DATA_CORE.cascadeData;
 // PR-H9-Q1C: diffData는 lazy 로드 (연혁 탭 진입 시점에 ensureTableExtras에서 채움)
-let diffData = {};
+// 핫픽스: _DATA_CORE.diffData가 stub({})이라도 안전. 옛/새 코드 양쪽 호환.
+let diffData = (window._DATA_CORE && window._DATA_CORE.diffData) || {};
 // PR-H4-γ-2: 별표 자료는 빈 객체로 초기화 — lazy load 후 ensureTableExtras()에서 교체
 let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
