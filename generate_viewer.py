@@ -959,18 +959,12 @@ function ensureTableExtras(){
   });
   return _lazyTable.promise;
 }
-// PR-H8-cleanup (Codex#3): 모바일에서 자동 prefetch 차단 — 데이터 절약 (매일 80MB ↓)
-// 데스크톱은 1.5초 idle 후 백그라운드 prefetch 유지. 모바일은 사용자가 별표·연혁 클릭 시점에만 로드.
-function _isMobileForPrefetch(){
-  // 좁은 뷰포트 + 셀룰러 네트워크 우선 (네트워크 정보 API는 일부 브라우저만 지원)
-  if (window.innerWidth < 768) return true;
-  if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) return true;
-  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (c && (c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType || ''))) return true;
-  return false;
-}
+// PR-H9-revert: 모바일도 prefetch 활성화 (사용자 결정 — 첫 클릭 즉시 표시 우선)
+// PR-H8-cleanup에서 모바일 차단했으나 사용자 체감 우선순위로 재활성화
+// 단, 저속망(slow-2g/2g)·saveData 모드는 여전히 차단 — 사용자 데이터 보호
 function _kickPrefetchTableExtras(){
-  if (_isMobileForPrefetch()) return;   // 모바일·저속망: 사용자 클릭 시점에만 로드
+  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (c && (c.saveData || /^(slow-2g|2g)$/.test(c.effectiveType || ''))) return;
   setTimeout(function(){
     if (_lazyTable.status === 'idle') ensureTableExtras().catch(function(){});
   }, 1500);

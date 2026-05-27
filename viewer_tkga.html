@@ -386,7 +386,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core_tkga.js?v=20260527231739" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core_tkga.js?v=20260527232014" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -410,7 +410,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260527231739';
+const _LAZY_TS = '20260527232014';
 const _LAZY_SFX = '_tkga';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
@@ -456,18 +456,12 @@ function ensureTableExtras(){
   });
   return _lazyTable.promise;
 }
-// PR-H8-cleanup (Codex#3): 모바일에서 자동 prefetch 차단 — 데이터 절약 (매일 80MB ↓)
-// 데스크톱은 1.5초 idle 후 백그라운드 prefetch 유지. 모바일은 사용자가 별표·연혁 클릭 시점에만 로드.
-function _isMobileForPrefetch(){
-  // 좁은 뷰포트 + 셀룰러 네트워크 우선 (네트워크 정보 API는 일부 브라우저만 지원)
-  if (window.innerWidth < 768) return true;
-  if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) return true;
-  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (c && (c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType || ''))) return true;
-  return false;
-}
+// PR-H9-revert: 모바일도 prefetch 활성화 (사용자 결정 — 첫 클릭 즉시 표시 우선)
+// PR-H8-cleanup에서 모바일 차단했으나 사용자 체감 우선순위로 재활성화
+// 단, 저속망(slow-2g/2g)·saveData 모드는 여전히 차단 — 사용자 데이터 보호
 function _kickPrefetchTableExtras(){
-  if (_isMobileForPrefetch()) return;   // 모바일·저속망: 사용자 클릭 시점에만 로드
+  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (c && (c.saveData || /^(slow-2g|2g)$/.test(c.effectiveType || ''))) return;
   setTimeout(function(){
     if (_lazyTable.status === 'idle') ensureTableExtras().catch(function(){});
   }, 1500);
