@@ -3129,8 +3129,7 @@ document.addEventListener('keydown',e=>{
 //            브라우저가 reload 안 하고 URL만 바뀌어 화면 그대로 → SPA 방식 직접 호출
 // PR-H8-audit (Codex#5): origin·source 검증 추가 — 외부 iframe·확장 프로그램이 보낸
 //            악의적 postMessage 차단 (보안)
-// PR-H8-cleanup (Codex#10): alarmModal 없는 그룹(road 외)에서는 메시지 핸들러 등록 생략
-if (document.getElementById('alarmModal')) {
+// PR-H8-cleanup if-wrap 일시 제거 (조문 셀렉트·연혁 버튼 회귀 — JS 파싱 깨짐)
 window.addEventListener('message',e=>{
   // 같은 origin + alarm iframe에서 온 메시지만 수락
   if (e.origin !== location.origin) return;
@@ -3163,7 +3162,7 @@ window.addEventListener('message',e=>{
     history.replaceState(null, '', url.toString());
   } catch(_) {}
 });
-}  // end if (document.getElementById('alarmModal')) — PR-H8-cleanup
+// end (PR-H8-cleanup if-wrap 제거됨)
 
 // PWA PR-H1 — Service Worker 등록 (HTTPS·localhost 한정. 알림 권한 요청은 PR-H2)
 if ('serviceWorker' in navigator) {
