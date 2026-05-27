@@ -786,10 +786,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <option value="crim_proc" disabled>형사소송법 (대법원규칙)</option>
   </select>
   <!-- Phase 3 S3-1-b-4-b: 법령유형 토글 (법률·시행령·시행규칙 직접 진입) -->
-  <div id="lawTypeToggle" style="display:inline-flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff" role="group" aria-label="법령유형 선택">
+  <!-- PR-H6-fix: 자식 background:#fff가 컨테이너 1px border를 일부 덮어 시행규칙 우측 border가 안 보이던 문제 -->
+  <!-- box-shadow inset으로 outline 보강 + 시행규칙 버튼 자체에 border-right 명시 (이중 안전) -->
+  <div id="lawTypeToggle" style="display:inline-flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--border)" role="group" aria-label="법령유형 선택">
     <button type="button" class="lt-btn active" data-lawtype="법률" onclick="switchLawType('법률')" style="padding:6px 10px;border:none;background:var(--law);color:#fff;cursor:pointer;font-size:12px;font-weight:600">법률</button>
     <button type="button" class="lt-btn" data-lawtype="시행령" onclick="switchLawType('시행령')" style="padding:6px 10px;border:none;border-left:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-size:12px">시행령</button>
-    <button type="button" class="lt-btn" data-lawtype="시행규칙" onclick="switchLawType('시행규칙')" style="padding:6px 10px;border:none;border-left:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-size:12px">시행규칙</button>
+    <button type="button" class="lt-btn" data-lawtype="시행규칙" onclick="switchLawType('시행규칙')" style="padding:6px 10px;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-size:12px">시행규칙</button>
   </div>
   <label>조문</label>
   <select id="sel" onchange="onArticleChange()" autocomplete="off"></select>
