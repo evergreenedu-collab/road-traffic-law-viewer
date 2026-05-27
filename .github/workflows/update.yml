@@ -29,6 +29,7 @@ on:
 permissions:
   contents: write   # commit·push
   issues: write     # 결과 issue 생성
+  actions: write    # PR-H6: deploy_pages workflow_dispatch 트리거 위해 필요 (github-actions[bot] push가 자동 재trigger 안 되는 정책 우회)
 
 jobs:
   update:
@@ -211,6 +212,15 @@ jobs:
           GitHub Actions 매주 자동 실행 (.github/workflows/update.yml)
           "
           git push origin master
+
+      - name: Pages 배포 트리거 (github-actions[bot] push는 자동 재trigger 안 됨)
+        # PR-H6: PR #50과 동일 — bot push가 deploy_pages 자동 호출 안 되는 GitHub 정책 우회
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run deploy_pages.yml --ref master
+          echo "✅ deploy_pages workflow_dispatch 트리거 완료 — 1~2분 후 Pages 반영"
 
       - name: ✅ 성공 Issue 생성
         if: success() && (steps.changes.outputs.has_changes == 'true' || inputs.force_issue == 'true')
