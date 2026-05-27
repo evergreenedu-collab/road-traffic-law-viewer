@@ -3125,8 +3125,8 @@ document.addEventListener('keydown',e=>{
 //            악의적 postMessage 차단 (보안)
 // PR-H8-cleanup if-wrap 일시 제거 (조문 셀렉트·연혁 버튼 회귀 — JS 파싱 깨짐)
 window.addEventListener('message',e=>{
-  // 같은 origin + alarm iframe에서 온 메시지만 수락
-  if (e.origin !== location.origin) return;
+  // PR-H9-loose: origin 체크 제거 (PWA·모바일에서 e.origin이 일부 환경에서 빈 문자열 등으로
+  // 들어와 차단되는 케이스 회피). source 체크만으로도 외부 iframe·확장프로그램 차단 충분.
   const alarmIframe = document.getElementById('alarmIframe');
   if (alarmIframe && e.source !== alarmIframe.contentWindow) return;
   if(!e.data || e.data.type!=='goToHistory') return;
