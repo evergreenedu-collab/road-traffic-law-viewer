@@ -1,8 +1,10 @@
 // 출근길 법령튜터 PWA Service Worker
 // PR-H1: 기본 등록 + 푸시·알림 클릭 스켈레톤
 // PR-H4에서 알림 표시·진입 흐름 정교화 예정
+// PR-H10-β: viewer web_data/*.js cache-first 전략 — 두 번째 진입부터 네트워크 0
 
-const SW_VERSION = 'pwa-h1-2026-05-26';
+const SW_VERSION = 'pwa-h10-2026-05-28';
+const DATA_CACHE = 'viewer-data-v1';   // ?v= 캐시버스팅이 URL에 포함되므로 새 빌드는 자동 무효화 (새 URL → cache miss → 새 fetch)
 
 self.addEventListener('install', (event) => {
   // 정적 자료는 페이지 자체 캐시버스팅(?v=빌드시각) 사용 — SW는 즉시 활성화
@@ -10,8 +12,48 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  // 이전 SW가 있다면 즉시 교체
-  event.waitUntil(self.clients.claim());
+  // 이전 SW가 있다면 즉시 교체 + 옛 viewer-data-* 캐시 정리
+  event.waitUntil((async () => {
+    try {
+      const names = await caches.keys();
+      await Promise.all(names
+        .filter(n => n.startsWith('viewer-data-') && n !== DATA_CACHE)
+        .map(n => caches.delete(n))
+      );
+    } catch (e) {
+      console.warn('[sw] 옛 캐시 정리 실패:', e);
+    }
+    await self.clients.claim();
+  })());
+});
+
+// PR-H10-β: viewer web_data/*.js cache-first 전략
+// 캐시 키 = URL (?v=빌드TS 포함) → 새 빌드 = 새 URL = 자동 무효화
+// 디스크 정리는 1차에서 보류 (Codex 권장 — 같은 v1 캐시 안 옛 ?v= 항목은 자연스레 hit 없이 잠자도록)
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  let url;
+  try { url = new URL(event.request.url); } catch (e) { return; }
+  if (url.origin !== self.location.origin) return;
+  // /web_data/data_*.js 또는 /road-traffic-law-viewer/web_data/data_*.js (Pages 배포 경로)
+  if (!/\/web_data\/data_.+\.js$/.test(url.pathname)) return;
+
+  event.respondWith((async () => {
+    try {
+      const cache = await caches.open(DATA_CACHE);
+      const hit = await cache.match(event.request);
+      if (hit) return hit;
+      const res = await fetch(event.request);
+      if (res && res.ok) {
+        // quota 초과/cache.put 실패는 silent — 응답은 정상 반환
+        cache.put(event.request, res.clone()).catch(() => {});
+      }
+      return res;
+    } catch (e) {
+      // 캐시 API 자체 실패 (시크릿 모드 등) — 네트워크 폴백
+      return fetch(event.request);
+    }
+  })());
 });
 
 // 푸시 수신 (PR-H3 GitHub Actions에서 web-push로 발송)
