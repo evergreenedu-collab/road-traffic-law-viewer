@@ -133,9 +133,10 @@ def detect_external_keywords(generated, article_text):
     """
     if not generated or not article_text:
         return []
-    # 카드 출력 텍스트 모두 모음
+    # 카드 출력 텍스트 모두 모음 (article 카드 6필드 + case 카드 6필드 모두 커버)
     out = []
-    for k in ('oneliner', 'explanation', 'case_analysis', 'teaching_application'):
+    for k in ('oneliner', 'explanation', 'case_analysis', 'teaching_application',
+              'fact_summary', 'legal_issue', 'conclusion', 'reference_digest'):
         v = generated.get(k)
         if isinstance(v, str):
             out.append(v)
@@ -1437,10 +1438,27 @@ def build_case_card(selection, indexes, target_date=None, use_llm=True):
     if use_llm and GEMINI_API_KEY:
         print(f"  🤖 case 카드 LLM 호출 (제{paired_jo}조 페어링: {source} {case_no})", flush=True)
         lc = generate_case_learning_content(case_data, source, paired_jo, paired_title)
-        if lc:
-            card['learning_content'] = lc
-            card['llm_status'] = 'ok'
-            print(f"    ✅ 6필드 생성 완료", flush=True)
+        if lc and not lc.get('_error'):
+            # PR-H5-η: case 카드도 외부 키워드 누출 검증 — paired_jo의 조문 본문 기준
+            article_text = indexes['law_articles'].get(paired_jo, '')
+            leaked = detect_external_keywords(lc, article_text)
+            card['verification'] = {
+                'external_keywords_leaked': leaked,
+                'status': 'clean' if not leaked else 'external_keywords_detected',
+            }
+            if leaked:
+                # 페어링 미스매치 — 판례가 paired_jo와 무관한 다른 조문 사안. article 폴백 트리거.
+                card['llm_status'] = 'skip_external_keywords_leaked'
+                card['llm_note'] = f'leaked: {leaked}'
+                card['llm_draft'] = lc
+                print(f"    ⚠️ 외부 키워드 누출 감지: {leaked} → 페어링 미스매치 의심 (case 폴백 트리거)", flush=True)
+            else:
+                card['learning_content'] = lc
+                card['llm_status'] = 'ok'
+                print(f"    ✅ 6필드 생성 완료", flush=True)
+        elif lc and lc.get('_error'):
+            card['learning_content'] = lc  # _error 박힌 dict 그대로 — 폴백이 인식
+            card['llm_status'] = 'ok'      # _error 분기는 호출자가 lc 확인
         else:
             card['llm_status'] = 'skip_call_failed'
     else:
@@ -1768,12 +1786,19 @@ def _build_case_card_with_fallback(selection, indexes, target_date, use_llm,
     if first_status == 'skipped_by_flag':
         return first_card
 
-    # 1) LLM 호출 자체 실패 → 즉시 article 폴백
-    if first_status in ('skip_call_failed', 'skip_no_api_key'):
-        reason = ('llm_call_failed' if first_status == 'skip_call_failed'
-                  else 'no_api_key')
+    # 1) LLM 호출 자체 실패·외부 키워드 누출 → 즉시 article 폴백
+    # PR-H5-η: skip_external_keywords_leaked도 article 폴백 트리거 (페어링 미스매치 의심)
+    if first_status in ('skip_call_failed', 'skip_no_api_key', 'skip_external_keywords_leaked'):
+        reason_map = {
+            'skip_call_failed': 'llm_call_failed',
+            'skip_no_api_key': 'no_api_key',
+            'skip_external_keywords_leaked': 'external_keywords_leaked',
+        }
+        reason = reason_map[first_status]
         meta = {'reason': reason, 'first_case': _case_summary(first_case),
                 'retry_case': None}
+        if first_status == 'skip_external_keywords_leaked':
+            meta['leaked_themes'] = first_card.get('llm_note', '')
         return _build_article_fallback(selection['jo'], indexes, target_date,
                                         use_llm, meta, schedule) or first_card
 
