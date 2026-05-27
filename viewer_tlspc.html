@@ -386,7 +386,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core_tlspc.js?v=20260527232843" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core_tlspc.js?v=20260527233836" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -410,7 +410,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260527232843';
+const _LAZY_TS = '20260527233836';
 const _LAZY_SFX = '_tlspc';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
@@ -2627,50 +2627,55 @@ window.addEventListener('message',e=>{
   const alarmIframe = document.getElementById('alarmIframe');
   if (alarmIframe && e.source !== alarmIframe.contentWindow) return;
   if(!e.data || e.data.type!=='goToHistory') return;
-  closeAlarmModal();
   const targetJo = e.data.jo;
 
-  // PR-H9-fix: renderHistory 1회만 호출하도록 순서 최적화 (사용자 보고 "2초 멈춤"):
-  // 이전 순서 — switchLawType → goArticle(render) → switchTab(renderHistory) → 2번 렌더
-  // 새 순서  — currentTab을 history로 직접 설정 → switchLawType 또는 sel.value → renderHistory 1번
-
-  // 1) 즉시 화면을 history로 전환 (탭 표시만, render는 호출 X)
-  currentTab = 'history';
-  const contentEl = document.getElementById('content');
-  const historyEl = document.getElementById('historyContent');
-  if (contentEl) contentEl.style.display = 'none';
-  if (historyEl) historyEl.style.display = 'block';
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'history'));
-
-  // 2) 사용자에게 즉시 시각 피드백 (renderHistory의 스피너가 viewport 안에 보이도록 스크롤)
-  if (historyEl) historyEl.innerHTML = '<div class="main"><div style="text-align:center;padding:60px 20px;color:var(--law)"><div style="font-size:36px;margin-bottom:14px">📜</div><div style="font-weight:600;font-size:15px">제'+targetJo+'조 연혁 이동 중...</div></div></div>';
-  window.scrollTo({top: 0, behavior: 'smooth'});
-
-  // 3) 법률 토글 (필요 시) — switchLawType이 buildOpts·popGrouped + renderHistory 호출
-  if (typeof switchLawType === 'function' && currentLawType !== '법률') {
-    switchLawType('법률');
+  // PR-H9-final: 풀스크린 로딩 overlay로 1~2초 JS 작업 시간 동안 명확한 시각 피드백
+  // (사용자 보고: "1~2초 멈춤이 STUCK 걸린 줄 오해할 수 있다")
+  // viewer 첫 로딩에 사용한 loadingOverlay div 재활용 — 같은 디자인으로 통일감
+  const navOverlay = document.getElementById('loadingOverlay');
+  if (navOverlay) {
+    navOverlay.innerHTML = '<div style="text-align:center;padding:20px;color:#fff"><div style="font-size:48px;margin-bottom:14px">📜</div><div style="font-size:18px;font-weight:600;margin-bottom:8px">제'+targetJo+'조 연혁 화면 준비 중</div><div style="margin-top:18px;width:180px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden;margin-left:auto;margin-right:auto"><div style="height:100%;background:#fff;animation:lazy-bar 1.4s ease-in-out infinite"></div></div></div>';
+    navOverlay.style.display = 'flex';
   }
 
-  // 4) sel.value 설정 후 renderHistory 1회 — 이전엔 render+renderHistory 두 번이었음
-  const sel = document.getElementById('sel');
-  if (sel) {
-    const exists = Array.from(sel.options).some(o => o.value === targetJo);
-    if (exists) {
-      sel.value = targetJo;
-    } else {
-      alert('제' + targetJo + '조를 찾을 수 없습니다.');
+  // 다음 frame에서 무거운 작업 (overlay가 먼저 paint되도록)
+  requestAnimationFrame(() => {
+    closeAlarmModal();
+    // 화면 history로 전환 (탭 DOM 즉시)
+    currentTab = 'history';
+    const contentEl = document.getElementById('content');
+    const historyEl = document.getElementById('historyContent');
+    if (contentEl) contentEl.style.display = 'none';
+    if (historyEl) historyEl.style.display = 'block';
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'history'));
+
+    // 법률 토글 (필요 시) — switchLawType이 buildOpts + popGrouped + renderHistory 호출
+    if (typeof switchLawType === 'function' && currentLawType !== '법률') {
+      switchLawType('법률');
     }
-  }
-  if (typeof renderHistory === 'function') renderHistory();
 
-  // 5) URL 동기화
-  try {
-    const url = new URL(window.location.href);
-    url.searchParams.set('jo', targetJo);
-    url.searchParams.set('tab', 'history');
-    url.searchParams.delete('law');
-    history.replaceState(null, '', url.toString());
-  } catch(_) {}
+    // sel.value 설정 + renderHistory 1회
+    const sel = document.getElementById('sel');
+    if (sel) {
+      const exists = Array.from(sel.options).some(o => o.value === targetJo);
+      if (exists) sel.value = targetJo;
+      else { if (navOverlay) navOverlay.style.display='none'; alert('제'+targetJo+'조를 찾을 수 없습니다.'); return; }
+    }
+    if (typeof renderHistory === 'function') renderHistory();
+
+    // URL 동기화
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('jo', targetJo);
+      url.searchParams.set('tab', 'history');
+      url.searchParams.delete('law');
+      history.replaceState(null, '', url.toString());
+    } catch(_) {}
+
+    // 작업 끝 — overlay 숨김 (스크롤도 위로)
+    window.scrollTo(0, 0);
+    if (navOverlay) navOverlay.style.display = 'none';
+  });
 });
 // end (PR-H8-cleanup if-wrap 제거됨)
 
