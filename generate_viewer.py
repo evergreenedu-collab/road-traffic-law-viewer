@@ -949,8 +949,18 @@ function ensureTableExtras(){
   });
   return _lazyTable.promise;
 }
-// 본문 렌더링 후 1.5초 idle 시점에 백그라운드 prefetch — 사용자가 별표 클릭하기 전에 보통 완료
+// PR-H8-cleanup (Codex#3): 모바일에서 자동 prefetch 차단 — 데이터 절약 (매일 80MB ↓)
+// 데스크톱은 1.5초 idle 후 백그라운드 prefetch 유지. 모바일은 사용자가 별표·연혁 클릭 시점에만 로드.
+function _isMobileForPrefetch(){
+  // 좁은 뷰포트 + 셀룰러 네트워크 우선 (네트워크 정보 API는 일부 브라우저만 지원)
+  if (window.innerWidth < 768) return true;
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) return true;
+  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (c && (c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType || ''))) return true;
+  return false;
+}
 function _kickPrefetchTableExtras(){
+  if (_isMobileForPrefetch()) return;   // 모바일·저속망: 사용자 클릭 시점에만 로드
   setTimeout(function(){
     if (_lazyTable.status === 'idle') ensureTableExtras().catch(function(){});
   }, 1500);
@@ -3109,6 +3119,8 @@ document.addEventListener('keydown',e=>{
 //            브라우저가 reload 안 하고 URL만 바뀌어 화면 그대로 → SPA 방식 직접 호출
 // PR-H8-audit (Codex#5): origin·source 검증 추가 — 외부 iframe·확장 프로그램이 보낸
 //            악의적 postMessage 차단 (보안)
+// PR-H8-cleanup (Codex#10): alarmModal 없는 그룹(road 외)에서는 메시지 핸들러 등록 생략
+if (document.getElementById('alarmModal')) {
 window.addEventListener('message',e=>{
   // 같은 origin + alarm iframe에서 온 메시지만 수락
   if (e.origin !== location.origin) return;
@@ -3141,6 +3153,7 @@ window.addEventListener('message',e=>{
     history.replaceState(null, '', url.toString());
   } catch(_) {}
 });
+}  // end if (document.getElementById('alarmModal')) — PR-H8-cleanup
 
 // PWA PR-H1 — Service Worker 등록 (HTTPS·localhost 한정. 알림 권한 요청은 PR-H2)
 if ('serviceWorker' in navigator) {
