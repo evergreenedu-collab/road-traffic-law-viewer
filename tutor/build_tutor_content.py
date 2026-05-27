@@ -1437,10 +1437,14 @@ def build_case_card(selection, indexes, target_date=None, use_llm=True):
 
     if use_llm and GEMINI_API_KEY:
         print(f"  🤖 case 카드 LLM 호출 (제{paired_jo}조 페어링: {source} {case_no})", flush=True)
-        lc = generate_case_learning_content(case_data, source, paired_jo, paired_title)
+        # PR-H5-θ: paired_jo 본문을 LLM에 명시 전달 (페어링 미스매치 예방 — LLM이 본문과
+        # 판례 핵심 쟁점 일치 여부를 자체 확인 후 미일치 시 status='skip' 응답)
+        article_text = indexes['law_articles'].get(paired_jo, '')
+        lc = generate_case_learning_content(case_data, source, paired_jo, paired_title,
+                                             paired_article_text=article_text)
         if lc and not lc.get('_error'):
             # PR-H5-η: case 카드도 외부 키워드 누출 검증 — paired_jo의 조문 본문 기준
-            article_text = indexes['law_articles'].get(paired_jo, '')
+            # (LLM이 규칙 0번 위반해 응답한 경우의 사후 안전망)
             leaked = detect_external_keywords(lc, article_text)
             card['verification'] = {
                 'external_keywords_leaked': leaked,
