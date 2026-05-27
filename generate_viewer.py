@@ -2558,16 +2558,17 @@ const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobi|webOS/i.test(navigator.userAgen
 function pdfPreviewHtml(src, height){
   height = height || '70vh';
   if(!src) return '<p style="color:var(--sub);text-align:center;padding:20px">PDF 미리보기 없음</p>';
+  // PR-H9-fix: iframe loading="eager" 명시 — 모바일 Chrome이 viewport 밖 iframe을 자동 lazy 처리해서
+  // 사용자가 스크롤할 때까지 PDF가 안 보이던 문제 해결. 사용자 보고 2026-05-27.
   if(IS_MOBILE){
-    // 같은 origin 절대 URL 변환 (blob:/data:는 그대로). PDF.js viewer는 web_data/pdfjs/web/ 기준이라 상대경로면 못 찾음
     const fullUrl = (src.startsWith('blob:') || src.startsWith('data:'))
                   ? src
                   : new URL(src, window.location.href).href;
     const viewerUrl = 'web_data/pdfjs/web/viewer.html?file=' + encodeURIComponent(fullUrl);
-    return `<iframe src="${viewerUrl}" style="width:100%;height:${height};border:1px solid var(--border);border-radius:6px;background:#fff" allowfullscreen></iframe>
+    return `<iframe src="${viewerUrl}" loading="eager" style="width:100%;height:${height};border:1px solid var(--border);border-radius:6px;background:#fff" allowfullscreen></iframe>
             <div style="margin-top:8px;font-size:11px;color:var(--sub);text-align:center;word-break:keep-all;line-height:1.6">PDF가 안 뜨면 <a href="${src}" target="_blank" rel="noopener" style="color:var(--law);text-decoration:underline;white-space:nowrap">[새 탭에서 직접 열기]</a></div>`;
   }
-  return `<iframe src="${src}" style="width:100%;height:${height};border:1px solid var(--border);border-radius:6px"></iframe>`;
+  return `<iframe src="${src}" loading="eager" style="width:100%;height:${height};border:1px solid var(--border);border-radius:6px"></iframe>`;
 }
 
 // 제개정이유 요약 — 「◇ 개정이유」 섹션 첫 문단을 추출해 한 문장으로 다듬음
