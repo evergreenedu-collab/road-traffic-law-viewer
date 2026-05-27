@@ -113,6 +113,55 @@ TEACHING_KEYWORDS = ('교육', '강의', '수강생', '학습', '교통안전', 
 # R7-6: 자료 근거 없이 쓰면 안 되는 위험한 일반화 표현 (판례 결론은 사실관계에 한정)
 HARD_GENERALIZATIONS = ('무관하게', '예외 없이', '예외없이', '모든 경우에', '어떤 경우에도')
 
+# PR-H5-δ: 사후 검증 — 다른 조문(주로 도교법 내부) 처벌 사유 키워드.
+# 카드 LLM 출력에 등장하지만 조문 원문(article_text)에 없으면 "외부 누출" — 할루시네이션 의심.
+# 주제별로 묶어 한 주제의 어느 변형이든 매칭. (사용자 보고 2026-05-27: 제150조 카드에 음주측정거부 등장)
+SUSPECT_KEYWORDS_BY_THEME = {
+    '음주측정거부': ('음주측정거부', '음주측정 거부', '음주측정에 응하지', '측정 요구에 불응', '측정요구에 불응'),
+    '음주운전': ('음주운전', '주취운전', '혈중알코올농도'),
+    '무면허운전': ('무면허운전', '무면허 운전'),
+    '뺑소니_도주': ('뺑소니', '도주차량', '도주치사', '도주치상'),
+    '사고미조치': ('사고미조치', '사고후미조치', '사고 후 미조치'),
+    '위험운전치사상': ('위험운전치사', '위험운전치상', '위험운전치사상'),
+}
+
+
+def detect_external_keywords(generated, article_text):
+    """카드 LLM 출력의 의심 키워드가 조문 본문에 없으면 '외부 누출' 감지.
+
+    Returns: 누출 주제 리스트 (예: ['음주측정거부']). 누출 없으면 [].
+    """
+    if not generated or not article_text:
+        return []
+    # 카드 출력 텍스트 모두 모음
+    out = []
+    for k in ('oneliner', 'explanation', 'case_analysis', 'teaching_application'):
+        v = generated.get(k)
+        if isinstance(v, str):
+            out.append(v)
+    for lf in ('key_issues', 'study_points'):
+        items = generated.get(lf) or []
+        for it in items:
+            if isinstance(it, str):
+                out.append(it)
+    for rc in generated.get('related_cases') or []:
+        if isinstance(rc, dict):
+            for v in rc.values():
+                if isinstance(v, str):
+                    out.append(v)
+    output_text = ' '.join(out)
+
+    leaked = []
+    for theme, variants in SUSPECT_KEYWORDS_BY_THEME.items():
+        out_hit = any(v in output_text for v in variants)
+        if not out_hit:
+            continue
+        # 출력에 있는데 본문에 같은 주제 변형 단 하나라도 없으면 누출
+        article_hit = any(v in article_text for v in variants)
+        if not article_hit:
+            leaked.append(theme)
+    return leaked
+
 
 # R8 C3: 판례 제목에 남길 도로교통·교통 관련 죄명 키워드
 TRAFFIC_TITLE_KEYWORDS = ('도로교통법', '교통사고', '교통', '운전', '도주치', '자동차', '음주', '무면허')
@@ -1190,6 +1239,17 @@ def enrich_card(card, jo, jo_title, version, resources):
         print(f"    ❌ {verdict}")
         return
     print(f"    ✅ PASS")
+
+    # PR-H5-δ: 사후 검증 — 외부 키워드 누출 감지 (할루시네이션 안전망)
+    # 현 단계는 기록·경고만 (자동 폴백 승격은 효과 측정 후). 카드 콘텐츠는 그대로 게시하되
+    # card['verification']에 누출 정보 박아 viewer/검토자가 확인 가능하도록.
+    leaked = detect_external_keywords(generated, resources.get('article_text') or '')
+    card['verification'] = {
+        'external_keywords_leaked': leaked,
+        'status': 'clean' if not leaked else 'external_keywords_detected',
+    }
+    if leaked:
+        print(f"    ⚠️ 외부 키워드 누출 감지: {leaked} (조문 본문에 없는 다른 조문 처벌 사유)")
     rc = generated.get('related_cases', [])
     # R12-D: case_analysis가 언급한 사건번호가 related_cases에 빠졌으면 보강 —
     # UI 전문 펼침이 related_cases 기준이라, 누락 시 인용 판례를 못 펼침.
