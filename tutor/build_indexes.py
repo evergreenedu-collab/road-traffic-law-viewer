@@ -199,7 +199,40 @@ def extract_road_law_articles(text):
                 continue
             direct.add(jo_key(jm.group(1), jm.group(2)))
     ranged -= direct
+
+    # PR-H5-κ: 주제키워드 교차 검증 — 옛 조문번호 인용 함정 차단
+    # 추출된 조문 중 ARTICLE_TOPIC_KEYWORDS 정의된 것에 대해, 판례 본문에 그 조문 주제
+    # 키워드가 하나도 없으면 옛 조문번호 인용 의심 → 제외 (예: 현행 150조 키워드 없는데
+    # 음주측정거부만 있으면 옛 150조=현행 148조의2 인용 가능성 → 150 매핑 풀에서 빼냄)
+    direct = _cross_check_article_topics(text, direct)
+    ranged = _cross_check_article_topics(text, ranged)
     return direct, ranged
+
+
+# PR-H5-κ: ARTICLE_TOPIC_KEYWORDS 교차 검증 (옛 조문번호 인용 함정 차단)
+# case_pairing.py와 단일 정의 — import로 동기화. (case_pairing은 build_indexes를 import하지
+# 않아 순환 없음. 의존 그래프 안전.)
+try:
+    from case_pairing import ARTICLE_TOPIC_KEYWORDS as _TOPIC_KW
+except ImportError:
+    _TOPIC_KW = {}
+
+
+def _cross_check_article_topics(text, jo_set):
+    """추출된 조문번호 중 ARTICLE_TOPIC_KEYWORDS 정의된 것만 본문 키워드와 교차 검증.
+    키워드 정의 없는 조문은 그대로 통과 (over-filter 방지 — 보수적 동작)."""
+    if not _TOPIC_KW or not jo_set:
+        return jo_set
+    verified = set()
+    for jo in jo_set:
+        keywords = _TOPIC_KW.get(jo)
+        if not keywords:
+            verified.add(jo)  # 키워드 정의 X → 통과
+            continue
+        if any(kw in text for kw in keywords):
+            verified.add(jo)  # 본문에 주제 키워드 등장 → 정상 매핑
+        # else: 본문에 키워드 어느 것도 없음 → 옛 조문번호 인용 의심 → 제외
+    return verified
 
 
 # ─── 파서: 해설집 (law_comment) ──────────────────────────────────
