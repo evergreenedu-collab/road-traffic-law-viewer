@@ -118,9 +118,12 @@ header a { color: #ffe; text-decoration: underline; }
 }
 .case-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .case-no {
-  font-family: 'Courier New', monospace; font-size: 12px; font-weight: 600;
+  /* PR-H5-fix: 폰트 통일 — Courier New는 한글 글리프 없어 '도' 자만 fallback 폰트로
+     도드라지던 문제 해결 (사용자 보고). 강조는 배경·테두리만으로 충분. */
+  font-size: 12px; font-weight: 600;
   color: var(--sub); background: var(--card); padding: 2px 8px;
   border-radius: 4px; border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
 }
 .case-type {
   font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px;
