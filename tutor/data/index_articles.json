@@ -1,5 +1,5 @@
 {
-  "생성일시": "2026-05-21T17:53:04.764082",
+  "생성일시": "2026-05-27T20:31:34.417140",
   "설명": "현행 법령 후보 풀 + 가중치",
   "조문수": 165,
   "조문별": {
@@ -9,13 +9,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.369,
+      "weight_score": 0.386,
       "score_breakdown": {
-        "case_score": 0.141,
+        "case_score": 0.179,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.369
+        "total": 0.386
       }
     },
     "10": {
@@ -24,13 +24,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.385,
+      "weight_score": 0.407,
       "score_breakdown": {
-        "case_score": 0.178,
+        "case_score": 0.226,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.385
+        "total": 0.407
       }
     },
     "100": {
@@ -129,13 +129,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "107": {
@@ -311,13 +311,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "118": {
@@ -326,13 +326,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "119": {
@@ -341,13 +341,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.369,
+      "weight_score": 0.386,
       "score_breakdown": {
-        "case_score": 0.141,
+        "case_score": 0.179,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.369
+        "total": 0.386
       }
     },
     "12": {
@@ -356,13 +356,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.369,
+      "weight_score": 0.386,
       "score_breakdown": {
-        "case_score": 0.141,
+        "case_score": 0.179,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.369
+        "total": 0.386
       }
     },
     "120": {
@@ -461,13 +461,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.432,
+      "weight_score": 0.466,
       "score_breakdown": {
-        "case_score": 0.283,
+        "case_score": 0.358,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.432
+        "total": 0.466
       }
     },
     "130": {
@@ -521,13 +521,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.398,
+      "weight_score": 0.423,
       "score_breakdown": {
-        "case_score": 0.207,
+        "case_score": 0.262,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.398
+        "total": 0.423
       }
     },
     "138": {
@@ -536,13 +536,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "139": {
@@ -566,13 +566,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.398,
+      "weight_score": 0.423,
       "score_breakdown": {
-        "case_score": 0.207,
+        "case_score": 0.262,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.398
+        "total": 0.423
       }
     },
     "14": {
@@ -581,13 +581,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.398,
+      "weight_score": 0.423,
       "score_breakdown": {
-        "case_score": 0.207,
+        "case_score": 0.262,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.398
+        "total": 0.423
       }
     },
     "141": {
@@ -686,13 +686,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.469,
+      "weight_score": 0.513,
       "score_breakdown": {
-        "case_score": 0.364,
+        "case_score": 0.461,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.469
+        "total": 0.513
       }
     },
     "147의2": {
@@ -712,34 +712,34 @@
     },
     "148": {
       "admin_case_count": 0,
-      "court_case_count": 15,
+      "court_case_count": 11,
       "categories": [],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.465,
+      "weight_score": 0.487,
       "score_breakdown": {
-        "case_score": 0.357,
+        "case_score": 0.405,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.465
+        "total": 0.487
       }
     },
     "148의2": {
       "admin_case_count": 3,
-      "court_case_count": 31,
+      "court_case_count": 29,
       "categories": [
         "음주운전"
       ],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.756,
+      "weight_score": 0.806,
       "score_breakdown": {
-        "case_score": 0.457,
+        "case_score": 0.569,
         "category_score": 1.0,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.756
+        "total": 0.806
       }
     },
     "15": {
@@ -759,32 +759,32 @@
     },
     "150": {
       "admin_case_count": 0,
-      "court_case_count": 11,
+      "court_case_count": 1,
       "categories": [],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.449,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.32,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.449
+        "total": 0.356
       }
     },
     "151": {
-      "admin_case_count": 1,
+      "admin_case_count": 0,
       "court_case_count": 4,
       "categories": [],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.409,
+      "weight_score": 0.423,
       "score_breakdown": {
-        "case_score": 0.23,
+        "case_score": 0.262,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.409
+        "total": 0.423
       }
     },
     "151의2": {
@@ -793,13 +793,13 @@
       "categories": [],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "152": {
@@ -808,13 +808,13 @@
       "categories": [],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.502,
+      "weight_score": 0.554,
       "score_breakdown": {
-        "case_score": 0.437,
+        "case_score": 0.554,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.502
+        "total": 0.554
       }
     },
     "154": {
@@ -823,28 +823,28 @@
       "categories": [],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.385,
+      "weight_score": 0.407,
       "score_breakdown": {
-        "case_score": 0.178,
+        "case_score": 0.226,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.385
+        "total": 0.407
       }
     },
     "156": {
       "admin_case_count": 13,
-      "court_case_count": 11,
+      "court_case_count": 0,
       "categories": [],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.491,
+      "weight_score": 0.498,
       "score_breakdown": {
-        "case_score": 0.414,
+        "case_score": 0.43,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.491
+        "total": 0.498
       }
     },
     "157": {
@@ -853,13 +853,13 @@
       "categories": [],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.369,
+      "weight_score": 0.386,
       "score_breakdown": {
-        "case_score": 0.141,
+        "case_score": 0.179,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.369
+        "total": 0.386
       }
     },
     "159": {
@@ -883,13 +883,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "16": {
@@ -958,13 +958,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.481,
+      "weight_score": 0.528,
       "score_breakdown": {
-        "case_score": 0.392,
+        "case_score": 0.496,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.481
+        "total": 0.528
       }
     },
     "163": {
@@ -973,13 +973,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.478,
+      "weight_score": 0.525,
       "score_breakdown": {
-        "case_score": 0.385,
+        "case_score": 0.488,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.478
+        "total": 0.525
       }
     },
     "164": {
@@ -988,13 +988,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.478,
+      "weight_score": 0.525,
       "score_breakdown": {
-        "case_score": 0.385,
+        "case_score": 0.488,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.478
+        "total": 0.525
       }
     },
     "165": {
@@ -1003,13 +1003,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.432,
+      "weight_score": 0.466,
       "score_breakdown": {
-        "case_score": 0.283,
+        "case_score": 0.358,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.432
+        "total": 0.466
       }
     },
     "166": {
@@ -1035,13 +1035,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.531,
+      "weight_score": 0.559,
       "score_breakdown": {
-        "case_score": 0.23,
+        "case_score": 0.292,
         "category_score": 0.65,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.531
+        "total": 0.559
       }
     },
     "18": {
@@ -1050,13 +1050,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "19": {
@@ -1065,13 +1065,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.369,
+      "weight_score": 0.386,
       "score_breakdown": {
-        "case_score": 0.141,
+        "case_score": 0.179,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.369
+        "total": 0.386
       }
     },
     "2": {
@@ -1080,13 +1080,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.556,
+      "weight_score": 0.623,
       "score_breakdown": {
-        "case_score": 0.559,
+        "case_score": 0.707,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.556
+        "total": 0.623
       }
     },
     "20": {
@@ -1095,13 +1095,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "21": {
@@ -1110,13 +1110,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.398,
+      "weight_score": 0.423,
       "score_breakdown": {
-        "case_score": 0.207,
+        "case_score": 0.262,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.398
+        "total": 0.423
       }
     },
     "22": {
@@ -1140,13 +1140,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.369,
+      "weight_score": 0.386,
       "score_breakdown": {
-        "case_score": 0.141,
+        "case_score": 0.179,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.369
+        "total": 0.386
       }
     },
     "25": {
@@ -1157,13 +1157,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.45,
+      "weight_score": 0.461,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.6,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.45
+        "total": 0.461
       }
     },
     "25의2": {
@@ -1187,13 +1187,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.418,
+      "weight_score": 0.448,
       "score_breakdown": {
-        "case_score": 0.25,
+        "case_score": 0.317,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.418
+        "total": 0.448
       }
     },
     "27": {
@@ -1204,13 +1204,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.589,
+      "weight_score": 0.627,
       "score_breakdown": {
-        "case_score": 0.32,
+        "case_score": 0.405,
         "category_score": 0.7,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.589
+        "total": 0.627
       }
     },
     "28": {
@@ -1249,13 +1249,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "3": {
@@ -1264,13 +1264,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.438,
+      "weight_score": 0.474,
       "score_breakdown": {
-        "case_score": 0.296,
+        "case_score": 0.375,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.438
+        "total": 0.474
       }
     },
     "30": {
@@ -1311,13 +1311,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.404,
+      "weight_score": 0.421,
       "score_breakdown": {
-        "case_score": 0.141,
+        "case_score": 0.179,
         "category_score": 0.4,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.404
+        "total": 0.421
       }
     },
     "33": {
@@ -1416,13 +1416,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "39": {
@@ -1446,13 +1446,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.432,
+      "weight_score": 0.466,
       "score_breakdown": {
-        "case_score": 0.283,
+        "case_score": 0.358,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.432
+        "total": 0.466
       }
     },
     "40": {
@@ -1476,13 +1476,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "42": {
@@ -1491,81 +1491,81 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "43": {
-      "admin_case_count": 23,
-      "court_case_count": 118,
+      "admin_case_count": 18,
+      "court_case_count": 117,
       "categories": [
         "무면허·결격기간"
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.767,
+      "weight_score": 0.84,
       "score_breakdown": {
-        "case_score": 0.637,
+        "case_score": 0.8,
         "category_score": 0.8,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.767
+        "total": 0.84
       }
     },
     "44": {
-      "admin_case_count": 201,
+      "admin_case_count": 198,
       "court_case_count": 166,
       "categories": [
         "음주운전"
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.892,
+      "weight_score": 0.982,
       "score_breakdown": {
-        "case_score": 0.76,
+        "case_score": 0.961,
         "category_score": 1.0,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.892
+        "total": 0.982
       }
     },
     "45": {
-      "admin_case_count": 12,
-      "court_case_count": 6,
+      "admin_case_count": 8,
+      "court_case_count": 2,
       "categories": [
         "약물·질병"
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.703,
+      "weight_score": 0.708,
       "score_breakdown": {
-        "case_score": 0.379,
+        "case_score": 0.391,
         "category_score": 0.95,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.703
+        "total": 0.708
       }
     },
     "46": {
       "admin_case_count": 1,
-      "court_case_count": 2,
+      "court_case_count": 1,
       "categories": [
         "난폭운전"
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.56,
+      "weight_score": 0.561,
       "score_breakdown": {
-        "case_score": 0.178,
+        "case_score": 0.179,
         "category_score": 0.8,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.56
+        "total": 0.561
       }
     },
     "46의2": {
@@ -1591,30 +1591,30 @@
       ],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.52,
+      "weight_score": 0.531,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.8,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.52
+        "total": 0.531
       }
     },
     "47": {
-      "admin_case_count": 1,
-      "court_case_count": 1,
+      "admin_case_count": 0,
+      "court_case_count": 0,
       "categories": [
         "음주측정거부"
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.596,
+      "weight_score": 0.532,
       "score_breakdown": {
-        "case_score": 0.141,
+        "case_score": 0.0,
         "category_score": 0.95,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.596
+        "total": 0.532
       }
     },
     "48": {
@@ -1623,13 +1623,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.385,
+      "weight_score": 0.407,
       "score_breakdown": {
-        "case_score": 0.178,
+        "case_score": 0.226,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.385
+        "total": 0.407
       }
     },
     "49": {
@@ -1638,13 +1638,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.385,
+      "weight_score": 0.407,
       "score_breakdown": {
-        "case_score": 0.178,
+        "case_score": 0.226,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.385
+        "total": 0.407
       }
     },
     "4의2": {
@@ -1670,13 +1670,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.558,
+      "weight_score": 0.598,
       "score_breakdown": {
-        "case_score": 0.33,
+        "case_score": 0.418,
         "category_score": 0.6,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.558
+        "total": 0.598
       }
     },
     "50": {
@@ -1687,13 +1687,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.606,
+      "weight_score": 0.645,
       "score_breakdown": {
-        "case_score": 0.32,
+        "case_score": 0.405,
         "category_score": 0.75,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.606
+        "total": 0.645
       }
     },
     "50의2": {
@@ -1800,13 +1800,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.772,
+      "weight_score": 0.841,
       "score_breakdown": {
-        "case_score": 0.571,
+        "case_score": 0.724,
         "category_score": 0.9,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.772
+        "total": 0.841
       }
     },
     "56": {
@@ -1830,13 +1830,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "58": {
@@ -1860,13 +1860,13 @@
       "categories": [],
       "has_comment": false,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 0.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "6": {
@@ -1875,13 +1875,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.425,
+      "weight_score": 0.457,
       "score_breakdown": {
-        "case_score": 0.267,
+        "case_score": 0.339,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.425
+        "total": 0.457
       }
     },
     "60": {
@@ -1890,13 +1890,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "61": {
@@ -1920,13 +1920,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.409,
+      "weight_score": 0.436,
       "score_breakdown": {
-        "case_score": 0.23,
+        "case_score": 0.292,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.409
+        "total": 0.436
       }
     },
     "63": {
@@ -2010,13 +2010,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "70": {
@@ -2025,13 +2025,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.369,
+      "weight_score": 0.386,
       "score_breakdown": {
-        "case_score": 0.141,
+        "case_score": 0.179,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.369
+        "total": 0.386
       }
     },
     "71": {
@@ -2130,13 +2130,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.409,
+      "weight_score": 0.436,
       "score_breakdown": {
-        "case_score": 0.23,
+        "case_score": 0.292,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.409
+        "total": 0.436
       }
     },
     "79": {
@@ -2160,13 +2160,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.369,
+      "weight_score": 0.386,
       "score_breakdown": {
-        "case_score": 0.141,
+        "case_score": 0.179,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.369
+        "total": 0.386
       }
     },
     "80": {
@@ -2177,13 +2177,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.519,
+      "weight_score": 0.567,
       "score_breakdown": {
-        "case_score": 0.397,
+        "case_score": 0.503,
         "category_score": 0.4,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.519
+        "total": 0.567
       }
     },
     "81": {
@@ -2209,30 +2209,30 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.71,
+      "weight_score": 0.771,
       "score_breakdown": {
-        "case_score": 0.511,
+        "case_score": 0.647,
         "category_score": 0.8,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.71
+        "total": 0.771
       }
     },
     "83": {
-      "admin_case_count": 5,
+      "admin_case_count": 1,
       "court_case_count": 0,
       "categories": [
         "면허취득"
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.444,
+      "weight_score": 0.391,
       "score_breakdown": {
-        "case_score": 0.23,
+        "case_score": 0.113,
         "category_score": 0.4,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.444
+        "total": 0.391
       }
     },
     "84": {
@@ -2260,13 +2260,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.42,
+      "weight_score": 0.442,
       "score_breakdown": {
-        "case_score": 0.178,
+        "case_score": 0.226,
         "category_score": 0.4,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.42
+        "total": 0.442
       }
     },
     "86": {
@@ -2275,30 +2275,30 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "87": {
-      "admin_case_count": 8,
+      "admin_case_count": 0,
       "court_case_count": 0,
       "categories": [
         "적성검사·갱신"
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.52,
+      "weight_score": 0.393,
       "score_breakdown": {
-        "case_score": 0.283,
+        "case_score": 0.0,
         "category_score": 0.55,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.52
+        "total": 0.393
       }
     },
     "87의2": {
@@ -2324,13 +2324,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.571,
+      "weight_score": 0.619,
       "score_breakdown": {
-        "case_score": 0.397,
+        "case_score": 0.503,
         "category_score": 0.55,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.571
+        "total": 0.619
       }
     },
     "89": {
@@ -2356,13 +2356,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.345,
+      "weight_score": 0.356,
       "score_breakdown": {
-        "case_score": 0.089,
+        "case_score": 0.113,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.345
+        "total": 0.356
       }
     },
     "90": {
@@ -2390,13 +2390,13 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.578,
+      "weight_score": 0.599,
       "score_breakdown": {
-        "case_score": 0.178,
+        "case_score": 0.226,
         "category_score": 0.85,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.578
+        "total": 0.599
       }
     },
     "92": {
@@ -2407,18 +2407,18 @@
       ],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.591,
+      "weight_score": 0.615,
       "score_breakdown": {
-        "case_score": 0.207,
+        "case_score": 0.262,
         "category_score": 0.85,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.591
+        "total": 0.615
       }
     },
     "93": {
-      "admin_case_count": 2380,
-      "court_case_count": 3,
+      "admin_case_count": 463,
+      "court_case_count": 0,
       "categories": [
         "면허취소·정지"
       ],
@@ -2488,13 +2488,13 @@
       "categories": [],
       "has_comment": true,
       "has_recent_revision": true,
-      "weight_score": 0.438,
+      "weight_score": 0.474,
       "score_breakdown": {
-        "case_score": 0.296,
+        "case_score": 0.375,
         "category_score": 0.3,
         "recent_score": 1.0,
         "comment_bonus": 1.0,
-        "total": 0.438
+        "total": 0.474
       }
     },
     "97": {
