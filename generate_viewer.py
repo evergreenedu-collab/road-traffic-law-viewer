@@ -3085,16 +3085,36 @@ document.addEventListener('keydown',e=>{
 });
 
 // alarm.html(iframe)로부터 "연혁 보기" 메시지 수신 → 모달 닫고 메인 페이지에서 조문 이동
-// alarm.html이 이미 "매핑된 법률 조문 키"로 변환해서 보내므로 그대로 사용 (fallback 불필요)
+// PR-H8-fix: 이전엔 location.href로 reload 시도했으나 ?jo= 파라미터만 바뀌면
+//            브라우저가 reload 안 하고 URL만 바뀌어 화면 그대로 → 사용자 보고 안 될 때 多.
+//            SPA 방식으로 switchLawType + goArticle + switchTab 직접 호출하여 즉시 화면 전환.
 window.addEventListener('message',e=>{
   if(!e.data || e.data.type!=='goToHistory') return;
   closeAlarmModal();
-  const url=new URL(window.location.href);
-  url.searchParams.set('jo',e.data.jo);
-  url.searchParams.set('tab','history');
-  // Phase 3 S3-1-b-4-b 사후검증: 알람은 항상 법률 조문 기준이므로 law 파라미터 잔존 시 제거
-  url.searchParams.delete('law');
-  window.location.href=url.toString();
+  const targetJo = e.data.jo;
+  // 1) 법률 토글로 전환 (알람은 항상 법률 조문 기준)
+  if (typeof switchLawType === 'function' && currentLawType !== '법률') {
+    switchLawType('법률');
+  }
+  // 2) 조문 이동 (sel.value 설정 + render)
+  if (typeof goArticle === 'function') {
+    goArticle(targetJo);
+  } else {
+    const sel = document.getElementById('sel');
+    if (sel) sel.value = targetJo;
+  }
+  // 3) 연혁 탭으로 전환
+  if (typeof switchTab === 'function') {
+    switchTab('history');
+  }
+  // 4) URL 동기화 (reload 없이) — 새로고침해도 같은 조문 유지
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('jo', targetJo);
+    url.searchParams.set('tab', 'history');
+    url.searchParams.delete('law');
+    history.replaceState(null, '', url.toString());
+  } catch(_) {}
 });
 
 // PWA PR-H1 — Service Worker 등록 (HTTPS·localhost 한정. 알림 권한 요청은 PR-H2)
