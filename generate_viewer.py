@@ -391,13 +391,15 @@ def main():
 
     print(f"\n📦 데이터 분리 저장 (web_data/, group={group}):")
     sizes = []
+    # PR-H9-Q1C: diffData를 data_core에서 분리 — 첫 페인트 5.6MB 추가 절감
+    # diffData는 연혁 탭에서만 사용. 별도 lazy 파일 + ensureTableExtras에 합류
     sizes.append(write_data("data_core", "_DATA_CORE", {
         "mapData": map_data,
         "artData": art_data,
         "cascadeData": cascade_data,
-        "diffData": diff_data,
         "tableData": table_data_lite,
     }))
+    sizes.append(write_data("data_law_diff", "_DATA_LAW_DIFF", diff_data))
     # PR-H4-γ-1: data_timeline 빌드 제거 (미사용 22MB)
     sizes.append(write_data("data_tbl_diff_decree", "_DATA_TBL_DIFF_DECREE", tbl_diff_data.get("시행령", {})))
     sizes.append(write_data("data_tbl_diff_rule", "_DATA_TBL_DIFF_RULE", tbl_diff_data.get("시행규칙", {})))
@@ -900,7 +902,8 @@ const mapData = window._DATA_CORE.mapData;
 const artData = window._DATA_CORE.artData;
 const tableData = window._DATA_CORE.tableData;
 const cascadeData = window._DATA_CORE.cascadeData;
-const diffData = window._DATA_CORE.diffData;
+// PR-H9-Q1C: diffData는 lazy 로드 (연혁 탭 진입 시점에 ensureTableExtras에서 채움)
+let diffData = {};
 // PR-H4-γ-2: 별표 자료는 빈 객체로 초기화 — lazy load 후 ensureTableExtras()에서 교체
 let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
@@ -927,10 +930,13 @@ function ensureTableExtras(){
     _loadScriptOnce('web_data/data_tbl_pdf'+_LAZY_SFX+'.js?v='+_LAZY_TS),
     _loadScriptOnce('web_data/data_tbl_history'+_LAZY_SFX+'.js?v='+_LAZY_TS),
     _loadScriptOnce('web_data/data_tbl_form_pdf'+_LAZY_SFX+'.js?v='+_LAZY_TS),
+    // PR-H9-Q1C: 법률 본문 전후비교 데이터 (data_core에서 분리, 연혁 탭에서만 사용)
+    _loadScriptOnce('web_data/data_law_diff'+_LAZY_SFX+'.js?v='+_LAZY_TS),
   ]).then(function(){
     tblDiffData = {시행령: window._DATA_TBL_DIFF_DECREE || {}, 시행규칙: window._DATA_TBL_DIFF_RULE || {}};
     tblPdfData = window._DATA_TBL_PDF || {};
     tblHistoryData = window._DATA_TBL_HISTORY || {시행령:{}, 시행규칙:{}};
+    diffData = window._DATA_LAW_DIFF || {};   // PR-H9-Q1C
     // PR-H6-minify: 별지 PDF_BASE64를 lazy 로드 후 tableData에 재주입 — viewer JS 변경 없이 동작
     var formPdf = window._DATA_TBL_FORM_PDF || {};
     for (var subType in formPdf) {
