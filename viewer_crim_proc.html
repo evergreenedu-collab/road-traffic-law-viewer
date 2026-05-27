@@ -385,9 +385,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- 데이터 분리 로드 (GitHub Pages 단일파일 100MB 한도 대응) -->
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
-<script src="web_data/data_core_crim_proc.js?v=20260527220257"></script>
-<!-- PR-H6: data_core.js 로드 완료 직후 loading overlay 숨김 (사용자에게 즉시 컨텐츠 노출) -->
-<script>(function(){var o=document.getElementById('loadingOverlay');if(o)o.style.display='none';})();</script>
+<!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
+<script src="web_data/data_core_crim_proc.js?v=20260527221949" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
+<script>(function(){
+  if (!window._DATA_CORE) {
+    var o=document.getElementById('loadingOverlay');
+    if(o){ o.innerHTML='<div style="text-align:center;padding:20px;color:#fff"><div style="font-size:48px;margin-bottom:16px">⚠️</div><div style="font-size:16px;font-weight:600">법령 데이터를 읽지 못했습니다</div><div style="font-size:13px;opacity:0.85;margin-top:8px">네트워크를 확인하고 새로고침해주세요</div><button onclick="location.reload()" style="margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer">🔄 다시 시도</button></div>'; }
+    return;
+  }
+  var o=document.getElementById('loadingOverlay');if(o)o.style.display='none';
+})();</script>
 <script>
 // 분리 로드된 데이터를 기존 변수명에 매핑 — 본문(data_core)은 즉시 사용 가능
 const mapData = window._DATA_CORE.mapData;
@@ -400,7 +408,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260527220257';
+const _LAZY_TS = '20260527221949';
 const _LAZY_SFX = '_crim_proc';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
@@ -1338,7 +1346,9 @@ function togFull(id,lawType,joKey,hang){
 }
 
 function openTable(lawType,ref){
-  // PR-H4-γ-2 + PR-H7: 별표 자료 lazy load 가드 — 진행바·경과시간으로 동작 가시화
+  // PR-H4-γ-2 + PR-H7 + PR-H8-audit: 별표 자료 lazy load 가드
+  // 사용자가 새로 openTable 호출(모달 열기 의도) → closed flag reset
+  window._modalClosedByUser = false;
   if (_lazyTable.status !== 'ready') {
     const overlay=document.getElementById('modalOverlay');
     const titleEl=document.getElementById('modalTitle');
@@ -1374,6 +1384,8 @@ function openTable(lawType,ref){
     }
     ensureTableExtras().then(function(){
       if (window._lazyElapsedTimer) { clearInterval(window._lazyElapsedTimer); window._lazyElapsedTimer = null; }
+      // PR-H8-audit: 사용자가 로딩 중 X 눌렀으면 재호출 skip (모달 다시 열리는 문제 방지)
+      if (window._modalClosedByUser) return;
       openTable(lawType, ref);
     }).catch(function(){
       if (window._lazyElapsedTimer) { clearInterval(window._lazyElapsedTimer); window._lazyElapsedTimer = null; }
@@ -1524,7 +1536,11 @@ function onLawChange(){
   if (location.pathname.endsWith('/' + target) || location.pathname.endsWith(target)) {
     return;   // 이미 같은 페이지
   }
-  location.href = target;
+  // PR-H8-audit (Codex#4): 그룹 이동 시 현재 탭 상태 보존
+  // 조문은 그룹별로 다르므로 안 넘김. tab만 보존 (3단 비교 / 연혁)
+  const url = new URL(target, location.href);
+  if (currentTab === 'history') url.searchParams.set('tab', 'history');
+  location.href = url.toString();
 }
 
 function goArticle(joKey){
@@ -1789,7 +1805,7 @@ function renderHistory(){
         const _talaName = (mapData.기준법령 && mapData.기준법령.법률 && mapData.기준법령.법률.법령명) || '본 법률';
         html+=`<div style="font-size:11px;color:var(--warn);padding:4px 8px;margin-top:4px">* 타법개정: 다른 법률 개정에 따라 ${escHtmlSimple(_talaName)}이(가) 연쇄 변경된 것으로, 아래 이유는 원인 법령의 제개정이유입니다.</div>`;
       }
-      html+=`<div style="font-size:12px;line-height:1.7;padding:8px;background:#f9f9f7;border-radius:4px;margin-top:4px;max-height:400px;overflow-y:auto">${law.제개정이유.replace(/\n/g,'<br>')}</div>`;
+      html+=`<div style="font-size:12px;line-height:1.7;padding:8px;background:#f9f9f7;border-radius:4px;margin-top:4px;max-height:400px;overflow-y:auto">${escHtml(law.제개정이유).replace(/\n/g,'<br>')}</div>`;
       html+=`</details>`;
     }
     html+=`</div>`;
@@ -1877,7 +1893,7 @@ function renderHistory(){
           html+=`<div style="margin-top:8px;padding:8px 10px;background:#f5f3ff;border-left:3px solid var(--decree);border-radius:4px;font-size:12px;line-height:1.6;color:#1e1b4b">${escHtml(sum)}</div>`;
         }
         html+=`<details style="margin-top:4px"><summary style="font-size:11px;color:var(--decree);cursor:pointer">제개정이유 전문 보기</summary>`;
-        html+=`<div style="font-size:12px;line-height:1.7;padding:8px;background:#fff;border-radius:4px;margin-top:4px;max-height:400px;overflow-y:auto">${dec.제개정이유.replace(/\n/g,'<br>')}</div>`;
+        html+=`<div style="font-size:12px;line-height:1.7;padding:8px;background:#fff;border-radius:4px;margin-top:4px;max-height:400px;overflow-y:auto">${escHtml(dec.제개정이유).replace(/\n/g,'<br>')}</div>`;
         html+=`</details>`;
       }
       html+=`</div>`;
@@ -1963,7 +1979,7 @@ function renderHistory(){
           html+=`<div style="margin-top:8px;padding:8px 10px;background:#ecfdf5;border-left:3px solid var(--rule);border-radius:4px;font-size:12px;line-height:1.6;color:#064e3b">${escHtml(sum)}</div>`;
         }
         html+=`<details style="margin-top:4px"><summary style="font-size:11px;color:var(--rule);cursor:pointer">제개정이유 전문 보기</summary>`;
-        html+=`<div style="font-size:12px;line-height:1.7;padding:8px;background:#fff;border-radius:4px;margin-top:4px;max-height:400px;overflow-y:auto">${rule.제개정이유.replace(/\n/g,'<br>')}</div>`;
+        html+=`<div style="font-size:12px;line-height:1.7;padding:8px;background:#fff;border-radius:4px;margin-top:4px;max-height:400px;overflow-y:auto">${escHtml(rule.제개정이유).replace(/\n/g,'<br>')}</div>`;
         html+=`</details>`;
       }
       html+=`</div>`;
@@ -2003,7 +2019,7 @@ function renderHistory(){
       }
       if(u.제개정이유){
         html+=`<details style="margin-top:6px"><summary style="font-size:12px;color:#b45309;cursor:pointer;font-weight:700;background:#fef3c7;padding:6px 10px;border-radius:4px;border-left:3px solid #f59e0b">📄 제개정이유 전문 (수동 확인용 — 클릭하여 펼치기)</summary>`;
-        html+=`<div style="font-size:12px;line-height:1.7;padding:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;margin-top:4px;max-height:350px;overflow-y:auto;color:#451a03">${u.제개정이유.replace(/\n/g,'<br>')}</div>`;
+        html+=`<div style="font-size:12px;line-height:1.7;padding:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;margin-top:4px;max-height:350px;overflow-y:auto;color:#451a03">${escHtml(u.제개정이유).replace(/\n/g,'<br>')}</div>`;
         html+=`</details>`;
       }
       html+=`</div>`;
@@ -2373,11 +2389,15 @@ function escPlain(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 
 function closeModal(){
   // PR-H7-fix: lazy 가드가 inline style.display='flex'로 모달 열어둔 경우도 정리
-  // (classList.remove만 하면 inline style 남아 X 클릭이 무시되던 문제)
+  // PR-H8-audit: 사용자 닫기 의도 flag 설정 + lazy timer 정리
+  //  → lazy 로딩 중 사용자가 X 누르면, fetch 완료 후 openTable 재호출이 이미 닫힌 모달을 다시 열던 문제
   const el = document.getElementById('modalOverlay');
   if (!el) return;
   el.classList.remove('open');
   el.style.display = '';
+  window._modalClosedByUser = true;   // openTable 재호출 시 이걸 체크해 abort
+  // lazy 카운터 정리 (메모리 안전)
+  if (window._lazyElapsedTimer) { clearInterval(window._lazyElapsedTimer); window._lazyElapsedTimer = null; }
 }
 
 // 내부 조문 인용 클릭 시 — 모달로 미리보기 (원래 화면 유지). 더 깊이 보려면 "이 조문 화면으로 이동" 버튼.
@@ -2588,9 +2608,14 @@ document.addEventListener('keydown',e=>{
 
 // alarm.html(iframe)로부터 "연혁 보기" 메시지 수신 → 모달 닫고 메인 페이지에서 조문 이동
 // PR-H8-fix: 이전엔 location.href로 reload 시도했으나 ?jo= 파라미터만 바뀌면
-//            브라우저가 reload 안 하고 URL만 바뀌어 화면 그대로 → 사용자 보고 안 될 때 多.
-//            SPA 방식으로 switchLawType + goArticle + switchTab 직접 호출하여 즉시 화면 전환.
+//            브라우저가 reload 안 하고 URL만 바뀌어 화면 그대로 → SPA 방식 직접 호출
+// PR-H8-audit (Codex#5): origin·source 검증 추가 — 외부 iframe·확장 프로그램이 보낸
+//            악의적 postMessage 차단 (보안)
 window.addEventListener('message',e=>{
+  // 같은 origin + alarm iframe에서 온 메시지만 수락
+  if (e.origin !== location.origin) return;
+  const alarmIframe = document.getElementById('alarmIframe');
+  if (alarmIframe && e.source !== alarmIframe.contentWindow) return;
   if(!e.data || e.data.type!=='goToHistory') return;
   closeAlarmModal();
   const targetJo = e.data.jo;
@@ -2639,17 +2664,28 @@ function urlBase64ToUint8Array(b64) {
 }
 
 async function subscribePush() {
+  // PR-H8-audit (Claude#2): 권한 거부·미지원·에러 시 subModal이 떠 있을 수 있어 명시 정리
+  const _closeSubModal = function(){
+    const m = document.getElementById('subModal');
+    if (m) m.style.display = 'none';
+  };
   try {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      _closeSubModal();
       alert('이 브라우저는 Web Push를 지원하지 않아요.\n(iOS는 16.4+ Safari 또는 홈 화면 추가된 PWA에서 가능)');
       return;
     }
     if (location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+      _closeSubModal();
       alert('Web Push는 HTTPS에서만 동작해요. GitHub Pages에서 다시 시도해주세요.');
       return;
     }
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { alert('알림 권한을 허용해야 구독할 수 있어요.'); return; }
+    if (perm !== 'granted') {
+      _closeSubModal();
+      alert('알림 권한을 허용해야 구독할 수 있어요.');
+      return;
+    }
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
@@ -2665,6 +2701,7 @@ async function subscribePush() {
     const btn = document.getElementById('pushBtn');
     if (btn) btn.textContent = '🔔 구독 중';
   } catch (e) {
+    _closeSubModal();
     console.error('구독 실패:', e);
     alert('알림 구독 실패: ' + (e.message || e));
   }

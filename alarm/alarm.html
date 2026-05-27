@@ -279,7 +279,8 @@ function lawTypeBadge(lt) {
 // jumpJo: 실제 viewer.html에 점프할 조문 (법률은 자기 자신, 시행령·시행규칙은 매핑된 법률 조문)
 function goToHistory(jumpJo) {
   if (IS_EMBEDDED) {
-    window.parent.postMessage({ type: 'goToHistory', jo: jumpJo }, '*');
+    // PR-H8-audit: 부모 origin 명시 (* 와일드카드는 데이터 누출 위험)
+    window.parent.postMessage({ type: 'goToHistory', jo: jumpJo }, window.location.origin);
   } else {
     const url = `../viewer.html?jo=${encodeURIComponent(jumpJo)}&tab=history`;
     window.location.href = url;

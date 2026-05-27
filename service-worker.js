@@ -46,9 +46,18 @@ self.addEventListener('push', (event) => {
 });
 
 // 알림 클릭 — 튜터 페이지로 진입 (이미 열려 있으면 focus)
+// PR-H8-audit (Codex#8): URL을 self.registration.scope 기준으로 정규화 — 배포 경로 변경에 안전
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || './tutor/';
+  const scope = self.registration.scope;   // 예: https://evergreenedu-collab.github.io/road-traffic-law-viewer/
+  const rawUrl = (event.notification.data && event.notification.data.url) || 'tutor/';
+  // 상대경로면 scope 기준 절대화, 절대경로면 그대로
+  let targetUrl;
+  try {
+    targetUrl = new URL(rawUrl, scope).href;
+  } catch (e) {
+    targetUrl = scope + 'tutor/';   // 최후 폴백
+  }
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of all) {
