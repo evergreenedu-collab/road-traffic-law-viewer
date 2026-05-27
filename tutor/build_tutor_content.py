@@ -708,6 +708,10 @@ def find_resources(jo, indexes, category=None, jo_title=''):
         'court_cases': court_cases,
         'topic_docs': topic_docs,
         'history_changes': history_changes,   # S7
+        # PR-H5-β: 조문 원문(항·호 포함) — 할루시네이션 방지를 위한 사실 기준
+        # (이전엔 LLM이 제목과 해설집만 보고 oneliner·explanation을 추측 → 본문에 없는
+        # 키워드를 끌어오는 사실 오류 발생. 예: 제150조 카드가 '음주측정거부' 언급)
+        'article_text': indexes['law_articles'].get(jo, ''),
     }
 
 
@@ -821,6 +825,18 @@ def _build_context(jo, jo_title, version, resources):
     # 답변에 그대로 노출하던 문제(R12-C)를 원천 차단.
     parts = [f"[조문] 도로교통법 제{jo}조 {jo_title}".strip()]
 
+    # PR-H5-β: [조문 원문] — oneliner·explanation의 사실 기준. LLM이 본문에 없는 키워드를
+    # 끌어오는 할루시네이션(예: 제150조 카드에 '음주측정거부' 언급)을 차단하기 위해 명시 전달.
+    article_text = resources.get('article_text') or ''
+    if article_text:
+        parts.append(
+            "[조문 원문 — 항·호 전문]\n"
+            "(★ oneliner·explanation은 이 본문에 명시된 처벌 대상·행위 유형·키워드만 사용한다.\n"
+            "  해설집·판례·실무자료에 다른 조문의 내용이 등장하더라도 이 카드의 oneliner·explanation에\n"
+            "  옮기지 않는다. 본문에 없는 단어는 쓰지 말 것.)\n"
+            f"{article_text}"
+        )
+
     if version:
         parts.append(
             "[이 조문의 최근 개정 정보]\n"
@@ -904,6 +920,10 @@ def generate_learning_content(jo, jo_title, version, resources):
     prompt = f"""당신은 한국도로교통공단 교수의 학습 콘텐츠 작성자입니다. 교수들이 매일 아침 읽는 자료이므로 정확성이 최우선입니다.
 
 [작성 규칙 — 위반 시 자료 신뢰도 훼손, 반드시 지킬 것]
+0. ★★★ 사실 정확성 절대 규칙 — oneliner·explanation은 [조문 원문] 섹션의 본문에 명시된
+   처벌 대상·행위 유형·키워드만 사용한다. 해설집·판례·실무자료에 다른 조문의 내용
+   (예: 음주측정거부, 무면허, 사고미조치 등)이 나오더라도, 이 조문 본문에 없으면
+   oneliner·explanation에는 적지 않는다. 사전 학습 지식으로 추측·연결 금지.
 1. 아래 원본 자료에 명시된 사실만 사용한다. 자료에 없는 수치·기간·해석·사례는 추가하지 않는다.
 2. 확실하지 않은 부분은 생략한다. 추측·일반론을 적느니 생략하는 것이 낫다.
 3. 법률 용어는 자료의 결정문·판결문·해설집 표현을 그대로 쓴다. 일상어로 의역하지 않는다.
@@ -1416,6 +1436,10 @@ def generate_other_group_article_content(group, jo, jo_title, article_text, labe
 {label} 제{jo}조 {jo_title}
 
 [작성 규칙 — 위반 시 자료 신뢰도 훼손, 반드시 지킬 것]
+0. ★★★ 사실 정확성 절대 규칙 — oneliner·explanation은 아래 [조문 본문] 섹션의 본문에 명시된
+   처벌 대상·행위 유형·키워드만 사용한다. 본문에 없는 단어·개념(예: 음주측정거부, 무면허,
+   사고미조치 등 다른 조문에 속하는 처벌 사유)을 사전 학습 지식으로 추측·연결해 끌어오는 것
+   절대 금지.
 1. 아래 조문 본문에 명시된 내용만 사용한다. 본문에 없는 사례·통계·정책 평가는 절대 쓰지 않는다.
 2. 법률 용어는 본문 표현을 그대로 쓴다. 일상어로 의역하지 않는다.
 3. '항상'·'모든 경우'·'반드시'·'예외 없이' 같은 단정·일반화는 본문이 명확히 그렇게 규정할 때만. 불명확하면 유보적 표현.
