@@ -2109,14 +2109,14 @@ function countAddendaExceptions(addendaInfo){
 }
 
 function renderHistory(){
-  // PR-H4-γ-2 + PR-H7: 별표 자료 lazy load 가드 — 진행바·경과시간으로 동작 가시화
-  if (_lazyTable.status !== 'ready') {
+  // PR-H4-γ-2 + PR-H7 + PR-H8-audit (Codex#2):
+  // error 상태도 정상 흐름 통과시킴 — tblDiffData 등이 빈 객체로 초기화돼 있어
+  // 법률 조문 연혁(cascadeData·diffData)은 정상 표시, 별표 비교 부분만 누락.
+  // 사용자에게 부분 실패 안내 배너만 페이지 상단에 추가 (renderHistoryBody에서 처리).
+  if (_lazyTable.status === 'loading' || _lazyTable.status === 'idle') {
     const hc = document.getElementById('historyContent');
     if (hc) {
-      if (_lazyTable.status === 'error') {
-        hc.innerHTML = '<div class="main"><div style="text-align:center;padding:40px;color:#c0392b">연혁 자료를 불러오지 못했습니다.<br><br><button onclick="renderHistory()" style="padding:8px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer">🔄 다시 시도</button></div></div>';
-      } else {
-        hc.innerHTML = `
+      hc.innerHTML = `
           <div class="main">
             <div style="text-align:center;padding:60px 20px;color:var(--law)">
               <div style="font-size:40px;margin-bottom:14px">📜</div>
