@@ -40,12 +40,12 @@ jobs:
 
     steps:
       - name: 저장소 체크아웃
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
 
       - name: Python 3.11 설정
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -60,7 +60,7 @@ jobs:
       # cache/restore + cache/save로 분리하여 빌드 성공 시 검증 결과 무관하게 캐시 저장 보장.
       - name: data/ 캐시 복원
         id: cache-data
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: data
           key: law-history-data-v2-${{ github.run_id }}
@@ -85,7 +85,7 @@ jobs:
       # 캐시 저장 — 빌드 성공 시 검증 결과 무관하게 저장 (다음 워크플로 풀스캔 회피)
       - name: data/ 캐시 저장
         if: always() && steps.build.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: data
           key: law-history-data-v2-${{ github.run_id }}
@@ -224,7 +224,7 @@ jobs:
 
       - name: ✅ 성공 Issue 생성
         if: success() && (steps.changes.outputs.has_changes == 'true' || inputs.force_issue == 'true')
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           HAS_CHANGES: ${{ steps.changes.outputs.has_changes }}
           STATS: ${{ steps.changes.outputs.stats }}
@@ -331,7 +331,7 @@ jobs:
 
       - name: ⚠️ 실패 Issue 생성
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const tz = { timeZone: 'Asia/Seoul' };
