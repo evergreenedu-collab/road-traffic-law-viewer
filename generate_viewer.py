@@ -1827,7 +1827,7 @@ function togFull(id,lawType,joKey,hang){
 }
 
 function openTable(lawType,ref){
-  // PR-H4-γ-2: 별표 자료 lazy load 가드 — 준비 안 됐으면 모달 스피너 후 데이터 도착 시 재호출
+  // PR-H4-γ-2 + PR-H7: 별표 자료 lazy load 가드 — 진행바·경과시간으로 동작 가시화
   if (_lazyTable.status !== 'ready') {
     const overlay=document.getElementById('modalOverlay');
     const titleEl=document.getElementById('modalTitle');
@@ -1838,10 +1838,35 @@ function openTable(lawType,ref){
       if (_lazyTable.status === 'error') {
         bodyEl.innerHTML='<div style="text-align:center;padding:40px;color:#c0392b;font-size:14px">별표 자료를 불러오지 못했습니다.<br><br><button onclick="openTable(\''+lawType+'\',\''+ref+'\')" style="padding:8px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer">🔄 다시 시도</button></div>';
       } else {
-        bodyEl.innerHTML='<div style="text-align:center;padding:60px 20px;color:var(--sub);font-size:14px"><div style="font-size:24px;margin-bottom:12px">⏳</div>별표 자료 로딩 중...<br><span style="font-size:11px;opacity:.7">(첫 클릭 시에만 다운로드)</span></div>';
+        // PR-H7: 진행바 + 경과시간 카운터 — 사용자가 동작 확인 가능
+        bodyEl.innerHTML=`
+          <div style="text-align:center;padding:50px 20px;color:var(--law);font-size:14px">
+            <div style="font-size:36px;margin-bottom:14px">📑</div>
+            <div style="font-weight:600;margin-bottom:6px">별표·별지 자료 다운로드 중</div>
+            <div id="lazyElapsed" style="font-size:13px;color:var(--sub);margin-bottom:14px">0초 경과</div>
+            <div style="width:80%;max-width:280px;margin:0 auto;height:6px;background:#e5e3dd;border-radius:3px;overflow:hidden">
+              <div style="height:100%;background:var(--law);animation:lazy-bar 1.4s ease-in-out infinite"></div>
+            </div>
+            <div style="font-size:11px;opacity:.65;margin-top:18px;line-height:1.6">최초 1회만 ~10~20초<br>다음부터는 즉시 표시됩니다</div>
+          </div>
+          <style>@keyframes lazy-bar{0%{transform:translateX(-100%);width:40%}50%{width:70%}100%{transform:translateX(280%);width:40%}}</style>
+        `;
+        // 경과시간 카운터 (1초마다 갱신, lazy ready 시 자동 정리)
+        const startedAt = Date.now();
+        if (window._lazyElapsedTimer) clearInterval(window._lazyElapsedTimer);
+        window._lazyElapsedTimer = setInterval(function(){
+          const el = document.getElementById('lazyElapsed');
+          if (!el) { clearInterval(window._lazyElapsedTimer); return; }
+          el.textContent = Math.floor((Date.now() - startedAt)/1000) + '초 경과';
+        }, 1000);
       }
     }
-    ensureTableExtras().then(function(){ openTable(lawType, ref); }).catch(function(){});
+    ensureTableExtras().then(function(){
+      if (window._lazyElapsedTimer) { clearInterval(window._lazyElapsedTimer); window._lazyElapsedTimer = null; }
+      openTable(lawType, ref);
+    }).catch(function(){
+      if (window._lazyElapsedTimer) { clearInterval(window._lazyElapsedTimer); window._lazyElapsedTimer = null; }
+    });
     return;
   }
   // ref: "별표 16", "별지 제39호서식" 등
@@ -2059,17 +2084,42 @@ function countAddendaExceptions(addendaInfo){
 }
 
 function renderHistory(){
-  // PR-H4-γ-2: 별표 자료 lazy load 가드 — 준비 안 됐으면 historyContent 스피너 후 도착 시 재호출
+  // PR-H4-γ-2 + PR-H7: 별표 자료 lazy load 가드 — 진행바·경과시간으로 동작 가시화
   if (_lazyTable.status !== 'ready') {
     const hc = document.getElementById('historyContent');
     if (hc) {
       if (_lazyTable.status === 'error') {
         hc.innerHTML = '<div class="main"><div style="text-align:center;padding:40px;color:#c0392b">연혁 자료를 불러오지 못했습니다.<br><br><button onclick="renderHistory()" style="padding:8px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer">🔄 다시 시도</button></div></div>';
       } else {
-        hc.innerHTML = '<div class="main"><div style="text-align:center;padding:60px 20px;color:var(--sub)"><div style="font-size:24px;margin-bottom:12px">⏳</div>연혁 자료 로딩 중...<br><span style="font-size:11px;opacity:.7">(첫 진입 시에만 다운로드)</span></div></div>';
+        hc.innerHTML = `
+          <div class="main">
+            <div style="text-align:center;padding:60px 20px;color:var(--law)">
+              <div style="font-size:40px;margin-bottom:14px">📜</div>
+              <div style="font-weight:600;font-size:15px;margin-bottom:6px">연혁 자료 다운로드 중</div>
+              <div id="lazyElapsedH" style="font-size:13px;color:var(--sub);margin-bottom:14px">0초 경과</div>
+              <div style="width:80%;max-width:280px;margin:0 auto;height:6px;background:#e5e3dd;border-radius:3px;overflow:hidden">
+                <div style="height:100%;background:var(--law);animation:lazy-bar 1.4s ease-in-out infinite"></div>
+              </div>
+              <div style="font-size:11px;opacity:.65;margin-top:18px;line-height:1.6">최초 1회만 ~10~20초<br>다음부터는 즉시 표시됩니다</div>
+            </div>
+          </div>
+          <style>@keyframes lazy-bar{0%{transform:translateX(-100%);width:40%}50%{width:70%}100%{transform:translateX(280%);width:40%}}</style>
+        `;
+        const startedAt = Date.now();
+        if (window._lazyElapsedTimerH) clearInterval(window._lazyElapsedTimerH);
+        window._lazyElapsedTimerH = setInterval(function(){
+          const el = document.getElementById('lazyElapsedH');
+          if (!el) { clearInterval(window._lazyElapsedTimerH); return; }
+          el.textContent = Math.floor((Date.now() - startedAt)/1000) + '초 경과';
+        }, 1000);
       }
     }
-    ensureTableExtras().then(function(){ renderHistory(); }).catch(function(){});
+    ensureTableExtras().then(function(){
+      if (window._lazyElapsedTimerH) { clearInterval(window._lazyElapsedTimerH); window._lazyElapsedTimerH = null; }
+      renderHistory();
+    }).catch(function(){
+      if (window._lazyElapsedTimerH) { clearInterval(window._lazyElapsedTimerH); window._lazyElapsedTimerH = null; }
+    });
     return;
   }
   // Phase 3 S3-1-b-4-b: 시행령·시행규칙 직접 진입 시 단순 diff 연혁
