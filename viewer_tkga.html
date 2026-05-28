@@ -386,7 +386,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core_tkga.js?v=20260528201409" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core_tkga.js?v=20260528202627" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -410,7 +410,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260528201409';
+const _LAZY_TS = '20260528202627';
 const _LAZY_SFX = '_tkga';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
