@@ -12,6 +12,12 @@ data/*.json
 # update.yml 주1회 갱신 시 자동 commit 흐름과 결합 (총 ~4MB).
 !data/three_tier_articles*.json
 
+# multi-group 조문 연혁 — history_evolution 필드 활성화용.
+# tlspc(331KB)·tkga(2.4MB)만 예외. car_mgmt(169MB)는 GitHub 100MB 제한 위반,
+# passenger/cargo/crim_proc(40~90MB)는 저장소 무거워져 별도 정책(LFS 등) 필요.
+!data/article_history_tlspc.json
+!data/article_history_tkga.json
+
 # 시점별 별표 PDF는 별도 처리 — push 포함 (뷰어가 직접 참조). 폴더는 유지.
 !data/table_pdfs/
 
