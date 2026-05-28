@@ -7,6 +7,11 @@ data/*.json
 # 매주 build_attached_tables.py가 갱신하여 자동 commit. 18MB 정도라 push 부담 작음.
 !data/attached_tables.json
 
+# multi-group 3단 구조 자료 — daily_push.yml은 update_all.py를 돌리지 않으므로
+# tlspc·tkga·car_mgmt·passenger·cargo·crim_proc 카드 빌드에 이 파일이 필요.
+# update.yml 주1회 갱신 시 자동 commit 흐름과 결합 (총 ~4MB).
+!data/three_tier_articles*.json
+
 # 시점별 별표 PDF는 별도 처리 — push 포함 (뷰어가 직접 참조). 폴더는 유지.
 !data/table_pdfs/
 
