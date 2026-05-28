@@ -1905,6 +1905,8 @@ function openTable(lawType,ref){
     });
     return;
   }
+  // PR-H12: 모달 그리기 중 throw 사용자에게 노출 — '14초 카운터 멈춤 + 모달 안 뜸' 진단
+  try {
   // ref: "별표 16", "별지 제39호서식" 등
   const tables=tableData[lawType]||{};
   // 번호 추출: "별지 제39호서식" → "39", "별표 16의2" → "16의2"
@@ -2021,6 +2023,22 @@ function openTable(lawType,ref){
     bodyEl.innerHTML=html;
   }
   overlay.classList.add('open');
+  } catch (err) {
+    // PR-H12: 모달 그리는 코드 throw 시 진짜 에러 메시지를 사용자에게 노출 (textContent로 XSS 회피)
+    console.error('[openTable error]', err, { lawType: lawType, ref: ref });
+    const _bodyEl = document.getElementById('modalBody');
+    const _titleEl = document.getElementById('modalTitle');
+    const _overlay = document.getElementById('modalOverlay');
+    if (_titleEl) _titleEl.textContent = lawType + ' ' + ref;
+    if (_bodyEl) {
+      const msg = (err && err.message) ? err.message : String(err);
+      const stack = (err && err.stack) ? err.stack : '';
+      _bodyEl.innerHTML = '<div style="padding:20px;color:#c0392b"><div style="font-weight:600;margin-bottom:8px;font-size:14px">⚠️ 모달 렌더링 오류</div><div id="_errMsg" style="font-size:11px;background:#fef2f2;padding:10px;border-radius:4px;border:1px solid #fca5a5;color:#7c2d12;white-space:pre-wrap;font-family:monospace"></div><div id="_errStack" style="font-size:10px;background:#fff8f0;padding:8px;border-radius:4px;margin-top:6px;color:#7c2d12;white-space:pre-wrap;font-family:monospace;max-height:200px;overflow:auto"></div><div style="font-size:11px;color:var(--sub);margin-top:10px">위 메시지를 개발자에게 알려주세요</div></div>';
+      document.getElementById('_errMsg').textContent = msg;
+      document.getElementById('_errStack').textContent = stack;
+    }
+    if (_overlay) _overlay.classList.add('open');
+  }
 }
 
 function switchTab(tab){
@@ -2193,11 +2211,9 @@ function renderHistory(){
       const latestPub=(tblPdfData[t.법령유형]||{})[t.별표명];
       if(latestPub){
         const pdfPath=localPdfPath(t.법령유형, t.별표명, latestPub);
-        // PR-H11 Fix 3: 새 탭 직접 열기 링크를 details 위에 항상 표시 — iframe 미리보기 멈춤 회피
-        html+=`<div style="margin-top:6px"><a href="${pdfPath}" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;background:var(--law);color:#fff;border-radius:5px;text-decoration:none;font-size:11px;font-weight:600">📄 별표 PDF 새 탭에서 열기</a></div>`;
-        html+=`<details style="margin-top:4px" ontoggle="if(this.open){const c=this.querySelector('.pdf-mount'); if(c&&!c.dataset.loaded){try{c.innerHTML=pdfPreviewHtml(c.dataset.path,'600px'); c.dataset.loaded='1';}catch(e){c.innerHTML='<div style=&quot;font-size:11px;color:#c0392b;padding:8px&quot;>미리보기 실패 — 위 [새 탭에서 열기] 사용</div>';}}}">`;
-        html+=`<summary style="font-size:11px;color:var(--sub);cursor:pointer">또는 여기서 미리보기 시도</summary>`;
-        html+=`<div class="pdf-mount" data-path="${pdfPath}" style="margin-top:6px;min-height:40px"><div style="font-size:11px;color:var(--sub)">펼치면 PDF 로드 시도...</div></div>`;
+        html+=`<details style="margin-top:6px" ontoggle="if(this.open){const c=this.querySelector('.pdf-mount'); if(c&&!c.dataset.loaded){c.innerHTML=pdfPreviewHtml(c.dataset.path,'600px'); c.dataset.loaded='1';}}">`;
+        html+=`<summary style="font-size:11px;color:#854d0e;cursor:pointer;font-weight:600">📄 최신 별표 PDF 보기 (정확한 표 구조)</summary>`;
+        html+=`<div class="pdf-mount" data-path="${pdfPath}" style="margin-top:6px;min-height:40px"><div style="font-size:11px;color:var(--sub)">로딩 중...</div></div>`;
         html+=`</details>`;
       }
       // 텍스트 본문 (참고용, 표 구조는 깨짐)
