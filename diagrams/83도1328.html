@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>사고상황도 — 83도1328</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans KR',Arial,sans-serif;background:#f5f5f5;padding:20px}
+.wrap{max-width:760px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+.title-bar{background:#1E2761;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.title-bar h1{color:#fff;font-size:17px;font-weight:700}
+.title-bar span{color:#bbc6ff;font-size:12px}
+.summary{padding:14px 20px;background:#f0f1f5;font-size:13px;line-height:1.7;color:#333;border-bottom:1px solid #ddd}
+.summary b{color:#1E2761}
+.diagram{padding:20px;display:flex;justify-content:center;background:#fff}
+.verdict{padding:16px 20px;text-align:center}
+.verdict.v-not-guilty{background:#1E2761}
+.verdict.v-not-guilty h2{color:#FFD200;font-size:15px;font-weight:700;margin-bottom:6px}
+.verdict.v-not-guilty p{color:#d8defa;font-size:12px;line-height:1.6}
+.verdict.v-guilty{background:#7c1d1d}
+.verdict.v-guilty h2{color:#ffd6d6;font-size:15px;font-weight:700;margin-bottom:6px}
+.verdict.v-guilty p{color:#fbe5e5;font-size:12px;line-height:1.6}
+.footer{padding:14px 20px;text-align:center;font-size:11px;color:#888;border-top:1px solid #eee;background:#fafafa}
+.footer a{color:#7c3aed;text-decoration:none}
+.footer a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title-bar">
+    <h1>사고상황도 | 83도1328</h1>
+    <span>템플릿 C · 판례 시각 자료</span>
+  </div>
+  <div class="summary">
+    <b>핵심 배치</b><br>
+    차로변경→트럭→중앙선 2차충돌
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 660 280" width="100%" style="max-width:660px">
+<rect x="0" y="60" width="660" height="160" fill="#666"/>
+<rect x="0" y="60" width="660" height="4" fill="#444"/><rect x="0" y="216" width="660" height="4" fill="#444"/>
+<line x1="0" y1="138" x2="660" y2="138" stroke="#FFD200" stroke-width="2"/>
+<line x1="0" y1="142" x2="660" y2="142" stroke="#FFD200" stroke-width="2"/>
+<line x1="0" y1="178" x2="660" y2="178" stroke="#ddd" stroke-width="1" stroke-dasharray="12 8"/>
+<text x="15" y="168" fill="#aaa" font-size="10">1차로</text><text x="15" y="200" fill="#aaa" font-size="10">2차로</text>
+<rect x="520" y="68" width="130" height="18" rx="4" fill="rgba(0,0,0,0.5)"/><text x="585" y="81" text-anchor="middle" fill="#fff" font-size="10">고속도로</text>
+<rect x="100" y="148" width="60" height="26" rx="6" fill="#DC3C37"/><text x="130" y="165" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">피고인</text>
+<rect x="400" y="148" width="60" height="26" rx="6" fill="#3282B8"/><text x="430" y="165" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">상대방</text>
+<polygon points="280,160 286,148 294,156 300,144 292,158 302,162 290,164 298,174 288,166 282,176 284,164 272,166 282,162 274,154" fill="#FFD200"/>
+</svg>
+  </div>
+  <div class="verdict v-guilty">
+    <h2>판결: 도주유죄</h2>
+    <p>판결요지·법리 상세는 KoRoad 판례 AI 튜터(GPTs)에 사건번호 83도1328로 질의하시면 자료 기반 답변을 받을 수 있습니다.</p>
+  </div>
+  <div class="footer">
+    KoRoad 도로교통법 판례 시각 자료 · <a href="../viewer.html">📖 통합 조회</a> · <a href="../tutor/">📚 출근길 튜터</a> · <a href="./">📋 52건 목록</a>
+  </div>
+</div>
+</body>
+</html>

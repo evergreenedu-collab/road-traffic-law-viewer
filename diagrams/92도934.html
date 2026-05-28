@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>사고상황도 — 92도934</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans KR',Arial,sans-serif;background:#f5f5f5;padding:20px}
+.wrap{max-width:760px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+.title-bar{background:#1E2761;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.title-bar h1{color:#fff;font-size:17px;font-weight:700}
+.title-bar span{color:#bbc6ff;font-size:12px}
+.summary{padding:14px 20px;background:#f0f1f5;font-size:13px;line-height:1.7;color:#333;border-bottom:1px solid #ddd}
+.summary b{color:#1E2761}
+.diagram{padding:20px;display:flex;justify-content:center;background:#fff}
+.verdict{padding:16px 20px;text-align:center}
+.verdict.v-not-guilty{background:#1E2761}
+.verdict.v-not-guilty h2{color:#FFD200;font-size:15px;font-weight:700;margin-bottom:6px}
+.verdict.v-not-guilty p{color:#d8defa;font-size:12px;line-height:1.6}
+.verdict.v-guilty{background:#7c1d1d}
+.verdict.v-guilty h2{color:#ffd6d6;font-size:15px;font-weight:700;margin-bottom:6px}
+.verdict.v-guilty p{color:#fbe5e5;font-size:12px;line-height:1.6}
+.footer{padding:14px 20px;text-align:center;font-size:11px;color:#888;border-top:1px solid #eee;background:#fafafa}
+.footer a{color:#7c3aed;text-decoration:none}
+.footer a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title-bar">
+    <h1>사고상황도 | 92도934</h1>
+    <span>템플릿 A · 판례 시각 자료</span>
+  </div>
+  <div class="summary">
+    <b>핵심 배치</b><br>
+    보행자 교차로
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 660 440" width="100%" style="max-width:660px">
+<defs><marker id="arr-92도934" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+<rect x="0" y="170" width="660" height="110" fill="#666"/>
+<rect x="275" y="0" width="110" height="440" fill="#666"/>
+<rect x="275" y="170" width="110" height="110" fill="#555"/>
+<line x1="0" y1="225" x2="275" y2="225" stroke="#FFD200" stroke-width="2"/>
+<line x1="385" y1="225" x2="660" y2="225" stroke="#FFD200" stroke-width="2"/>
+<line x1="330" y1="0" x2="330" y2="170" stroke="#FFD200" stroke-width="2"/>
+<line x1="330" y1="280" x2="330" y2="440" stroke="#FFD200" stroke-width="2"/>
+<text x="330" y="160" text-anchor="middle" fill="#333" font-size="13" font-weight="700">신호등 교차로</text>
+<rect x="245" y="290" width="20" height="50" rx="4" fill="#333"/><circle cx="255" cy="303" r="5" fill="#555"/><circle cx="255" cy="316" r="5" fill="#555"/><circle cx="255" cy="329" r="5" fill="#33cc66"/><text x="255" y="355" text-anchor="middle" fill="#33cc66" font-size="10" font-weight="700">녹색</text>
+<rect x="395" y="105" width="20" height="50" rx="4" fill="#333"/><circle cx="405" cy="118" r="5" fill="#ee3333"/><circle cx="405" cy="131" r="5" fill="#555"/><circle cx="405" cy="144" r="5" fill="#555"/><text x="405" y="100" text-anchor="middle" fill="#ee3333" font-size="10" font-weight="700">적색</text>
+<rect x="80" y="237" width="60" height="26" rx="6" fill="#DC3C37"/><text x="110" y="254" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">피고인</text>
+<line x1="140" y1="250" x2="270" y2="250" stroke="#DC3C37" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arr-92도934)"/>
+<rect x="510" y="197" width="60" height="26" rx="6" fill="#3282B8"/><text x="540" y="214" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">상대방</text>
+<path d="M510 210 Q430 210 370 230 Q340 240 330 260" fill="none" stroke="#3282B8" stroke-width="2" stroke-dasharray="6 4"/>
+<polygon points="330,240 336,228 344,236 350,224 342,238 352,242 340,244 348,254 338,246 332,256 334,244 322,246 332,242 324,234" fill="#FFD200"/>
+<text x="330" y="218" text-anchor="middle" fill="#ee3333" font-size="11" font-weight="700">충돌!</text>
+</svg>
+  </div>
+  <div class="verdict v-not-guilty">
+    <h2>판결: 무과실</h2>
+    <p>판결요지·법리 상세는 KoRoad 판례 AI 튜터(GPTs)에 사건번호 92도934로 질의하시면 자료 기반 답변을 받을 수 있습니다.</p>
+  </div>
+  <div class="footer">
+    KoRoad 도로교통법 판례 시각 자료 · <a href="../viewer.html">📖 통합 조회</a> · <a href="../tutor/">📚 출근길 튜터</a> · <a href="./">📋 52건 목록</a>
+  </div>
+</div>
+</body>
+</html>

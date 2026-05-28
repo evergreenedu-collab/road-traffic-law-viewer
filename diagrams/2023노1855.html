@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>사고상황도 — 2023노1855</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans KR',Arial,sans-serif;background:#f5f5f5;padding:20px}
+.wrap{max-width:760px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+.title-bar{background:#1E2761;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.title-bar h1{color:#fff;font-size:17px;font-weight:700}
+.title-bar span{color:#bbc6ff;font-size:12px}
+.summary{padding:14px 20px;background:#f0f1f5;font-size:13px;line-height:1.7;color:#333;border-bottom:1px solid #ddd}
+.summary b{color:#1E2761}
+.diagram{padding:20px;display:flex;justify-content:center;background:#fff}
+.verdict{padding:16px 20px;text-align:center}
+.verdict.v-not-guilty{background:#1E2761}
+.verdict.v-not-guilty h2{color:#FFD200;font-size:15px;font-weight:700;margin-bottom:6px}
+.verdict.v-not-guilty p{color:#d8defa;font-size:12px;line-height:1.6}
+.verdict.v-guilty{background:#7c1d1d}
+.verdict.v-guilty h2{color:#ffd6d6;font-size:15px;font-weight:700;margin-bottom:6px}
+.verdict.v-guilty p{color:#fbe5e5;font-size:12px;line-height:1.6}
+.footer{padding:14px 20px;text-align:center;font-size:11px;color:#888;border-top:1px solid #eee;background:#fafafa}
+.footer a{color:#7c3aed;text-decoration:none}
+.footer a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title-bar">
+    <h1>사고상황도 | 2023노1855</h1>
+    <span>템플릿 F · 판례 시각 자료</span>
+  </div>
+  <div class="summary">
+    <b>핵심 배치</b><br>
+    주차장→가속→광장→보행자 사망(급발진주장)
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 660 350" width="100%" style="max-width:660px">
+<rect x="20" y="40" width="620" height="260" rx="12" fill="#e8e6de"/>
+<rect x="60" y="230" width="90" height="40" rx="4" fill="#555"/>
+<text x="105" y="254" text-anchor="middle" fill="#fff" font-size="10">지하주차장</text>
+<text x="105" y="222" text-anchor="middle" fill="#666" font-size="10">출구 &#8593;</text>
+<rect x="150" y="240" width="200" height="25" fill="#aaa"/>
+<rect x="400" y="100" width="200" height="120" rx="10" fill="#d5d0c5"/>
+<text x="500" y="155" text-anchor="middle" fill="#888" font-size="12">대학교/광장</text>
+<rect x="180" y="243" width="56" height="22" rx="5" fill="#DC3C37"/><text x="208" y="258" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">피고인</text>
+<path d="M236 254 Q300 254 380 200 Q420 170 460 160" fill="none" stroke="#DC3C37" stroke-width="2.5" stroke-dasharray="6 4"/>
+<circle cx="480" cy="160" r="7" fill="#FFA94D"/><rect x="476" y="168" width="8" height="14" rx="2" fill="#FFA94D"/>
+<text x="480" y="148" text-anchor="middle" fill="#FFA94D" font-size="10">피해자</text>
+</svg>
+  </div>
+  <div class="verdict v-guilty">
+    <h2>판결: 유죄</h2>
+    <p>판결요지·법리 상세는 KoRoad 판례 AI 튜터(GPTs)에 사건번호 2023노1855로 질의하시면 자료 기반 답변을 받을 수 있습니다.</p>
+  </div>
+  <div class="footer">
+    KoRoad 도로교통법 판례 시각 자료 · <a href="../viewer.html">📖 통합 조회</a> · <a href="../tutor/">📚 출근길 튜터</a> · <a href="./">📋 52건 목록</a>
+  </div>
+</div>
+</body>
+</html>
