@@ -18,6 +18,25 @@ jobs:
       - name: 체크아웃
         uses: actions/checkout@v6
 
+      # update.yml(주1회 월요일)이 만들어둔 data/ 캐시를 read-only로 복원.
+      # 거대 article_history_*.json(car_mgmt 169MB 등)·three_tier 다른 그룹 자료까지 환경에서 사용 가능.
+      # 캐시 miss 시 graceful — git에 트래킹된 three_tier 7개 + history tlspc·tkga만으로 부분 동작.
+      - name: data/ 캐시 복원 (update.yml 빌드 결과)
+        uses: actions/cache/restore@v5
+        with:
+          path: data
+          key: law-history-daily-restore-only-${{ github.run_id }}
+          restore-keys: |
+            law-history-data-v2-
+
+      - name: 캐시 상태 출력
+        run: |
+          if [ -d data ] && [ -n "$(ls -A data 2>/dev/null)" ]; then
+            echo "📚 캐시 복원 성공 ($(ls data/*.json 2>/dev/null | wc -l)개 JSON)"
+          else
+            echo "📭 캐시 miss — git 트래킹 자료(three_tier 7개 + history tlspc·tkga)로만 진행"
+          fi
+
       - name: Python 설정
         uses: actions/setup-python@v6
         with:
