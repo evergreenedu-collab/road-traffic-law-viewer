@@ -13,13 +13,5 @@
     "article": "4",
     "group": "tlspc",
     "type": "article"
-  },
-  "2026-06-01": "44",
-  "2026-06-02": {
-    "article": "44",
-    "case_no": "2019도4608",
-    "source": "court",
-    "type": "case"
-  },
-  "2026-06-03": "54"
+  }
 }

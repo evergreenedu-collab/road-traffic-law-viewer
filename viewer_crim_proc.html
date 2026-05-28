@@ -51,8 +51,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 /* PR-H8: 법령 선택 드롭다운 — 짙은 law 톤 (1차 컨텍스트) */
 .toolbar select#lawSel{flex:1;min-width:180px;max-width:500px;padding:8px 28px 8px 12px;border:1.5px solid var(--law);border-radius:6px;font-size:13px;font-family:inherit;text-overflow:ellipsis;background:var(--law-bg);color:var(--law);font-weight:600}
 .toolbar select#lawSel:focus{outline:2px solid var(--law);outline-offset:1px}
-/* 조문 선택 드롭다운 — 일반 톤 (2차 컨텍스트) */
-.toolbar select#sel{flex:1;min-width:180px;max-width:500px;padding:7px 28px 7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;text-overflow:ellipsis;background:#fff}
+/* 조문 선택 드롭다운 — 일반 톤 (2차 컨텍스트). 가시성 위해 글자 굵게 + 진한 검정. */
+.toolbar select#sel{flex:1;min-width:180px;max-width:500px;padding:7px 28px 7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-weight:600;font-family:inherit;text-overflow:ellipsis;background:#fff;color:#1f2937}
 .toolbar select#sel:focus{border-color:var(--law);outline:none}
 /* 검색 input — 명확한 차별화 (action UI). 돋보기 아이콘 prefix + 다른 배경·테두리 */
 .toolbar input#q{flex:1;min-width:120px;max-width:250px;padding:7px 10px 7px 32px;border:1.5px dashed var(--decree);border-radius:6px;font-size:13px;font-family:inherit;background:#faf7ff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235b4b8a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") no-repeat 9px center}
@@ -386,7 +386,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core_crim_proc.js?v=20260528202631" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core_crim_proc.js?v=20260528212743" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -410,7 +410,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260528202631';
+const _LAZY_TS = '20260528212743';
 const _LAZY_SFX = '_crim_proc';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){

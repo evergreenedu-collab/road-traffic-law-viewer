@@ -554,8 +554,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 /* PR-H8: 법령 선택 드롭다운 — 짙은 law 톤 (1차 컨텍스트) */
 .toolbar select#lawSel{flex:1;min-width:180px;max-width:500px;padding:8px 28px 8px 12px;border:1.5px solid var(--law);border-radius:6px;font-size:13px;font-family:inherit;text-overflow:ellipsis;background:var(--law-bg);color:var(--law);font-weight:600}
 .toolbar select#lawSel:focus{outline:2px solid var(--law);outline-offset:1px}
-/* 조문 선택 드롭다운 — 일반 톤 (2차 컨텍스트) */
-.toolbar select#sel{flex:1;min-width:180px;max-width:500px;padding:7px 28px 7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;text-overflow:ellipsis;background:#fff}
+/* 조문 선택 드롭다운 — 일반 톤 (2차 컨텍스트). 가시성 위해 글자 굵게 + 진한 검정. */
+.toolbar select#sel{flex:1;min-width:180px;max-width:500px;padding:7px 28px 7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-weight:600;font-family:inherit;text-overflow:ellipsis;background:#fff;color:#1f2937}
 .toolbar select#sel:focus{border-color:var(--law);outline:none}
 /* 검색 input — 명확한 차별화 (action UI). 돋보기 아이콘 prefix + 다른 배경·테두리 */
 .toolbar input#q{flex:1;min-width:120px;max-width:250px;padding:7px 10px 7px 32px;border:1.5px dashed var(--decree);border-radius:6px;font-size:13px;font-family:inherit;background:#faf7ff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235b4b8a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") no-repeat 9px center}
