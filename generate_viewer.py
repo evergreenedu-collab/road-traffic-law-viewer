@@ -2564,15 +2564,15 @@ function renderHistory(){
 // 전후비교 렌더링 — 좌우 비교, 변경된 부분만 표시 + 단어 단위 하이라이트
 function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-// 모바일 감지 — 모바일 브라우저는 iframe 안 PDF 렌더링 미지원 (특히 iOS Safari)
-const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobi|webOS/i.test(navigator.userAgent);
-
 // PDF 미리보기 HTML 생성 — 모바일은 자체 호스팅 PDF.js viewer로 렌더 (gview/blob URL 400 에러 회피)
+// PR-H13: IS_MOBILE을 함수 local로 — 글로벌 const TDZ 회피 (사용자 보고: '14초 stuck + 모달 안 뜸', stack에 ReferenceError 'Cannot access IS_MOBILE before initialization')
+//         원인 추정: viewer.html partial download 또는 평가 timing 이슈. function local이라 호출 시 매번 binding → TDZ 불가능.
 function pdfPreviewHtml(src, height){
   height = height || '70vh';
   if(!src) return '<p style="color:var(--sub);text-align:center;padding:20px">PDF 미리보기 없음</p>';
   // PR-H9-fix: iframe loading="eager" 명시 — 모바일 Chrome이 viewport 밖 iframe을 자동 lazy 처리해서
   // 사용자가 스크롤할 때까지 PDF가 안 보이던 문제 해결. 사용자 보고 2026-05-27.
+  const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobi|webOS/i.test(navigator.userAgent);
   if(IS_MOBILE){
     const fullUrl = (src.startsWith('blob:') || src.startsWith('data:'))
                   ? src
