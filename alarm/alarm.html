@@ -282,6 +282,14 @@ function lawTypeBadge(lt) {
 function goToHistory(jumpJo) {
   const targetUrl = `../viewer.html?jo=${encodeURIComponent(jumpJo)}&tab=history`;
   if (IS_EMBEDDED) {
+    // PR-H13 Fix 4-δ UX: 클릭 즉시 부모창 풀스크린 로딩 오버레이 강제 표시 — 300ms 폴백 동안 알람 모달 그대로 보이는 어색함 제거
+    try {
+      const loadingOverlay = window.parent.document.getElementById('loadingOverlay');
+      if (loadingOverlay) {
+        loadingOverlay.innerHTML = '<div style="text-align:center;padding:20px;color:#fff"><div style="font-size:48px;margin-bottom:14px">📜</div><div style="font-size:18px;font-weight:600;margin-bottom:8px">제'+jumpJo+'조 연혁 화면 준비 중</div><div style="margin-top:18px;width:180px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden;margin-left:auto;margin-right:auto"><div style="height:100%;background:#fff;animation:lazy-bar 1.4s ease-in-out infinite"></div></div></div>';
+        loadingOverlay.style.display = 'flex';
+      }
+    } catch (e) {}
     // 1차: SPA postMessage 시도 (성공 시 부모창이 history 탭으로 즉시 이동)
     try {
       window.parent.postMessage({ type: 'goToHistory', jo: jumpJo }, window.location.origin);
