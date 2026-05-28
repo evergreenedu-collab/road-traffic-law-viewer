@@ -288,7 +288,7 @@ function goToHistory(jumpJo) {
     } catch (err) {
       console.warn('[goToHistory] postMessage 실패:', err);
     }
-    // 2차 폴백: 1.5초 후 부모 URL 확인 — jo·tab 안 바뀌었으면 postMessage 무효 → 강제 이동
+    // PR-H13 Fix 4-β: 폴백 1500ms → 300ms 단축. 부모는 message 진입 즉시 replaceState (< 1ms) 호출이라 안전.
     setTimeout(function () {
       try {
         const p = window.parent;
@@ -301,7 +301,7 @@ function goToHistory(jumpJo) {
       } catch (e) {
         try { window.top.location.href = targetUrl; } catch (e2) {}
       }
-    }, 1500);
+    }, 300);
   } else {
     window.location.href = targetUrl;
   }
