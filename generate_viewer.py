@@ -440,7 +440,7 @@ def main():
             '<div onclick="closeAlarmModal()" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:0"></div>'
             '<div style="position:relative;z-index:1;background:white;width:100%;max-width:960px;height:90vh;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column">'
             '<button type="button" onclick="closeAlarmModal()" aria-label="닫기" style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.9);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3">×</button>'
-            '<iframe id="alarmIframe" src="alarm/alarm.html" style="flex:1;width:100%;border:none;background:#f8fafc;display:block"></iframe>'
+            '<iframe id="alarmIframe" src="alarm/alarm.html?v={{BUILD_TS}}" style="flex:1;width:100%;border:none;background:#f8fafc;display:block"></iframe>'
             '</div></div>'
         )
     else:
