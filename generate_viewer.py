@@ -429,6 +429,13 @@ def main():
         '<a href="./tutor/" class="header-action-btn tutor" title="출근길 법령튜터로 이동">'
         '📚 출근길 튜터</a>'
     )
+    # Phase 4 B2: 판례조회 GPTs 배너 (외부 ChatGPT GPTs, 새 탭) — noreferrer로 viewer URL 보호
+    gpts_button = (
+        '<a href="https://chatgpt.com/g/g-6a1844725a6c8191a4ef10db3d64fa50-koroad-dorogyotongbeob-panrye-johoe-deung-ai-tyuteo" '
+        'target="_blank" rel="noopener noreferrer" class="header-action-btn gpts" '
+        'title="KoRoad 도로교통법 판례 AI 튜터 (ChatGPT GPTs) — 새 탭으로 이동. 이용 환경에 따라 로그인이 필요할 수 있습니다.">'
+        '🔍 판례·해설 GPTs ↗</a>'
+    )
     if group == "road":
         alarm_button = (
             '<button type="button" class="header-action-btn alarm header-alarm-link" id="alarmLink" onclick="openAlarmModal()">'
@@ -455,7 +462,7 @@ def main():
         '<script>try{if(localStorage.getItem("pushSubscription")){'
         'document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script>'
     )
-    left_actions = f'<div class="header-left-actions">{alarm_button}{tutor_button}{push_button}</div>'
+    left_actions = f'<div class="header-left-actions">{alarm_button}{tutor_button}{gpts_button}{push_button}</div>'
     # 튜터 페이지 본인이면 자기 자신으로 가는 버튼 의미 없음 — 하지만 viewer는 튜터가 아니므로 항상 표시
     # 단, road group viewer의 경우 튜터 가는 경로는 ./tutor/, 다른 그룹 viewer도 동일 위치(루트 기준)
     html = html.replace("{{ALARM_BUTTON}}", left_actions).replace("{{ALARM_MODAL}}", alarm_modal)
@@ -539,6 +546,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .header-action-btn{border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;box-shadow:0 2px 4px rgba(0,0,0,0.15);line-height:1.2;text-decoration:none}
 .header-action-btn.alarm{background:#c0392b;color:#fff}
 .header-action-btn.tutor{background:#fff;color:var(--law);border:1px solid var(--border)}
+.header-action-btn.gpts{background:#fff;color:#7c3aed;border:1px solid #7c3aed}
 .header-action-btn.push{background:#fff;color:var(--law);border:1px solid var(--border)}
 /* 모바일에서 헤더 버튼 그룹 — absolute 빼고 자연 흐름으로 위→아래 stacking (h1 겹침 회피) */
 @media(max-width:600px){

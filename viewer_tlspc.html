@@ -36,6 +36,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .header-action-btn{border:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;box-shadow:0 2px 4px rgba(0,0,0,0.15);line-height:1.2;text-decoration:none}
 .header-action-btn.alarm{background:#c0392b;color:#fff}
 .header-action-btn.tutor{background:#fff;color:var(--law);border:1px solid var(--border)}
+.header-action-btn.gpts{background:#fff;color:#7c3aed;border:1px solid #7c3aed}
 .header-action-btn.push{background:#fff;color:var(--law);border:1px solid var(--border)}
 /* 모바일에서 헤더 버튼 그룹 — absolute 빼고 자연 흐름으로 위→아래 stacking (h1 겹침 회피) */
 @media(max-width:600px){
@@ -268,7 +269,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="header" style="position:relative">
   <div class="header-stats" id="headerStats"></div>
-  <div class="header-left-actions"><a href="./tutor/" class="header-action-btn tutor" title="출근길 법령튜터로 이동">📚 출근길 튜터</a><button id="pushBtn" type="button" class="header-action-btn push" onclick="subscribePush()">🔔 알림 받기</button><script>try{if(localStorage.getItem("pushSubscription")){document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script></div><!-- left_actions 안에 alarm·tutor·push 셋 다 포함 (PR-H4-β/fix) -->
+  <div class="header-left-actions"><a href="./tutor/" class="header-action-btn tutor" title="출근길 법령튜터로 이동">📚 출근길 튜터</a><a href="https://chatgpt.com/g/g-6a1844725a6c8191a4ef10db3d64fa50-koroad-dorogyotongbeob-panrye-johoe-deung-ai-tyuteo" target="_blank" rel="noopener noreferrer" class="header-action-btn gpts" title="KoRoad 도로교통법 판례 AI 튜터 (ChatGPT GPTs) — 새 탭으로 이동. 이용 환경에 따라 로그인이 필요할 수 있습니다.">🔍 판례·해설 GPTs ↗</a><button id="pushBtn" type="button" class="header-action-btn push" onclick="subscribePush()">🔔 알림 받기</button><script>try{if(localStorage.getItem("pushSubscription")){document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script></div><!-- left_actions 안에 alarm·tutor·push 셋 다 포함 (PR-H4-β/fix) -->
   <h1>교통사고처리 특례법 한눈에</h1>
   <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
 </div>
@@ -386,7 +387,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core_tlspc.js?v=20260528212742" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core_tlspc.js?v=20260528230853" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -410,7 +411,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260528212742';
+const _LAZY_TS = '20260528230853';
 const _LAZY_SFX = '_tlspc';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
