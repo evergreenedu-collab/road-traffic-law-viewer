@@ -386,7 +386,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core_cargo_transport.js?v=20260528150855" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core_cargo_transport.js?v=20260528192326" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -410,7 +410,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260528150855';
+const _LAZY_TS = '20260528192326';
 const _LAZY_SFX = '_cargo_transport';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
@@ -1377,7 +1377,7 @@ function openTable(lawType,ref){
             <div style="width:80%;max-width:280px;margin:0 auto;height:6px;background:#e5e3dd;border-radius:3px;overflow:hidden">
               <div style="height:100%;background:var(--law);animation:lazy-bar 1.4s ease-in-out infinite"></div>
             </div>
-            <div style="font-size:11px;opacity:.65;margin-top:18px;line-height:1.6">최초 1회만 ~10~20초<br>다음부터는 즉시 표시됩니다</div>
+            <div style="font-size:11px;opacity:.65;margin-top:18px;line-height:1.6">최초 1회만 약 30초~3분 (데이터 ~91MB)<br>네트워크 속도에 따라 다름 · 진행 중이니 닫지 마세요</div>
           </div>
           <style>@keyframes lazy-bar{0%{transform:translateX(-100%);width:40%}50%{width:70%}100%{transform:translateX(280%);width:40%}}</style>
         `;
@@ -1390,6 +1390,7 @@ function openTable(lawType,ref){
           el.textContent = Math.floor((Date.now() - startedAt)/1000) + '초 경과';
         }, 1000);
       }
+      overlay.classList.add('open');   // PR-H11 Fix 2: closeModal이 inline display 제거한 뒤 재클릭 시 안 보이던 문제 해결
     }
     ensureTableExtras().then(function(){
       if (window._lazyElapsedTimer) { clearInterval(window._lazyElapsedTimer); window._lazyElapsedTimer = null; }
@@ -1636,7 +1637,7 @@ function renderHistory(){
               <div style="width:80%;max-width:280px;margin:0 auto;height:6px;background:#e5e3dd;border-radius:3px;overflow:hidden">
                 <div style="height:100%;background:var(--law);animation:lazy-bar 1.4s ease-in-out infinite"></div>
               </div>
-              <div style="font-size:11px;opacity:.65;margin-top:18px;line-height:1.6">최초 1회만 ~10~20초<br>다음부터는 즉시 표시됩니다</div>
+              <div style="font-size:11px;opacity:.65;margin-top:18px;line-height:1.6">최초 1회만 약 30초~3분 (데이터 ~91MB)<br>네트워크 속도에 따라 다름 · 진행 중이니 닫지 마세요</div>
             </div>
           </div>
           <style>@keyframes lazy-bar{0%{transform:translateX(-100%);width:40%}50%{width:70%}100%{transform:translateX(280%);width:40%}}</style>
@@ -1689,9 +1690,11 @@ function renderHistory(){
       const latestPub=(tblPdfData[t.법령유형]||{})[t.별표명];
       if(latestPub){
         const pdfPath=localPdfPath(t.법령유형, t.별표명, latestPub);
-        html+=`<details style="margin-top:6px" ontoggle="if(this.open){const c=this.querySelector('.pdf-mount'); if(c&&!c.dataset.loaded){c.innerHTML=pdfPreviewHtml(c.dataset.path,'600px'); c.dataset.loaded='1';}}">`;
-        html+=`<summary style="font-size:11px;color:#854d0e;cursor:pointer;font-weight:600">📄 최신 별표 PDF 보기 (정확한 표 구조)</summary>`;
-        html+=`<div class="pdf-mount" data-path="${pdfPath}" style="margin-top:6px;min-height:40px"><div style="font-size:11px;color:var(--sub)">로딩 중...</div></div>`;
+        // PR-H11 Fix 3: 새 탭 직접 열기 링크를 details 위에 항상 표시 — iframe 미리보기 멈춤 회피
+        html+=`<div style="margin-top:6px"><a href="${pdfPath}" target="_blank" rel="noopener" style="display:inline-block;padding:5px 10px;background:var(--law);color:#fff;border-radius:5px;text-decoration:none;font-size:11px;font-weight:600">📄 별표 PDF 새 탭에서 열기</a></div>`;
+        html+=`<details style="margin-top:4px" ontoggle="if(this.open){const c=this.querySelector('.pdf-mount'); if(c&&!c.dataset.loaded){try{c.innerHTML=pdfPreviewHtml(c.dataset.path,'600px'); c.dataset.loaded='1';}catch(e){c.innerHTML='<div style=&quot;font-size:11px;color:#c0392b;padding:8px&quot;>미리보기 실패 — 위 [새 탭에서 열기] 사용</div>';}}}">`;
+        html+=`<summary style="font-size:11px;color:var(--sub);cursor:pointer">또는 여기서 미리보기 시도</summary>`;
+        html+=`<div class="pdf-mount" data-path="${pdfPath}" style="margin-top:6px;min-height:40px"><div style="font-size:11px;color:var(--sub)">펼치면 PDF 로드 시도...</div></div>`;
         html+=`</details>`;
       }
       // 텍스트 본문 (참고용, 표 구조는 깨짐)
@@ -2624,9 +2627,20 @@ document.addEventListener('keydown',e=>{
 window.addEventListener('message',e=>{
   // PR-H9-loose: origin 체크 제거 (PWA·모바일에서 e.origin이 일부 환경에서 빈 문자열 등으로
   // 들어와 차단되는 케이스 회피). source 체크만으로도 외부 iframe·확장프로그램 차단 충분.
-  const alarmIframe = document.getElementById('alarmIframe');
-  if (alarmIframe && e.source !== alarmIframe.contentWindow) return;
+  // PR-H11 Fix 4: 진단 로그 + e.source 일부 PWA 환경에서 null 가능성 대응
+  console.log('[alarm-msg]', { type: e.data && e.data.type, jo: e.data && e.data.jo, sourceIsIframe: e.source === (document.getElementById('alarmIframe') && document.getElementById('alarmIframe').contentWindow), origin: e.origin });
   if(!e.data || e.data.type!=='goToHistory') return;
+  const alarmIframe = document.getElementById('alarmIframe');
+  // e.source 검증 — null/undefined 또는 alarmIframe.contentWindow와 일치할 때만 통과 (PWA 일부 환경에서 e.source가 null로 도착)
+  if (alarmIframe && e.source && e.source !== alarmIframe.contentWindow) {
+    console.warn('[alarm-msg] source mismatch — 차단', e.source);
+    return;
+  }
+  // Codex 권장: e.source가 falsy일 때 origin 보강 — same-origin 또는 빈 문자열(file:/PWA)만 통과
+  if (!e.source && e.origin && e.origin !== location.origin) {
+    console.warn('[alarm-msg] origin mismatch — 차단', e.origin);
+    return;
+  }
   const targetJo = e.data.jo;
 
   // PR-H9-final: 풀스크린 로딩 overlay로 1~2초 JS 작업 시간 동안 명확한 시각 피드백
