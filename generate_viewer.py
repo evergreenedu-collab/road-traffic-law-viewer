@@ -3183,8 +3183,23 @@ window.addEventListener('message',e=>{
 // end (PR-H8-cleanup if-wrap 제거됨)
 
 // PWA PR-H1 — Service Worker 등록 (HTTPS·localhost 한정. 알림 권한 요청은 PR-H2)
+// PR-H10-cleanup (2026-05-28): PR-H10 α+β 회귀 대응 — 사용자 브라우저에 남은 새 SW(pwa-h10)·viewer-data-v1 캐시 자동 청소
+// localStorage 마커로 한 번만 실행. 청소 후 옛 SW(pwa-h1) 자동 재등록. 알림 받기 endpoint는 잃으므로 다시 [🔔 알림 받기] 필요.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
+  window.addEventListener('load', async () => {
+    try {
+      if (!localStorage.getItem('sw-cleanup-h10-done')) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+        if (window.caches) {
+          const keys = await caches.keys();
+          await Promise.all(keys.filter(k => k.startsWith('viewer-data-')).map(k => caches.delete(k).catch(() => {})));
+        }
+        try { localStorage.removeItem('pushSubscription'); } catch (e) {}
+        localStorage.setItem('sw-cleanup-h10-done', '1');
+        console.log('[cleanup-h10] SW unregistered + viewer-data caches cleared');
+      }
+    } catch (e) { console.warn('[cleanup-h10] failed:', e); }
     navigator.serviceWorker.register('service-worker.js', { scope: './' })
       .then(reg => console.log('SW 등록 OK:', reg.scope))
       .catch(err => console.warn('SW 등록 실패:', err));
