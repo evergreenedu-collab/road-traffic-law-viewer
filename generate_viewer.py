@@ -3162,6 +3162,16 @@ window.addEventListener('message',e=>{
   }
   const targetJo = e.data.jo;
 
+  // PR-H13 Fix 4-α (Codex 권장): URL replaceState를 최우선으로 — alarm.html 폴백 setTimeout이 부모 URL로 처리 완료 여부 판정.
+  // 이 줄이 없으면 정상 처리 중에도 alarm.html이 1.5초 뒤 폴백 발화해서 이중 navigation 위험.
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('jo', targetJo);
+    url.searchParams.set('tab', 'history');
+    url.searchParams.delete('law');
+    history.replaceState(null, '', url.toString());
+  } catch(_) {}
+
   // PR-H9-final: 풀스크린 로딩 overlay로 1~2초 JS 작업 시간 동안 명확한 시각 피드백
   // (사용자 보고: "1~2초 멈춤이 STUCK 걸린 줄 오해할 수 있다")
   // viewer 첫 로딩에 사용한 loadingOverlay div 재활용 — 같은 디자인으로 통일감

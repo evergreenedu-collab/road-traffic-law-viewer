@@ -277,13 +277,33 @@ function lawTypeBadge(lt) {
 
 // 연혁 보기 클릭 — iframe 안이면 부모창에 메시지(모달 닫고 viewer 이동), 직접 페이지면 직접 이동
 // jumpJo: 실제 viewer.html에 점프할 조문 (법률은 자기 자신, 시행령·시행규칙은 매핑된 법률 조문)
+// PR-H13 Fix 4-α: postMessage 실패 (PWA 환경 등) 시 폴백 — 1.5초 뒤 부모 URL 안 바뀌었으면 강제 location.href
+// 부모는 message 수신 즉시 history.replaceState로 URL 먼저 갱신 → 정상 처리 중에는 폴백 발화 안 함
 function goToHistory(jumpJo) {
+  const targetUrl = `../viewer.html?jo=${encodeURIComponent(jumpJo)}&tab=history`;
   if (IS_EMBEDDED) {
-    // PR-H8-audit: 부모 origin 명시 (* 와일드카드는 데이터 누출 위험)
-    window.parent.postMessage({ type: 'goToHistory', jo: jumpJo }, window.location.origin);
+    // 1차: SPA postMessage 시도 (성공 시 부모창이 history 탭으로 즉시 이동)
+    try {
+      window.parent.postMessage({ type: 'goToHistory', jo: jumpJo }, window.location.origin);
+    } catch (err) {
+      console.warn('[goToHistory] postMessage 실패:', err);
+    }
+    // 2차 폴백: 1.5초 후 부모 URL 확인 — jo·tab 안 바뀌었으면 postMessage 무효 → 강제 이동
+    setTimeout(function () {
+      try {
+        const p = window.parent;
+        if (!p || p === window) return;
+        const u = new URL(p.location.href);
+        if (u.searchParams.get('jo') !== String(jumpJo) || u.searchParams.get('tab') !== 'history') {
+          console.warn('[goToHistory] postMessage 무효 — 강제 location.href 폴백');
+          p.location.href = targetUrl;
+        }
+      } catch (e) {
+        try { window.top.location.href = targetUrl; } catch (e2) {}
+      }
+    }, 1500);
   } else {
-    const url = `../viewer.html?jo=${encodeURIComponent(jumpJo)}&tab=history`;
-    window.location.href = url;
+    window.location.href = targetUrl;
   }
 }
 
