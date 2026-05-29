@@ -54,6 +54,8 @@ STAGES = [
     ("build_attached_tables_diff.py",         "별표 전후비교 빌드",          "build",  "5초",    True,  False),
     ("build_attached_tables.py",              "별표/별지 최신 스냅샷 빌드",   "build",  "수초~5분", True, False),
     ("build_cascade_events.py",               "캐스케이드 이벤트 빌드",       "build",  "5초",    False, False),
+    # 2026-05-29: 알람 데이터 갱신 — viewer의 📢 최근 개정 알림 모달용. road 전용 (alarm.html은 road에만 표시).
+    ("alarm/build_alarm_data.py",             "최근 개정 알림 데이터 빌드",   "build",  "5초",    False, True),
     ("download_table_pdfs.py",                "별표 PDF 다운로드 (증분)",     "pdfs",   "수초~25분", True, False),
     ("generate_viewer.py",                    "최종 뷰어 생성",              "build",  "5초",    False, False),
 ]
