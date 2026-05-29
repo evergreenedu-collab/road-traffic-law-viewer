@@ -567,9 +567,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .gpts-starter-item{text-align:left;width:100%;padding:8px 10px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:12px;color:#374151;font-family:inherit;line-height:1.45;display:flex;justify-content:space-between;align-items:center;gap:8px;overflow-wrap:anywhere;min-width:0}
 .gpts-starter-item:hover{background:#f3f4f6;border-color:#7c3aed;color:#1f2937}
 .gpts-starter-item .copy-ico{opacity:0.5;font-size:11px;flex-shrink:0}
-/* 2026-05-29: 화살표 강조 — 누르게끔 유도 (사용자 요구) */
+/* 2026-05-29: 화살표 강조 — 누르게끔 유도. 2차 미세조정: 크기 축소·대각선 멈춤 fix */
 .gpts-starter summary{justify-content:flex-start;gap:8px;font-size:13px;font-weight:600}
-.gpts-starter summary .caret{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#e5e7eb;color:#374151;font-size:14px;font-weight:700;transition:transform 0.25s,background 0.2s;margin-left:auto;flex-shrink:0}
+.gpts-starter summary .caret{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e5e7eb;color:#374151;font-size:11px;font-weight:700;line-height:1;margin-left:auto;flex-shrink:0;will-change:transform;transition:transform 0.18s ease-in-out,background-color 0.18s ease-in-out;transform-origin:center}
 .gpts-starter summary:hover .caret{background:#d1d5db;color:#1f2937}
 .gpts-starter[open] summary .caret{transform:rotate(180deg)}
 .gpts-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,0.3);z-index:2000;opacity:0;pointer-events:none;transition:opacity 0.25s,transform 0.25s;max-width:calc(100vw - 32px);box-sizing:border-box;text-align:center}
@@ -811,14 +811,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
     {{PUSH_BUTTON}}
   </div>
-  <!-- 2026-05-29: GPTs Starter 도우미 (앱에서 starter 안 보이는 문제 우회 — 클릭 시 클립보드 복사 + GPTs 새 탭) -->
+  <!-- 2026-05-29: <a target=_blank>로 popup blocker 우회 + 클릭 시 클립보드 복사 -->
   <details class="gpts-starter">
     <summary>💡 궁금한 사례는 GPTs에서 질문해보세요 <span class="caret">▼</span></summary>
     <div class="gpts-starter-list">
-      <button type="button" class="gpts-starter-item" data-q="교차로 내에서 유도선이 있어도 차로변경이 허용되나요?">교차로 내에서 유도선이 있어도 차로변경이 허용되나요? <span class="copy-ico">📋</span></button>
-      <button type="button" class="gpts-starter-item" data-q="혈중알코올농도 0.08% 넘었는데도 위험운전치사상이 부정된 사례가 있나요? 어떤 사정에서 부정되나요?">혈중알코올 0.08% 초과해도 위험운전치사상 부정 사례는? <span class="copy-ico">📋</span></button>
-      <button type="button" class="gpts-starter-item" data-q="주차차량 살짝 긁고 인적사항 안 남기고 갔어요. 특가법 도주차량(뺑소니)이 되나요, 도교법 §156 인적사항 미제공이 되나요?">주차차량 미신고 — 뺑소니 vs 도교법 §156 미제공? <span class="copy-ico">📋</span></button>
-      <button type="button" class="gpts-starter-item" data-q="녹색신호 직진 차량이 항상 무과실인가요? 신뢰원칙이 적용 안 되는 예외 사례가 있나요?">녹색직진 차량 무과실 — 신뢰원칙 예외 사례는? <span class="copy-ico">📋</span></button>
+      <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="교차로 내에서 유도선이 있어도 차로변경이 허용되나요?">교차로 내에서 유도선이 있어도 차로변경이 허용되나요? <span class="copy-ico">📋</span></a>
+      <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="혈중알코올농도 0.08% 넘었는데도 위험운전치사상이 부정된 사례가 있나요? 어떤 사정에서 부정되나요?">혈중알코올 0.08% 초과해도 위험운전치사상 부정 사례는? <span class="copy-ico">📋</span></a>
+      <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="주차차량 살짝 긁고 인적사항 안 남기고 갔어요. 특가법 도주차량(뺑소니)이 되나요, 도교법 §156 인적사항 미제공이 되나요?">주차차량 미신고 — 뺑소니 vs 도교법 §156 미제공? <span class="copy-ico">📋</span></a>
+      <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="녹색신호 직진 차량이 항상 무과실인가요? 신뢰원칙이 적용 안 되는 예외 사례가 있나요?">녹색직진 차량 무과실 — 신뢰원칙 예외 사례는? <span class="copy-ico">📋</span></a>
     </div>
   </details>
 </div>
@@ -3395,19 +3395,12 @@ window.addEventListener('load', async () => {
     });
   }
   function bind(){
-    document.querySelectorAll('.gpts-starter-item').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var q = btn.dataset.q || btn.textContent.trim();
-        // 2026-05-29 popup blocker fix — user gesture 보존: click 동기 흐름에서 즉시 window.open
-        var win = window.open(GPTS_URL, '_blank', 'noopener,noreferrer');
-        // 복사는 비동기 — window.open 이미 호출됐으니 popup blocker 무관
-        copyText(q).then(function(){
-          showToast(win ? '✅ 예시 질문 복사됨 — GPTs에서 붙여넣으세요'
-                        : '✅ 복사됨 — 팝업 차단으로 새 탭이 안 열렸어요. 수동으로 GPTs 이동');
-        }).catch(function(){
-          showToast(win ? '⚠️ 복사 실패 — 수동 복사 후 GPTs에서 사용'
-                        : '⚠️ 복사·팝업 모두 차단됨 — 브라우저 설정 확인');
-        });
+    document.querySelectorAll('.gpts-starter-item').forEach(function(el){
+      el.addEventListener('click', function(){
+        // 2026-05-29: <a target=_blank> native navigation 사용 — preventDefault 안 함
+        var q = el.dataset.q || el.textContent.trim();
+        copyText(q).then(function(){ showToast('✅ 예시 질문 복사됨 — GPTs에서 붙여넣으세요'); })
+                   .catch(function(){ showToast('⚠️ 복사 실패 — GPTs에서 수동으로 질문 입력하세요'); });
       });
     });
   }

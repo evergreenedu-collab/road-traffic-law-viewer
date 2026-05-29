@@ -81,9 +81,9 @@ header a { color: #ffe; text-decoration: underline; }
 .gpts-starter-item{text-align:left;width:100%;padding:8px 10px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);border-radius:6px;cursor:pointer;font-size:12px;color:#fff;font-family:inherit;line-height:1.45;display:flex;justify-content:space-between;align-items:center;gap:8px;overflow-wrap:anywhere;min-width:0}
 .gpts-starter-item:hover{background:rgba(255,255,255,0.22);border-color:rgba(255,255,255,0.36)}
 .gpts-starter-item .copy-ico{opacity:0.7;font-size:11px;flex-shrink:0}
-/* 2026-05-29: 화살표 강조 — 누르게끔 유도 (사용자 요구) */
+/* 2026-05-29: 화살표 강조 — 누르게끔 유도. 2차 미세조정: 크기 축소·대각선 멈춤 fix */
 .gpts-starter summary{justify-content:flex-start;gap:8px;font-size:13px;font-weight:600}
-.gpts-starter summary .caret{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.28);color:#fff;font-size:14px;font-weight:700;transition:transform 0.25s,background 0.2s;margin-left:auto;flex-shrink:0}
+.gpts-starter summary .caret{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.28);color:#fff;font-size:11px;font-weight:700;line-height:1;margin-left:auto;flex-shrink:0;will-change:transform;transition:transform 0.18s ease-in-out,background-color 0.18s ease-in-out;transform-origin:center}
 .gpts-starter summary:hover .caret{background:rgba(255,255,255,0.42)}
 .gpts-starter[open] summary .caret{transform:rotate(180deg)}
 /* Codex 권장 — iOS safe-area + 너비 가드 */
@@ -268,14 +268,14 @@ footer a { color: var(--sub); text-decoration: underline; }
     <a href="../viewer.html" style="padding:7px 11px;border:1px solid var(--border);background:#fff;border-radius:6px;font-size:12px;color:var(--law);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 4px rgba(0,0,0,0.12);line-height:1.2">📖 도로교통법 통합 조회</a>
     <a href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" title="KoRoad 도로교통법 판례·재결례 조회 (ChatGPT GPTs) — 새 탭으로 이동. 이용 환경에 따라 로그인이 필요할 수 있습니다." style="padding:7px 11px;border:1px solid #7c3aed;background:#fff;border-radius:6px;font-size:12px;color:#7c3aed;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 4px rgba(0,0,0,0.12);line-height:1.2">🔍 판례·해설 GPTs ↗</a>
   </div>
-  <!-- 2026-05-29: 호기심 유도 + GPTs Starter 도우미 통합 (박스 2개 → 1개) -->
+  <!-- 2026-05-29: 호기심 + GPTs Starter 통합. <a target=_blank>로 popup blocker 우회 + 클릭 시 클립보드 복사 -->
   <details class="gpts-starter" style="margin:0 auto 10px;max-width:560px;text-align:left">
     <summary>💡 궁금한 사례는 GPTs에서 질문해보세요 <span class="caret">▼</span></summary>
     <div class="gpts-starter-list">
-      <button type="button" class="gpts-starter-item" data-q="교차로 내에서 유도선이 있어도 차로변경이 허용되나요?">교차로 내에서 유도선이 있어도 차로변경이 허용되나요? <span class="copy-ico">📋</span></button>
-      <button type="button" class="gpts-starter-item" data-q="혈중알코올농도 0.08% 넘었는데도 위험운전치사상이 부정된 사례가 있나요? 어떤 사정에서 부정되나요?">혈중알코올 0.08% 초과해도 위험운전치사상 부정 사례는? <span class="copy-ico">📋</span></button>
-      <button type="button" class="gpts-starter-item" data-q="주차차량 살짝 긁고 인적사항 안 남기고 갔어요. 특가법 도주차량(뺑소니)이 되나요, 도교법 §156 인적사항 미제공이 되나요?">주차차량 미신고 — 뺑소니 vs 도교법 §156 미제공? <span class="copy-ico">📋</span></button>
-      <button type="button" class="gpts-starter-item" data-q="녹색신호 직진 차량이 항상 무과실인가요? 신뢰원칙이 적용 안 되는 예외 사례가 있나요?">녹색직진 차량 무과실 — 신뢰원칙 예외 사례는? <span class="copy-ico">📋</span></button>
+      <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="교차로 내에서 유도선이 있어도 차로변경이 허용되나요?">교차로 내에서 유도선이 있어도 차로변경이 허용되나요? <span class="copy-ico">📋</span></a>
+      <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="혈중알코올농도 0.08% 넘었는데도 위험운전치사상이 부정된 사례가 있나요? 어떤 사정에서 부정되나요?">혈중알코올 0.08% 초과해도 위험운전치사상 부정 사례는? <span class="copy-ico">📋</span></a>
+      <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="주차차량 살짝 긁고 인적사항 안 남기고 갔어요. 특가법 도주차량(뺑소니)이 되나요, 도교법 §156 인적사항 미제공이 되나요?">주차차량 미신고 — 뺑소니 vs 도교법 §156 미제공? <span class="copy-ico">📋</span></a>
+      <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="녹색신호 직진 차량이 항상 무과실인가요? 신뢰원칙이 적용 안 되는 예외 사례가 있나요?">녹색직진 차량 무과실 — 신뢰원칙 예외 사례는? <span class="copy-ico">📋</span></a>
     </div>
   </details>
   <h1 style="margin:0 0 4px;font-size:22px">📚 출근길 법령 튜터</h1>
@@ -292,7 +292,7 @@ footer a { color: var(--sub); text-decoration: underline; }
   <div style="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <h2 style="margin:0;font-size:18px">🔔 알림 구독 완료</h2>
-      <button onclick="document.getElementById('subModal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+      <button onclick="closeSubModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
     </div>
     <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 12px">
       아래 JSON을 <b>전부 복사</b>해서 알려주세요.
@@ -302,6 +302,35 @@ footer a { color: var(--sub); text-decoration: underline; }
     <textarea id="subJson" readonly style="width:100%;height:200px;font-family:Menlo,Consolas,monospace;font-size:12px;padding:10px;border:1px solid var(--border);border-radius:6px;background:#f9fafb"></textarea>
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
       <button onclick="copySubJson()" style="padding:8px 16px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📋 복사</button>
+      <button onclick="closeSubModal()" style="padding:8px 16px;background:#e5e7eb;color:#374151;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 2026-05-29: PWA 설치 안내 모달 -->
+<div id="pwaModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1001;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+  <div style="background:#fff;border-radius:10px;max-width:440px;width:100%;padding:24px;text-align:center">
+    <div style="font-size:40px;margin-bottom:8px">📱</div>
+    <h2 style="margin:0 0 8px;font-size:18px;color:var(--law)">홈 화면에 추가하시겠어요?</h2>
+    <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 16px">
+      한 번 설치하시면 <b>매일 카드를 앱처럼</b> 한 번에 열 수 있어요.<br>
+      알림 클릭 → 바로 학습 시작, 빠른 접근 ✨
+    </p>
+    <!-- iOS Safari용 안내 (자동 설치 불가) -->
+    <div id="pwaIosGuide" style="display:none;background:#f3f4f6;border-radius:8px;padding:14px;margin-bottom:14px;text-align:left;font-size:12px;line-height:1.7;color:#374151">
+      <b>🍎 iPhone/iPad 사용자:</b><br>
+      ① Safari 하단의 <span style="font-size:16px">📤</span> 공유 버튼 탭<br>
+      ② 메뉴에서 <b>"홈 화면에 추가"</b> 선택<br>
+      ③ "추가" 탭 → 홈 화면에 아이콘 생성됨
+    </div>
+    <!-- Android/Chrome용 안내 -->
+    <div id="pwaAndroidGuide" style="display:none;background:#f3f4f6;border-radius:8px;padding:14px;margin-bottom:14px;text-align:left;font-size:12px;line-height:1.7;color:#374151">
+      <b>📱 안드로이드/Chrome 사용자:</b><br>
+      브라우저 메뉴(⋮) → <b>"앱 설치"</b> 또는 <b>"홈 화면에 추가"</b> 선택
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button id="pwaInstallBtn" style="display:none;padding:10px 20px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">설치하기</button>
+      <button id="pwaLaterBtn" style="padding:10px 20px;background:#e5e7eb;color:#374151;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit">나중에</button>
     </div>
   </div>
 </div>
@@ -936,19 +965,15 @@ function initGptsStarters() {
       } catch(e) { reject(e); }
     });
   }
-  document.querySelectorAll('.gpts-starter-item').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      const q = btn.dataset.q || btn.textContent.trim();
-      // 2026-05-29 popup blocker fix — user gesture 보존: click 동기 흐름에서 즉시 window.open
-      // setTimeout 안 window.open은 일부 브라우저(특히 모바일 Safari)가 차단
-      var win = window.open(GPTS_URL, '_blank', 'noopener,noreferrer');
-      // 복사는 비동기 — window.open 이미 호출됐으니 popup blocker 무관
+  document.querySelectorAll('.gpts-starter-item').forEach(function(el){
+    el.addEventListener('click', function(){
+      // 2026-05-29: <a target=_blank> native navigation 사용 — preventDefault 안 함
+      // 클립보드 복사만 비동기로 수행 (브라우저가 native로 새 탭 열어줌)
+      const q = el.dataset.q || el.textContent.trim();
       copyText(q).then(function(){
-        showToast(win ? '✅ 예시 질문 복사됨 — GPTs에서 붙여넣으세요'
-                      : '✅ 복사됨 — 팝업 차단으로 새 탭이 안 열렸어요. 수동으로 GPTs 이동');
+        showToast('✅ 예시 질문 복사됨 — GPTs에서 붙여넣으세요');
       }).catch(function(){
-        showToast(win ? '⚠️ 복사 실패 — 수동 복사 후 GPTs에서 사용'
-                      : '⚠️ 복사·팝업 모두 차단됨 — 브라우저 설정 확인');
+        showToast('⚠️ 복사 실패 — GPTs에서 수동으로 질문 입력하세요');
       });
     });
   });
@@ -1035,6 +1060,92 @@ window.addEventListener('load', async () => {
     const btn = document.getElementById('pushBtn');
     if (sub && btn) btn.textContent = '🔔 구독 중';
   } catch (e) { /* SW 미준비 — 무시 */ }
+});
+
+// 2026-05-29: PWA 설치 안내 모달 (Codex 권장 반영)
+// — beforeinstallprompt 즉시 등록 (global, load 전)
+// — 구독 모달 닫힘 → PWA 안내 표시 (한 번 시퀀스)
+// — 7일 쿨다운 (영구 차단 X), appinstalled·userChoice 처리
+// — iOS/iPadOS 감지 보강 (MacIntel + maxTouchPoints)
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+});
+window.addEventListener('appinstalled', function(){
+  _deferredInstallPrompt = null;
+  try { localStorage.setItem('pwaInstalled', '1'); } catch(e){}
+});
+
+function _isIos(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function _isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function _shouldShowPwaModal(){
+  if (_isStandalone()) return false;
+  try {
+    if (localStorage.getItem('pwaInstalled') === '1') return false;
+    const dismissedAt = parseInt(localStorage.getItem('pwaInstallDismissedAt') || '0', 10);
+    if (dismissedAt && (Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000)) return false; // 7일 쿨다운
+  } catch(e){}
+  return true;
+}
+function _closePwaModal(reason){
+  const m = document.getElementById('pwaModal');
+  if (m) m.style.display = 'none';
+  if (reason === 'later') {
+    try { localStorage.setItem('pwaInstallDismissedAt', String(Date.now())); } catch(e){}
+  }
+}
+function showPwaInstallModal(){
+  if (!_shouldShowPwaModal()) return;
+  const modal = document.getElementById('pwaModal');
+  if (!modal) return;
+  const installBtn = document.getElementById('pwaInstallBtn');
+  const iosGuide = document.getElementById('pwaIosGuide');
+  const androidGuide = document.getElementById('pwaAndroidGuide');
+  iosGuide.style.display = 'none';
+  androidGuide.style.display = 'none';
+  installBtn.style.display = 'none';
+  if (_isIos()) {
+    iosGuide.style.display = 'block';
+  } else if (_deferredInstallPrompt) {
+    installBtn.style.display = 'inline-block';
+    installBtn.onclick = async function(){
+      const dp = _deferredInstallPrompt;
+      _deferredInstallPrompt = null;
+      try {
+        dp.prompt();
+        const { outcome } = await dp.userChoice;
+        if (outcome === 'accepted') {
+          try { localStorage.setItem('pwaInstalled', '1'); } catch(e){}
+        } else {
+          try { localStorage.setItem('pwaInstallDismissedAt', String(Date.now())); } catch(e){}
+        }
+      } catch(e) { console.warn('PWA prompt 실패', e); }
+      _closePwaModal();
+    };
+  } else {
+    androidGuide.style.display = 'block';
+  }
+  modal.style.display = 'flex';
+}
+
+// 구독 모달 닫기 공통 함수 — Codex 권장: closeSubModal 한 곳으로 통합
+function closeSubModal(){
+  const m = document.getElementById('subModal');
+  if (m) m.style.display = 'none';
+  // 구독 시퀀스 끝나면 PWA 안내 표시 (한 박자 텀)
+  setTimeout(showPwaInstallModal, 400);
+}
+
+// "나중에" 버튼 바인딩 (DOMContentLoaded 후 안전)
+document.addEventListener('DOMContentLoaded', function(){
+  const later = document.getElementById('pwaLaterBtn');
+  if (later) later.addEventListener('click', function(){ _closePwaModal('later'); });
 });
 </script>
 </body>
