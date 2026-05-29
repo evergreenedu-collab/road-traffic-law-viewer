@@ -567,8 +567,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .gpts-starter-item{text-align:left;width:100%;padding:8px 10px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:12px;color:#374151;font-family:inherit;line-height:1.45;display:flex;justify-content:space-between;align-items:center;gap:8px;overflow-wrap:anywhere;min-width:0}
 .gpts-starter-item:hover{background:#f3f4f6;border-color:#7c3aed;color:#1f2937}
 .gpts-starter-item .copy-ico{opacity:0.5;font-size:11px;flex-shrink:0}
-.gpts-starter summary > span:last-child{display:inline-block;transition:transform 0.2s}
-.gpts-starter[open] summary > span:last-child{transform:rotate(180deg)}
+/* 2026-05-29: 화살표 강조 — 누르게끔 유도 (사용자 요구) */
+.gpts-starter summary{justify-content:flex-start;gap:8px;font-size:13px;font-weight:600}
+.gpts-starter summary .caret{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#e5e7eb;color:#374151;font-size:14px;font-weight:700;transition:transform 0.25s,background 0.2s;margin-left:auto;flex-shrink:0}
+.gpts-starter summary:hover .caret{background:#d1d5db;color:#1f2937}
+.gpts-starter[open] summary .caret{transform:rotate(180deg)}
 .gpts-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,0.3);z-index:2000;opacity:0;pointer-events:none;transition:opacity 0.25s,transform 0.25s;max-width:calc(100vw - 32px);box-sizing:border-box;text-align:center}
 .gpts-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 /* 모바일에서 헤더 버튼 그룹 — absolute 빼고 자연 흐름으로 위→아래 stacking (h1 겹침 회피) */
@@ -810,7 +813,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   </div>
   <!-- 2026-05-29: GPTs Starter 도우미 (앱에서 starter 안 보이는 문제 우회 — 클릭 시 클립보드 복사 + GPTs 새 탭) -->
   <details class="gpts-starter">
-    <summary>💡 GPTs에 어떻게 물어볼지 막막하면 — 심층 예시 질문 4개 <span style="font-size:10px;opacity:0.7;margin-left:4px">▾</span></summary>
+    <summary>💡 궁금한 사례는 GPTs에서 질문해보세요 <span class="caret">▼</span></summary>
     <div class="gpts-starter-list">
       <button type="button" class="gpts-starter-item" data-q="교차로 내에서 유도선이 있어도 차로변경이 허용되나요?">교차로 내에서 유도선이 있어도 차로변경이 허용되나요? <span class="copy-ico">📋</span></button>
       <button type="button" class="gpts-starter-item" data-q="혈중알코올농도 0.08% 넘었는데도 위험운전치사상이 부정된 사례가 있나요? 어떤 사정에서 부정되나요?">혈중알코올 0.08% 초과해도 위험운전치사상 부정 사례는? <span class="copy-ico">📋</span></button>

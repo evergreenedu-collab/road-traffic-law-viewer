@@ -56,8 +56,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .gpts-starter-item{text-align:left;width:100%;padding:8px 10px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:12px;color:#374151;font-family:inherit;line-height:1.45;display:flex;justify-content:space-between;align-items:center;gap:8px;overflow-wrap:anywhere;min-width:0}
 .gpts-starter-item:hover{background:#f3f4f6;border-color:#7c3aed;color:#1f2937}
 .gpts-starter-item .copy-ico{opacity:0.5;font-size:11px;flex-shrink:0}
-.gpts-starter summary > span:last-child{display:inline-block;transition:transform 0.2s}
-.gpts-starter[open] summary > span:last-child{transform:rotate(180deg)}
+/* 2026-05-29: 화살표 강조 — 누르게끔 유도 (사용자 요구) */
+.gpts-starter summary{justify-content:flex-start;gap:8px;font-size:13px;font-weight:600}
+.gpts-starter summary .caret{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#e5e7eb;color:#374151;font-size:14px;font-weight:700;transition:transform 0.25s,background 0.2s;margin-left:auto;flex-shrink:0}
+.gpts-starter summary:hover .caret{background:#d1d5db;color:#1f2937}
+.gpts-starter[open] summary .caret{transform:rotate(180deg)}
 .gpts-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,0.3);z-index:2000;opacity:0;pointer-events:none;transition:opacity 0.25s,transform 0.25s;max-width:calc(100vw - 32px);box-sizing:border-box;text-align:center}
 .gpts-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 /* 모바일에서 헤더 버튼 그룹 — absolute 빼고 자연 흐름으로 위→아래 stacking (h1 겹침 회피) */
@@ -299,7 +302,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   </div>
   <!-- 2026-05-29: GPTs Starter 도우미 (앱에서 starter 안 보이는 문제 우회 — 클릭 시 클립보드 복사 + GPTs 새 탭) -->
   <details class="gpts-starter">
-    <summary>💡 GPTs에 어떻게 물어볼지 막막하면 — 심층 예시 질문 4개 <span style="font-size:10px;opacity:0.7;margin-left:4px">▾</span></summary>
+    <summary>💡 궁금한 사례는 GPTs에서 질문해보세요 <span class="caret">▼</span></summary>
     <div class="gpts-starter-list">
       <button type="button" class="gpts-starter-item" data-q="교차로 내에서 유도선이 있어도 차로변경이 허용되나요?">교차로 내에서 유도선이 있어도 차로변경이 허용되나요? <span class="copy-ico">📋</span></button>
       <button type="button" class="gpts-starter-item" data-q="혈중알코올농도 0.08% 넘었는데도 위험운전치사상이 부정된 사례가 있나요? 어떤 사정에서 부정되나요?">혈중알코올 0.08% 초과해도 위험운전치사상 부정 사례는? <span class="copy-ico">📋</span></button>
@@ -422,7 +425,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core_car_mgmt.js?v=20260529112143" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core_car_mgmt.js?v=20260529114714" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -446,7 +449,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260529112143';
+const _LAZY_TS = '20260529114714';
 const _LAZY_SFX = '_car_mgmt';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
