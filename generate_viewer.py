@@ -431,9 +431,10 @@ def main():
     )
     # Phase 4 B2: 판례조회 GPTs 배너 (외부 ChatGPT GPTs, 새 탭) — noreferrer로 viewer URL 보호
     gpts_button = (
-        '<a href="https://chatgpt.com/g/g-6a1844725a6c8191a4ef10db3d64fa50-koroad-dorogyotongbeob-panrye-johoe-deung-ai-tyuteo" '
+        # 2026-05-29 검열 우회 재생성 — 새 GPT URL (판례·재결례 조회)
+        '<a href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" '
         'target="_blank" rel="noopener noreferrer" class="header-action-btn gpts" '
-        'title="KoRoad 도로교통법 판례 AI 튜터 (ChatGPT GPTs) — 새 탭으로 이동. 이용 환경에 따라 로그인이 필요할 수 있습니다.">'
+        'title="KoRoad 도로교통법 판례·재결례 조회 (ChatGPT GPTs) — 새 탭으로 이동. 이용 환경에 따라 로그인이 필요할 수 있습니다.">'
         '🔍 판례·해설 GPTs ↗</a>'
     )
     if group == "road":
