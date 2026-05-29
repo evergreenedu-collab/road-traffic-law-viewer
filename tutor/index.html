@@ -47,6 +47,30 @@ header a { color: #ffe; text-decoration: underline; }
 .date-nav .today-link { margin-left: auto; color: var(--law); text-decoration: none; font-weight: 500; }
 .date-nav .today-link:hover { text-decoration: underline; }
 
+/* 2026-05-29: 커스텀 달력 팝오버 */
+.date-btn{padding:6px 12px;background:#fff;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;color:var(--law);font-family:inherit}
+.date-btn:hover{background:#f9fafb}
+.date-popover{position:absolute;z-index:100;top:100%;left:50px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);width:280px;margin-top:6px}
+.dp-head{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:8px;color:var(--law);font-size:14px}
+.dp-head button{background:none;border:none;font-size:18px;cursor:pointer;padding:2px 10px;color:var(--law);border-radius:4px;font-family:inherit}
+.dp-head button:hover{background:#f3f4f6}
+.dp-grid,.dp-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:12px}
+.dp-dow{text-align:center;padding:4px 0;color:var(--sub);font-weight:600;font-size:11px}
+.dp-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;color:#374151;font-weight:500}
+.dp-day:hover{background:#f3f4f6}
+.dp-day.other{color:#d1d5db;cursor:default}
+.dp-day.has{background:#dbeafe;color:#1e40af;font-weight:600}
+.dp-day.has:hover{background:#bfdbfe}
+.dp-day.today{border:2px solid #3b82f6;color:#1d4ed8;font-weight:700}
+.dp-day.weekend:not(.has):not(.today){color:#9ca3af}
+.dp-day.selected{background:var(--law);color:#fff}
+.dp-day.selected.today{border-color:#1d4ed8}
+.dp-legend{display:flex;justify-content:center;gap:14px;font-size:11px;color:var(--sub);margin-top:10px;border-top:1px solid #f3f4f6;padding-top:8px}
+.dp-legend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:3px}
+.dp-legend .dot.has{background:#dbeafe;border:1px solid #93c5fd}
+.dp-legend .dot.today{background:#fff;border:2px solid #3b82f6}
+@media (max-width:600px){.date-popover{left:10px;right:10px;width:auto}}
+
 .card {
   background: var(--card); border-radius: 10px; padding: 24px;
   margin-bottom: 12px; box-shadow: var(--shadow); border-left: 4px solid var(--law);
@@ -220,15 +244,20 @@ footer a { color: var(--sub); text-decoration: underline; }
 <body>
 
 <header style="text-align:center">
-  <!-- PR-H8: 베너·제목·부제목 모두 가운데 정렬 + 베너 사이즈 약간 축소 (7px 11px, 12px) -->
+  <!-- 2026-05-29: 헤더 액션 2개로 감축 (알림 받기는 부제목 우측 보조 위치) -->
   <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px">
     <a href="../viewer.html" style="padding:7px 11px;border:1px solid var(--border);background:#fff;border-radius:6px;font-size:12px;color:var(--law);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 4px rgba(0,0,0,0.12);line-height:1.2">📖 도로교통법 통합 조회</a>
-    <a href="https://chatgpt.com/g/g-6a1844725a6c8191a4ef10db3d64fa50-koroad-dorogyotongbeob-panrye-johoe-deung-ai-tyuteo" target="_blank" rel="noopener noreferrer" title="KoRoad 도로교통법 판례 AI 튜터 (ChatGPT GPTs) — 새 탭으로 이동. 이용 환경에 따라 로그인이 필요할 수 있습니다." style="padding:7px 11px;border:1px solid #7c3aed;background:#fff;border-radius:6px;font-size:12px;color:#7c3aed;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 4px rgba(0,0,0,0.12);line-height:1.2">🔍 판례·해설 GPTs ↗</a>
-    <button id="pushBtn" onclick="subscribePush()" style="padding:7px 11px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:12px;color:var(--law);font-weight:600;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 4px rgba(0,0,0,0.12);line-height:1.2;font-family:inherit">🔔 알림 받기</button>
+    <a href="https://chatgpt.com/g/g-6a1844725a6c8191a4ef10db3d64fa50-koroad-dorogyotongbeob-panrye-johoe-deung-ai-tyuteo" target="_blank" rel="noopener noreferrer" title="KoRoad 도로교통법 판례·재결례 조회 (ChatGPT GPTs) — 새 탭으로 이동. 이용 환경에 따라 로그인이 필요할 수 있습니다." style="padding:7px 11px;border:1px solid #7c3aed;background:#fff;border-radius:6px;font-size:12px;color:#7c3aed;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 4px rgba(0,0,0,0.12);line-height:1.2">🔍 판례·해설 GPTs ↗</a>
+  </div>
+  <!-- 2026-05-29: 호기심 유도 배지 (h1 위) -->
+  <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;margin-bottom:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.32);border-radius:999px;font-size:12px;color:#fff;font-weight:500;letter-spacing:.2px">🚦 오늘도 도로교통 주요 법령·판례 한 조각, 함께 살펴봐요</div>
+  <h1 style="margin:0 0 4px;font-size:22px">📚 출근길 법령 튜터</h1>
+  <!-- 2026-05-29: 부제목 우측에 알림 받기 보조 버튼 (메인 액션과 위계 구분) -->
+  <div class="subtitle-row" style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:4px">
+    <p style="margin:0;font-size:13px;line-height:1.5;opacity:0.92">매일 한 건 — 도로교통법 현행 + 해설 + 판례 통합 학습</p>
+    <button id="pushBtn" onclick="subscribePush()" style="padding:4px 10px;border:1px solid rgba(255,255,255,0.36);background:rgba(255,255,255,0.12);border-radius:6px;cursor:pointer;font-size:11px;color:#fff;font-weight:500;display:inline-flex;align-items:center;gap:5px;line-height:1.2;font-family:inherit">🔔 알림 받기</button>
   </div>
   <script>try{if(localStorage.getItem("pushSubscription")){document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script>
-  <h1 style="margin:0 0 4px;font-size:22px">📚 출근길 법령 튜터</h1>
-  <p style="margin:0;font-size:13px;line-height:1.5;opacity:0.92">매일 한 건 — 도로교통법 현행 + 해설 + 판례 통합 학습</p>
 </header>
 
 <!-- PR-H2 — 구독 결과 모달 -->
@@ -250,9 +279,25 @@ footer a { color: var(--sub); text-decoration: underline; }
   </div>
 </div>
 
-<nav class="date-nav">
-  <label for="dateInput">날짜:</label>
-  <input type="date" id="dateInput">
+<nav class="date-nav" style="position:relative">
+  <label>날짜:</label>
+  <button type="button" id="dateBtn" class="date-btn">📅 <span id="dateBtnLabel">오늘</span> ▾</button>
+  <div id="datePopover" class="date-popover" hidden>
+    <div class="dp-head">
+      <button type="button" id="dpPrev" aria-label="이전 달">‹</button>
+      <span id="dpMonth"></span>
+      <button type="button" id="dpNext" aria-label="다음 달">›</button>
+    </div>
+    <div class="dp-grid">
+      <div class="dp-dow">일</div><div class="dp-dow">월</div><div class="dp-dow">화</div>
+      <div class="dp-dow">수</div><div class="dp-dow">목</div><div class="dp-dow">금</div><div class="dp-dow">토</div>
+    </div>
+    <div id="dpDays" class="dp-days"></div>
+    <div class="dp-legend">
+      <span><i class="dot has"></i> 카드 있음</span>
+      <span><i class="dot today"></i> 오늘</span>
+    </div>
+  </div>
   <a href="./" class="today-link">📅 오늘 카드로 이동</a>
 </nav>
 
@@ -713,11 +758,88 @@ async function render(date) {
   }
 }
 
-function init() {
+// 2026-05-29: 커스텀 달력 — input type=date 대신 팝오버
+let _cardDates = new Set();
+let _dpMonth = null;
+let _selectedDate = null;
+
+async function loadCardIndex(){
+  try {
+    const r = await fetch('data/daily_index.json', {cache:'no-store'});
+    if (!r.ok) return;
+    const d = await r.json();
+    _cardDates = new Set(d.dates || []);
+  } catch(e) { console.warn('카드 인덱스 로드 실패', e); }
+}
+
+function renderDatePopover(){
+  const {year, month} = _dpMonth;
+  document.getElementById('dpMonth').textContent = `${year}년 ${month+1}월`;
+  const first = new Date(year, month, 1);
+  const dow = first.getDay();
+  const lastDay = new Date(year, month+1, 0).getDate();
+  const prevLastDay = new Date(year, month, 0).getDate();
+  const todayS = todayStr();
+  let html = '';
+  for (let i = dow - 1; i >= 0; i--) html += `<div class="dp-day other">${prevLastDay - i}</div>`;
+  for (let d = 1; d <= lastDay; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayDow = new Date(dateStr+'T00:00:00').getDay();
+    const cls = ['dp-day'];
+    if (_cardDates.has(dateStr)) cls.push('has');
+    if (dateStr === todayS) cls.push('today');
+    if (dateStr === _selectedDate) cls.push('selected');
+    if (dayDow === 0 || dayDow === 6) cls.push('weekend');
+    html += `<div class="${cls.join(' ')}" data-date="${dateStr}">${d}</div>`;
+  }
+  document.getElementById('dpDays').innerHTML = html;
+  document.querySelectorAll('#dpDays .dp-day:not(.other)').forEach(el => {
+    el.addEventListener('click', () => {
+      const dateStr = el.dataset.date;
+      if (dateStr) location.search = '?date=' + dateStr;
+    });
+  });
+}
+
+function openDatePopover(){
+  if (!_dpMonth) {
+    const d = _selectedDate ? new Date(_selectedDate+'T00:00:00') : new Date();
+    _dpMonth = {year: d.getFullYear(), month: d.getMonth()};
+  }
+  renderDatePopover();
+  document.getElementById('datePopover').hidden = false;
+}
+
+function closeDatePopover(){ document.getElementById('datePopover').hidden = true; }
+
+function initCalendar(){
+  document.getElementById('dateBtn').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const pop = document.getElementById('datePopover');
+    if (pop.hidden) openDatePopover(); else closeDatePopover();
+  });
+  document.getElementById('dpPrev').addEventListener('click', () => {
+    _dpMonth.month--;
+    if (_dpMonth.month < 0) { _dpMonth.month = 11; _dpMonth.year--; }
+    renderDatePopover();
+  });
+  document.getElementById('dpNext').addEventListener('click', () => {
+    _dpMonth.month++;
+    if (_dpMonth.month > 11) { _dpMonth.month = 0; _dpMonth.year++; }
+    renderDatePopover();
+  });
+  document.addEventListener('click', (ev) => {
+    const pop = document.getElementById('datePopover');
+    if (!pop.hidden && !pop.contains(ev.target) && ev.target.id !== 'dateBtn') closeDatePopover();
+  });
+}
+
+async function init() {
   const date = new URLSearchParams(location.search).get('date') || todayStr();
-  const di = document.getElementById('dateInput');
-  di.value = date;
-  di.addEventListener('change', function(ev){ if (ev.target.value) location.search = '?date=' + ev.target.value; });
+  _selectedDate = date;
+  document.getElementById('dateBtnLabel').textContent = date;
+  initCalendar();
+  await loadCardIndex();
   render(date);
 }
 init();

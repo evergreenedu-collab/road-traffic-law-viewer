@@ -453,19 +453,19 @@ def main():
     else:
         alarm_button = ""
         alarm_modal = ""
-    # 좌측 액션 래퍼 — 알람(road) + 튜터 + 알림받기 셋 다 한 flex 그룹으로 묶음
-    # (이전: pushBtn이 우측 absolute라 헤더 통계와 충돌. 사용자 보고 2026-05-27 → 좌측 그룹화)
+    # 좌측 액션 래퍼 — 알람(road) + 튜터 + GPTs 3개만 (push_button은 부제목 우측 보조 위치로 분리)
+    # 2026-05-29 Codex 권장 반영: 알림 받기는 1회성 액션이라 헤더 메인 액션과 분리
+    left_actions = f'<div class="header-left-actions">{alarm_button}{tutor_button}{gpts_button}</div>'
     # PR-H6: pushBtn 직후 인라인 스크립트로 localStorage 즉시 적용 — viewer 간 이동 시 깜빡임 차단
+    # push-sub 보조 톤 클래스 + 작은 사이즈 (메인 액션과 시각적 위계 구분)
     push_button = (
-        '<button id="pushBtn" type="button" class="header-action-btn push" onclick="subscribePush()">'
+        '<button id="pushBtn" type="button" class="header-action-btn push-sub" onclick="subscribePush()">'
         '🔔 알림 받기</button>'
         '<script>try{if(localStorage.getItem("pushSubscription")){'
         'document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script>'
     )
-    left_actions = f'<div class="header-left-actions">{alarm_button}{tutor_button}{gpts_button}{push_button}</div>'
-    # 튜터 페이지 본인이면 자기 자신으로 가는 버튼 의미 없음 — 하지만 viewer는 튜터가 아니므로 항상 표시
-    # 단, road group viewer의 경우 튜터 가는 경로는 ./tutor/, 다른 그룹 viewer도 동일 위치(루트 기준)
     html = html.replace("{{ALARM_BUTTON}}", left_actions).replace("{{ALARM_MODAL}}", alarm_modal)
+    html = html.replace("{{PUSH_BUTTON}}", push_button)
     html = html.replace("{{CURRENT_GROUP}}", group)
     # PR-H4-γ-2: lazy load 인프라용 BUILD_TS, SUFFIX placeholder 치환
     html = html.replace("{{BUILD_TS}}", build_ts).replace("{{SUFFIX}}", suffix)
@@ -548,6 +548,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .header-action-btn.tutor{background:#fff;color:var(--law);border:1px solid var(--border)}
 .header-action-btn.gpts{background:#fff;color:#7c3aed;border:1px solid #7c3aed}
 .header-action-btn.push{background:#fff;color:var(--law);border:1px solid var(--border)}
+/* 2026-05-29: 알림 받기 보조 톤 — 부제목 우측 위치 (메인 액션과 위계 구분) */
+.header-action-btn.push-sub{padding:4px 10px;font-size:11px;font-weight:500;background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;box-shadow:none}
+.header-action-btn.push-sub:hover{background:#e5e7eb;color:#374151}
+.subtitle-row{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+.subtitle-row p{margin:0}
+@media (max-width:600px){
+  .subtitle-row{flex-direction:column;gap:6px}
+}
 /* 모바일에서 헤더 버튼 그룹 — absolute 빼고 자연 흐름으로 위→아래 stacking (h1 겹침 회피) */
 @media(max-width:600px){
   .header{padding:14px 14px 16px;display:flex;flex-direction:column;align-items:stretch}
@@ -779,9 +787,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <div class="header" style="position:relative">
   <div class="header-stats" id="headerStats"></div>
-  {{ALARM_BUTTON}}<!-- left_actions 안에 alarm·tutor·push 셋 다 포함 (PR-H4-β/fix) -->
+  {{ALARM_BUTTON}}<!-- left_actions: alarm(road)·tutor·gpts 3개 (PR-H4-β/fix · 2026-05-29 push 분리) -->
   <h1>{{LAW_TITLE}} 한눈에</h1>
-  <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
+  <div class="subtitle-row">
+    <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
+    {{PUSH_BUTTON}}
+  </div>
 </div>
 
 <!-- PR-H2-α — 구독 결과 JSON 모달 -->

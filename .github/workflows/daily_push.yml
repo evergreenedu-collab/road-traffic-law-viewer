@@ -1,9 +1,9 @@
 name: 매일 카드 + 푸시 알림
 
-# 평일(월~금) 06:30 KST = 21:30 UTC (전날)
+# 평일(월~금) 05:40 KST = 20:40 UTC (전날) — 도착 평균 ~07:00 목표 (Actions 큐·빌드·push 누적 지연 ~80분 고려)
 on:
   schedule:
-    - cron: '30 21 * * 0-4'   # UTC 일·월·화·수·목 21:30 = KST 월·화·수·목·금 06:30
+    - cron: '40 20 * * 0-4'   # UTC 일·월·화·수·목 20:40 = KST 월·화·수·목·금 05:40
   workflow_dispatch:           # 수동 트리거 (PR-H3 테스트용)
 
 permissions:
@@ -59,7 +59,7 @@ jobs:
         id: date
         run: |
           # GitHub Actions runner는 UTC. KST = UTC + 9h.
-          # 21:30 UTC 실행 시 KST 다음날 06:30 — 다음날을 "오늘" 날짜로
+          # 20:40 UTC 실행 시 KST 다음날 05:40 — 다음날을 "오늘" 날짜로
           KST_TODAY=$(TZ='Asia/Seoul' date +%Y-%m-%d)
           KST_DOW=$(TZ='Asia/Seoul' date +%u)   # 1=월 ~ 7=일
           echo "today=$KST_TODAY" >> $GITHUB_OUTPUT
@@ -80,13 +80,28 @@ jobs:
           cd tutor
           python build_tutor_content.py --date ${{ steps.date.outputs.today }} --days 1
 
+      - name: daily_index.json 갱신 (달력 UI용 카드 있는 날 인덱스)
+        run: |
+          python -c "
+          import json, glob, re, pathlib
+          dates = sorted(set(
+              m.group(1) for f in glob.glob('tutor/data/daily_*.json')
+              for m in [re.search(r'daily_(\d{4}-\d{2}-\d{2})\.json$', f)] if m
+          ))
+          pathlib.Path('tutor/data/daily_index.json').write_text(
+              json.dumps({'dates': dates, 'count': len(dates)}, ensure_ascii=False),
+              encoding='utf-8'
+          )
+          print(f'daily_index.json: {len(dates)} entries')
+          "
+
       - name: 카드 자료 commit·push (master)
         id: card_commit
         continue-on-error: true   # push race로 rejected돼도 알림 발송은 계속 진행
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add tutor/data/daily_*.json tutor/data/schedule.json
+          git add tutor/data/daily_*.json tutor/data/schedule.json tutor/data/daily_index.json
           if git diff --cached --quiet; then
             echo "변경 없음 — commit 스킵"
             echo "pushed=false" >> $GITHUB_OUTPUT
