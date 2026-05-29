@@ -557,6 +557,20 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 @media (max-width:600px){
   .subtitle-row{flex-direction:column;gap:6px}
 }
+/* 2026-05-29: GPTs Starter 도우미 (앱·웹 무관, 클립보드 복사 + 새 탭) */
+.gpts-starter{margin:10px auto 0;max-width:520px;font-size:12px;text-align:left}
+.gpts-starter summary{cursor:pointer;list-style:none;padding:7px 12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:8px;color:#374151;font-weight:500;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.gpts-starter summary::-webkit-details-marker{display:none}
+.gpts-starter summary:hover{background:#e5e7eb}
+.gpts-starter[open] summary{border-radius:8px 8px 0 0;border-bottom:none}
+.gpts-starter-list{display:flex;flex-direction:column;gap:4px;padding:8px;background:#fafbfc;border:1px solid #d1d5db;border-top:none;border-radius:0 0 8px 8px}
+.gpts-starter-item{text-align:left;width:100%;padding:8px 10px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:12px;color:#374151;font-family:inherit;line-height:1.45;display:flex;justify-content:space-between;align-items:center;gap:8px;overflow-wrap:anywhere;min-width:0}
+.gpts-starter-item:hover{background:#f3f4f6;border-color:#7c3aed;color:#1f2937}
+.gpts-starter-item .copy-ico{opacity:0.5;font-size:11px;flex-shrink:0}
+.gpts-starter summary > span:last-child{display:inline-block;transition:transform 0.2s}
+.gpts-starter[open] summary > span:last-child{transform:rotate(180deg)}
+.gpts-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,0.3);z-index:2000;opacity:0;pointer-events:none;transition:opacity 0.25s,transform 0.25s;max-width:calc(100vw - 32px);box-sizing:border-box;text-align:center}
+.gpts-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 /* 모바일에서 헤더 버튼 그룹 — absolute 빼고 자연 흐름으로 위→아래 stacking (h1 겹침 회피) */
 @media(max-width:600px){
   .header{padding:14px 14px 16px;display:flex;flex-direction:column;align-items:stretch}
@@ -794,6 +808,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
     {{PUSH_BUTTON}}
   </div>
+  <!-- 2026-05-29: GPTs Starter 도우미 (앱에서 starter 안 보이는 문제 우회 — 클릭 시 클립보드 복사 + GPTs 새 탭) -->
+  <details class="gpts-starter">
+    <summary>💡 GPTs에 어떻게 물어볼지 막막하면 — 심층 예시 질문 4개 <span style="font-size:10px;opacity:0.7;margin-left:4px">▾</span></summary>
+    <div class="gpts-starter-list">
+      <button type="button" class="gpts-starter-item" data-q="교차로 내에서 유도선이 있어도 차로변경이 허용되나요?">교차로 내에서 유도선이 있어도 차로변경이 허용되나요? <span class="copy-ico">📋</span></button>
+      <button type="button" class="gpts-starter-item" data-q="혈중알코올농도 0.08% 넘었는데도 위험운전치사상이 부정된 사례가 있나요? 어떤 사정에서 부정되나요?">혈중알코올 0.08% 초과해도 위험운전치사상 부정 사례는? <span class="copy-ico">📋</span></button>
+      <button type="button" class="gpts-starter-item" data-q="주차차량 살짝 긁고 인적사항 안 남기고 갔어요. 특가법 도주차량(뺑소니)이 되나요, 도교법 §156 인적사항 미제공이 되나요?">주차차량 미신고 — 뺑소니 vs 도교법 §156 미제공? <span class="copy-ico">📋</span></button>
+      <button type="button" class="gpts-starter-item" data-q="녹색신호 직진 차량이 항상 무과실인가요? 신뢰원칙이 적용 안 되는 예외 사례가 있나요?">녹색직진 차량 무과실 — 신뢰원칙 예외 사례는? <span class="copy-ico">📋</span></button>
+    </div>
+  </details>
 </div>
 
 <!-- PR-H2-α — 구독 결과 JSON 모달 -->
@@ -3336,6 +3360,52 @@ window.addEventListener('load', async () => {
     if (sub && btn) btn.textContent = '🔔 구독 중';
   } catch (e) {}
 });
+
+// 2026-05-29: GPTs Starter 도우미 — 클릭 시 클립보드 복사 + GPTs 새 탭 (앱·웹 무관)
+(function(){
+  var GPTS_URL = 'https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe';
+  var toastEl = null;
+  function showToast(msg){
+    if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'gpts-toast'; document.body.appendChild(toastEl); }
+    toastEl.textContent = msg; toastEl.classList.add('show');
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(function(){ toastEl.classList.remove('show'); }, 2400);
+  }
+  function copyText(text){
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return new Promise(function(resolve, reject){
+      try {
+        // Codex 권장 — iOS 구형 Safari 폴백 강화
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { ta.setSelectionRange(0, ta.value.length); } catch(e){}
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok ? resolve() : reject();
+      } catch(e) { reject(e); }
+    });
+  }
+  function bind(){
+    document.querySelectorAll('.gpts-starter-item').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var q = btn.dataset.q || btn.textContent.trim();
+        // Codex 권장 — 복사 완료 후 GPTs 열기
+        var copied = false;
+        try { await copyText(q); copied = true; } catch(e){}
+        showToast(copied ? '✅ 예시 질문 복사됨 — GPTs에서 붙여넣으세요' : '⚠️ 복사 실패 — 수동으로 복사해주세요');
+        setTimeout(function(){ window.open(GPTS_URL, '_blank', 'noopener,noreferrer'); }, 350);
+      });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
 </script>
 </body>
 </html>
