@@ -3393,13 +3393,18 @@ window.addEventListener('load', async () => {
   }
   function bind(){
     document.querySelectorAll('.gpts-starter-item').forEach(function(btn){
-      btn.addEventListener('click', async function(){
+      btn.addEventListener('click', function(){
         var q = btn.dataset.q || btn.textContent.trim();
-        // Codex 권장 — 복사 완료 후 GPTs 열기
-        var copied = false;
-        try { await copyText(q); copied = true; } catch(e){}
-        showToast(copied ? '✅ 예시 질문 복사됨 — GPTs에서 붙여넣으세요' : '⚠️ 복사 실패 — 수동으로 복사해주세요');
-        setTimeout(function(){ window.open(GPTS_URL, '_blank', 'noopener,noreferrer'); }, 350);
+        // 2026-05-29 popup blocker fix — user gesture 보존: click 동기 흐름에서 즉시 window.open
+        var win = window.open(GPTS_URL, '_blank', 'noopener,noreferrer');
+        // 복사는 비동기 — window.open 이미 호출됐으니 popup blocker 무관
+        copyText(q).then(function(){
+          showToast(win ? '✅ 예시 질문 복사됨 — GPTs에서 붙여넣으세요'
+                        : '✅ 복사됨 — 팝업 차단으로 새 탭이 안 열렸어요. 수동으로 GPTs 이동');
+        }).catch(function(){
+          showToast(win ? '⚠️ 복사 실패 — 수동 복사 후 GPTs에서 사용'
+                        : '⚠️ 복사·팝업 모두 차단됨 — 브라우저 설정 확인');
+        });
       });
     });
   }

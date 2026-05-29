@@ -266,9 +266,9 @@ footer a { color: var(--sub); text-decoration: underline; }
     <a href="../viewer.html" style="padding:7px 11px;border:1px solid var(--border);background:#fff;border-radius:6px;font-size:12px;color:var(--law);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 4px rgba(0,0,0,0.12);line-height:1.2">📖 도로교통법 통합 조회</a>
     <a href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" title="KoRoad 도로교통법 판례·재결례 조회 (ChatGPT GPTs) — 새 탭으로 이동. 이용 환경에 따라 로그인이 필요할 수 있습니다." style="padding:7px 11px;border:1px solid #7c3aed;background:#fff;border-radius:6px;font-size:12px;color:#7c3aed;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 4px rgba(0,0,0,0.12);line-height:1.2">🔍 판례·해설 GPTs ↗</a>
   </div>
-  <!-- 2026-05-29: GPTs Starter 도우미 (앱에서 starter 안 보이는 문제 우회 — 클릭 시 클립보드 복사 + GPTs 새 탭) -->
-  <details class="gpts-starter" style="margin:0 auto 10px;max-width:520px;text-align:left">
-    <summary>💡 GPTs에 어떻게 물어볼지 막막하면 — 심층 예시 질문 4개 <span style="font-size:10px;opacity:0.7;margin-left:4px">▾</span></summary>
+  <!-- 2026-05-29: 호기심 유도 + GPTs Starter 도우미 통합 (박스 2개 → 1개) -->
+  <details class="gpts-starter" style="margin:0 auto 10px;max-width:560px;text-align:left">
+    <summary>🚦 오늘도 도로교통 법령·판례 한 조각 — GPTs 예시 질문으로 시작 <span style="font-size:10px;opacity:0.7;margin-left:4px">▾</span></summary>
     <div class="gpts-starter-list">
       <button type="button" class="gpts-starter-item" data-q="교차로 내에서 유도선이 있어도 차로변경이 허용되나요?">교차로 내에서 유도선이 있어도 차로변경이 허용되나요? <span class="copy-ico">📋</span></button>
       <button type="button" class="gpts-starter-item" data-q="혈중알코올농도 0.08% 넘었는데도 위험운전치사상이 부정된 사례가 있나요? 어떤 사정에서 부정되나요?">혈중알코올 0.08% 초과해도 위험운전치사상 부정 사례는? <span class="copy-ico">📋</span></button>
@@ -276,8 +276,6 @@ footer a { color: var(--sub); text-decoration: underline; }
       <button type="button" class="gpts-starter-item" data-q="녹색신호 직진 차량이 항상 무과실인가요? 신뢰원칙이 적용 안 되는 예외 사례가 있나요?">녹색직진 차량 무과실 — 신뢰원칙 예외 사례는? <span class="copy-ico">📋</span></button>
     </div>
   </details>
-  <!-- 2026-05-29: 호기심 유도 배지 (h1 위) -->
-  <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;margin-bottom:10px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.32);border-radius:999px;font-size:12px;color:#fff;font-weight:500;letter-spacing:.2px">🚦 오늘도 도로교통 주요 법령·판례 한 조각, 함께 살펴봐요</div>
   <h1 style="margin:0 0 4px;font-size:22px">📚 출근길 법령 튜터</h1>
   <!-- 2026-05-29: 부제목 우측에 알림 받기 보조 버튼 (메인 액션과 위계 구분) -->
   <div class="subtitle-row" style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:4px">
@@ -937,14 +935,19 @@ function initGptsStarters() {
     });
   }
   document.querySelectorAll('.gpts-starter-item').forEach(function(btn){
-    btn.addEventListener('click', async function(){
+    btn.addEventListener('click', function(){
       const q = btn.dataset.q || btn.textContent.trim();
-      // Codex 권장 — 복사 완료 후 GPTs 열기 (모바일에서 토스트 확인 보장)
-      var copied = false;
-      try { await copyText(q); copied = true; } catch(e){}
-      showToast(copied ? '✅ 예시 질문 복사됨 — GPTs에서 붙여넣으세요' : '⚠️ 복사 실패 — 수동으로 복사해주세요');
-      // 약간의 지연 후 GPTs 열기 (사용자가 토스트 인지)
-      setTimeout(function(){ window.open(GPTS_URL, '_blank', 'noopener,noreferrer'); }, 350);
+      // 2026-05-29 popup blocker fix — user gesture 보존: click 동기 흐름에서 즉시 window.open
+      // setTimeout 안 window.open은 일부 브라우저(특히 모바일 Safari)가 차단
+      var win = window.open(GPTS_URL, '_blank', 'noopener,noreferrer');
+      // 복사는 비동기 — window.open 이미 호출됐으니 popup blocker 무관
+      copyText(q).then(function(){
+        showToast(win ? '✅ 예시 질문 복사됨 — GPTs에서 붙여넣으세요'
+                      : '✅ 복사됨 — 팝업 차단으로 새 탭이 안 열렸어요. 수동으로 GPTs 이동');
+      }).catch(function(){
+        showToast(win ? '⚠️ 복사 실패 — 수동 복사 후 GPTs에서 사용'
+                      : '⚠️ 복사·팝업 모두 차단됨 — 브라우저 설정 확인');
+      });
     });
   });
 }
