@@ -564,7 +564,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .gpts-starter summary:hover{background:#e5e7eb}
 .gpts-starter[open] summary{border-radius:8px 8px 0 0;border-bottom:none}
 .gpts-starter-list{display:flex;flex-direction:column;gap:4px;padding:8px;background:#fafbfc;border:1px solid #d1d5db;border-top:none;border-radius:0 0 8px 8px}
-.gpts-starter-item{text-align:left;width:100%;padding:8px 10px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:12px;color:#374151;font-family:inherit;line-height:1.45;display:flex;justify-content:space-between;align-items:center;gap:8px;overflow-wrap:anywhere;min-width:0}
+.gpts-starter-item{text-align:left;width:100%;padding:8px 10px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:12px;color:#374151;font-family:inherit;line-height:1.45;display:flex;justify-content:space-between;align-items:center;gap:8px;overflow-wrap:anywhere;min-width:0;text-decoration:none}
 .gpts-starter-item:hover{background:#f3f4f6;border-color:#7c3aed;color:#1f2937}
 .gpts-starter-item .copy-ico{opacity:0.5;font-size:11px;flex-shrink:0}
 /* 2026-05-29: 화살표 강조 — 누르게끔 유도. 2차 미세조정: 크기 축소·대각선 멈춤 fix */
