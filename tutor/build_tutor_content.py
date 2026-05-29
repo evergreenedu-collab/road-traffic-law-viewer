@@ -1516,9 +1516,11 @@ GROUP_TEACHING_CONTEXT = {
 
 
 def generate_other_group_article_content(group, jo, jo_title, article_text, label):
-    """Phase 3 PR-C — 다른 그룹 article 카드용 간단 LLM 콘텐츠 (oneliner + explanation).
+    """Phase 3 PR-C — 다른 그룹 article 카드용 LLM 콘텐츠 (5필드).
+    2026-05-29 보강: 사용자(공단 교수) 요구 — 조문 요약 + 참고할 내용·교육 시사점·공부 포인트.
     PR-G — 그룹별 강의 맥락(GROUP_TEACHING_CONTEXT) 추가. 교수 강의용 콘텐츠로 유도.
-    case_llm.py 스타일 보수적 프롬프트(본문 외 만들지 마라·일반론 금지).
+    출력 5필드: oneliner·explanation·key_issues(list)·teaching_application·study_points(list).
+    품질 기준: key_issues·study_points 각 ≥2건이면 enhanced. 미달 시 ok_partial. 모두 비면 None.
     학습 콘텐츠 생성 실패 시 None 반환 → 호출자는 simple_other_group 폴백."""
     if not GEMINI_API_KEY:
         return None
@@ -1539,22 +1541,37 @@ def generate_other_group_article_content(group, jo, jo_title, article_text, labe
 {label} 제{jo}조 {jo_title}
 
 [작성 규칙 — 위반 시 자료 신뢰도 훼손, 반드시 지킬 것]
-0. ★★★ 사실 정확성 절대 규칙 — oneliner·explanation은 아래 [조문 본문] 섹션의 본문에 명시된
-   처벌 대상·행위 유형·키워드만 사용한다. 본문에 없는 단어·개념(예: 음주측정거부, 무면허,
-   사고미조치 등 다른 조문에 속하는 처벌 사유)을 사전 학습 지식으로 추측·연결해 끌어오는 것
-   절대 금지.
+
+A. 핵심 3필드 (oneliner·explanation·key_issues) — 본문 엄격 준수:
+0. ★★★ 사실 정확성 절대 규칙 — 아래 [조문 본문] 섹션의 본문에 명시된 처벌 대상·행위 유형·키워드만 사용한다.
+   본문에 없는 단어·개념(예: 음주측정거부, 무면허, 사고미조치 등 다른 조문에 속하는 처벌 사유)을 사전 학습 지식으로
+   추측·연결해 끌어오는 것 절대 금지.
 1. 아래 조문 본문에 명시된 내용만 사용한다. 본문에 없는 사례·통계·정책 평가는 절대 쓰지 않는다.
 2. 법률 용어는 본문 표현을 그대로 쓴다. 일상어로 의역하지 않는다.
 3. '항상'·'모든 경우'·'반드시'·'예외 없이' 같은 단정·일반화는 본문이 명확히 그렇게 규정할 때만. 불명확하면 유보적 표현.
 4. 법령명·조문번호 외 외부 법령 관계를 본문이 명시하지 않은 한 추정하지 않는다.
-5. 본문 외 내용을 만들지 않되, **교통안전교육·교통사고 처리 맥락에서 이 조문이 어떻게 적용되는지**는
-   본문이 다루는 범위 안에서 풀어 설명한다(강의 가치 우선).
-6. 불명확하면 빈 문자열로 둔다. 추측보다 빈 채로 두는 게 낫다.
+4-1. ★ 교육적 표현(예: "운전자 책임", "사고 위험", "안전과 직결")을 쓰더라도 **본문에 명시된 주체·금지행위·요건을 벗어난 효과·위험·책임 평가는 핵심 3필드에 쓰지 않는다**. 그런 교육 통찰은 시사점 2필드(B)에서만 다룬다.
+
+B. 시사점 2필드 (teaching_application·study_points) — 본문 범위 내 교육 통찰 허용:
+5. 본문에서 확인되는 주체·행위·요건을 벗어나지 않는 범위에서 **교통안전교육·교통사고 처리 맥락의 교육 통찰**을 작성한다.
+   본문 외 사례·통계는 끌어오지 말되, 본문이 다루는 영역의 강의 활용성·학습 의의는 풀어 설명한다.
+6. 불명확하면 빈 list/문자열로 둔다. 추측보다 빈 채로 두는 게 낫다.
 
 [출력 형식 — 순수 JSON 객체 1개. 마크다운 코드블럭 금지. 한국어]
 {{
-  "oneliner": "이 조문의 핵심을 한 줄(50~100자)로. 가능하면 교통안전교육 적용 관점에서. 마침표로 끝.",
-  "explanation": "이 조문이 무엇을 규정하고, **교통사고 처리·운전자 책임·교통안전교육**에 어떻게 연결되는지 본문 기반 풀이 (3~5문장)."
+  "oneliner": "이 조문의 핵심을 한 줄(50~100자)로. 교통안전교육 적용 관점. 마침표로 끝.",
+  "explanation": "이 조문이 무엇을 규정하고, 교통사고 처리·운전자 책임에 어떻게 연결되는지 본문 기반 풀이 (3~5문장).",
+  "key_issues": [
+    "본 조문이 다루는 핵심 쟁점 1 (40~120자, 본문 명시 내용만)",
+    "핵심 쟁점 2 (40~120자)",
+    "핵심 쟁점 3 (40~120자, 가능하면)"
+  ],
+  "teaching_application": "공단 교수가 강의에서 이 조문을 어떻게 풀어 설명할지 (120~220자, 1~2문장, 본문 범위 내 교육 시사점).",
+  "study_points": [
+    "교수·수강생이 이 조문에서 반드시 짚을 학습 포인트 1 (40~120자, '왜 이 부분을 공부해야 하는가' 관점)",
+    "학습 포인트 2 (40~120자)",
+    "학습 포인트 3 (40~120자, 가능하면)"
+  ]
 }}
 {trunc_note}
 [조문 본문]
@@ -1567,11 +1584,12 @@ def generate_other_group_article_content(group, jo, jo_title, article_text, labe
     try:
         parsed = json.loads(cleaned)
     except (json.JSONDecodeError, TypeError):
-        print(f"    ⚠️ JSON 파싱 실패", flush=True)   # Codex 권장 — 실패 사유 구분
+        print(f"    ⚠️ JSON 파싱 실패", flush=True)
         return None
     if not isinstance(parsed, dict):
         print(f"    ⚠️ 응답이 dict 아님 ({type(parsed).__name__})", flush=True)
         return None
+    # 필수 필드 — oneliner·explanation
     oneliner = parsed.get('oneliner', '')
     explanation = parsed.get('explanation', '')
     if not isinstance(oneliner, str) or not isinstance(explanation, str):
@@ -1579,9 +1597,35 @@ def generate_other_group_article_content(group, jo, jo_title, article_text, labe
         return None
     oneliner, explanation = oneliner.strip(), explanation.strip()
     if not oneliner or not explanation:
-        print(f"    ⚠️ 빈 필드 (oneliner·explanation 중 비어 있음) — 보수적 회피 정상", flush=True)
+        print(f"    ⚠️ 빈 필드 (oneliner·explanation 비어 있음) — 보수적 회피 정상", flush=True)
         return None
-    return {'oneliner': oneliner, 'explanation': explanation}
+    # 신규 3필드 정규화
+    def _normalize_list(v, max_items=3):
+        if not isinstance(v, list):
+            return []
+        out = []
+        for item in v[:max_items]:
+            if isinstance(item, str):
+                s = item.strip()
+                if s:
+                    out.append(s)
+        return out
+    key_issues = _normalize_list(parsed.get('key_issues'))
+    study_points = _normalize_list(parsed.get('study_points'))
+    teaching = parsed.get('teaching_application', '')
+    teaching = teaching.strip() if isinstance(teaching, str) else ''
+    # 품질 판정 — key_issues·study_points 각 ≥3건이면 enhanced (프롬프트 가이드 충실). 미달 시 partial.
+    # Codex 권장 — 임계 상향: 보강 배지의 신뢰성 확보 (2건은 가이드 미달)
+    enhanced = len(key_issues) >= 3 and len(study_points) >= 3
+    result = {
+        'oneliner': oneliner,
+        'explanation': explanation,
+        'key_issues': key_issues,
+        'study_points': study_points,
+        'teaching_application': teaching,
+        '_quality': 'enhanced' if enhanced else 'partial',
+    }
+    return result
 
 
 def build_other_group_article_card(selection, use_llm=True):
@@ -1638,14 +1682,21 @@ def build_other_group_article_card(selection, use_llm=True):
     if history:
         card['history_evolution'] = history
 
-    # PR-C: 간단 LLM 콘텐츠 추가 (실패 시 simple_other_group 그대로)
+    # 2026-05-29 보강: 5필드 LLM 콘텐츠 — enhanced(전체) / partial(시사점 약함) / 실패(simple_other_group 폴백)
     if use_llm and GEMINI_API_KEY and article_text:
-        print(f"  🤖 {label} 제{jo}조 단순 LLM 호출 (oneliner + explanation)", flush=True)
+        print(f"  🤖 {label} 제{jo}조 LLM 호출 (5필드: oneliner·explanation·key_issues·teaching·study_points)", flush=True)
         lc = generate_other_group_article_content(group, jo, jo_title, article_text, label)
         if lc:
+            quality = lc.pop('_quality', 'partial')  # 메타는 카드에 저장 X
             card['learning_content'] = lc
-            card['llm_status'] = 'ok'
-            print(f"    ✅ 완료 ({len(lc['oneliner'])}자 + {len(lc['explanation'])}자)", flush=True)
+            if quality == 'enhanced':
+                card['content_tier'] = 'other_group_enhanced'
+                card['llm_status'] = 'ok'
+                print(f"    ✅ enhanced (oneliner {len(lc['oneliner'])}자 / key_issues {len(lc['key_issues'])}건 / study_points {len(lc['study_points'])}건)", flush=True)
+            else:
+                # partial — content_tier='simple' 유지, llm_status='ok_partial'로 구분
+                card['llm_status'] = 'ok_partial'
+                print(f"    ⚠️ partial (key_issues {len(lc['key_issues'])}건·study_points {len(lc['study_points'])}건 — 시사점 부족)", flush=True)
         else:
             print(f"    ⚠️ LLM 실패 — simple_other_group 폴백 유지", flush=True)
 

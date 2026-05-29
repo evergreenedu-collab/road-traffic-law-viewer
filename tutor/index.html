@@ -380,7 +380,8 @@ async function loadDaily(date) {
 
 // 'ok'와 재페어링 성공('ok_re_paired') 모두 통과시키는 단일 정책
 function isLlmOk(status) {
-  return status === 'ok' || status === 'ok_re_paired';
+  // 2026-05-29: ok_partial 추가 — 다른 그룹 enhanced 후보지만 시사점 부족 시 (콘텐츠는 정상)
+  return status === 'ok' || status === 'ok_re_paired' || status === 'ok_partial';
 }
 
 function renderMainCard(card) {
@@ -407,10 +408,13 @@ function renderMainCard(card) {
     : '';
 
   if (llmOk) {
-    // Phase 3 PR-D — 단순 카드(content_tier='simple')는 도교법 풀 카드와 다른 작은 표지
-    const tierBadge = card.content_tier === 'simple'
-      ? '<span class="badge cat" style="background:#e0e7ff;color:#3730a3;font-size:10px" title="다른 그룹 단순 콘텐츠 — 도교법 6필드 풀 콘텐츠와 다름">📘 간략판</span>'
-      : '';
+    // 2026-05-29: content_tier 표지 — simple(2필드) / other_group_enhanced(5필드) / full(11필드)
+    let tierBadge = '';
+    if (card.content_tier === 'simple') {
+      tierBadge = '<span class="badge cat" style="background:#e0e7ff;color:#3730a3;font-size:10px" title="다른 그룹 단순 콘텐츠 (2필드)">📘 간략판</span>';
+    } else if (card.content_tier === 'other_group_enhanced') {
+      tierBadge = '<span class="badge cat" style="background:#dcfce7;color:#166534;font-size:10px" title="다른 그룹 보강 콘텐츠 (5필드: oneliner·explanation·핵심 쟁점·교육 시사점·학습 포인트)">📗 보강 카드</span>';
+    }
     return '<article class="card ' + lawClass + '">'
       + '<div class="card-header">' + badge + groupBadge + tierBadge + catBadge + dateInfo + '</div>'
       + '<div class="jo-label">📖 ' + esc(lc.source_article || (lawName + ' 제' + jo + '조')) + '</div>'
@@ -457,8 +461,9 @@ function renderAnalysis(card) {
 }
 
 function renderStudy(lc) {
-  const pts = lc.study_points || [];
-  const teaching = lc.teaching_application;
+  // 2026-05-29: Array.isArray 가드 추가 (Codex 권장 — 타입 오류 방어)
+  const pts = Array.isArray(lc.study_points) ? lc.study_points.filter(function(p){ return typeof p === 'string' && p.trim(); }) : [];
+  const teaching = typeof lc.teaching_application === 'string' ? lc.teaching_application.trim() : '';
   if (pts.length === 0 && !teaching) return '';
   const list = pts.length
     ? '<ul class="insight-list">' + pts.map(function(p){ return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>'
@@ -514,7 +519,8 @@ function renderCases(card) {
 }
 
 function renderIssues(lc) {
-  const issues = lc.key_issues || [];
+  // 2026-05-29: Array.isArray 가드 추가
+  const issues = Array.isArray(lc.key_issues) ? lc.key_issues.filter(function(i){ return typeof i === 'string' && i.trim(); }) : [];
   if (issues.length === 0) return '';
   return '<section class="section issues">'
     + '<h3>🎯 핵심 쟁점 <span class="count">' + issues.length + '</span></h3>'
@@ -699,24 +705,45 @@ function renderCard(card) {
   if (card && card.card_type === 'case') return renderCaseCard(card);
   // 순서(R9): 메인 → 조문 원문 → 법리분석 → 학습포인트
   //          → 관련판례 → 핵심쟁점 → 참고자료 → 법령본문보기 → verification 배지
-  // Phase 3 PR-D — content_tier='simple' (다른 그룹 단순 카드)는 도교법 풀 콘텐츠용 섹션 차단 (자료 없음).
-  // PR-F — 단순 카드에도 history_evolution은 추가 (article_history_{group}.json 자료 기반).
+  // content_tier 분기:
+  //   - 'full' (도교법): 11필드 풀 카드 — case_analysis·related_cases·reference_digest 포함
+  //   - 'other_group_enhanced' (2026-05-29 신규): 다른 그룹 5필드 — study_points·key_issues·teaching_application 표시
+  //   - 'simple': 옛 단순 카드 (2필드) — history_evolution만
+  // viewer 분기: tier + 필드 존재·타입 가드 둘 다 적용 (Codex 권장)
   const lc = card.learning_content || {};
   const llmOk = isLlmOk(card.llm_status);
-  const isFull = llmOk && card.content_tier !== 'simple';
+  const isFull = llmOk && card.content_tier !== 'simple' && card.content_tier !== 'other_group_enhanced';
+  const isEnhanced = llmOk && card.content_tier === 'other_group_enhanced';
   const isSimple = card.content_tier === 'simple';
+  // 보강 필드 존재 검사 (타입 가드 포함)
+  const hasStudy = Array.isArray(lc.study_points) && lc.study_points.length > 0;
+  const hasIssues = Array.isArray(lc.key_issues) && lc.key_issues.length > 0;
+  const hasApp = typeof lc.teaching_application === 'string' && lc.teaching_application.trim().length > 0;
   return [
     renderMainCard(card),
     renderArticleText(card),
     isFull ? renderAnalysis(card) : '',
-    isFull ? renderStudy(lc) : '',
+    (isFull || (isEnhanced && hasStudy)) ? renderStudy(lc) : '',
     isFull ? renderCases(card) : '',
-    isFull ? renderIssues(lc) : '',
+    (isFull || (isEnhanced && hasIssues)) ? renderIssues(lc) : '',
     isFull ? renderRefs(card) : '',
-    isSimple ? renderOtherGroupHistory(card) : '',
+    // enhanced 카드는 teaching_application도 별도 섹션으로 (full 카드는 renderStudy 안에서 처리됨)
+    (isEnhanced && hasApp && !hasStudy) ? renderApplyOnly(lc) : '',
+    (isSimple || isEnhanced) ? renderOtherGroupHistory(card) : '',
     renderViewLaw(card),
     renderVerification(card)
   ].join('');
+}
+
+// 2026-05-29: enhanced 카드에서 study_points 없는데 teaching_application만 있을 때 단독 렌더
+function renderApplyOnly(lc) {
+  // Codex 권장 — 타입 가드 (renderStudy와 일관성)
+  const t = typeof lc.teaching_application === 'string' ? lc.teaching_application.trim() : '';
+  if (!t) return '';
+  return '<section class="section apply">'
+    + '<h3>🎓 학습 적용</h3>'
+    + '<p>' + esc(t) + '</p>'
+    + '</section>';
 }
 
 function renderEmpty(date, reason) {
