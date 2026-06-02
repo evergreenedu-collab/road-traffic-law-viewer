@@ -2895,6 +2895,14 @@ async function _registerToPushApi(sub){
       body: JSON.stringify({ endpoint: payload.endpoint, keys: payload.keys }),
       keepalive: true,
     });
+    if (res.ok) {
+      try {
+        const data = await res.json();
+        if (data && data.deleteToken) {
+          localStorage.setItem('pushDeleteToken', data.deleteToken);
+        }
+      } catch (_) {}
+    }
     return { ok: res.ok, status: res.status };
   } catch (e) {
     console.warn('[push-api] 등록 네트워크 실패:', e?.message || e);
@@ -2904,12 +2912,17 @@ async function _registerToPushApi(sub){
 async function _unregisterFromPushApi(endpoint){
   if (!endpoint) return { ok: false, reason: 'no-endpoint' };
   try {
+    let deleteToken = null;
+    try { deleteToken = localStorage.getItem('pushDeleteToken'); } catch (_) {}
     const res = await fetch(PUSH_API_URL, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpoint }),
+      body: JSON.stringify({ endpoint, deleteToken }),
       keepalive: true,
     });
+    if (res.ok) {
+      try { localStorage.removeItem('pushDeleteToken'); } catch (_) {}
+    }
     return { ok: res.ok, status: res.status };
   } catch (e) {
     console.warn('[push-api] 제거 네트워크 실패:', e?.message || e);

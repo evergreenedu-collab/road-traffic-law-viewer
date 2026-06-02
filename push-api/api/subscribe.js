@@ -1,10 +1,14 @@
 // 2026-06-02: 다중 사용자 푸시 알림 백엔드 (Vercel Edge Function + Upstash Redis)
-// Codex 검증 반영: Origin 화이트리스트 + Bearer 인증 + Cache-Control + 입력 검증 강화
+// 200명 환경용 보강: recordId(race condition 차단) + deleteToken(사용자별 권한)
 //
 // 엔드포인트:
-//   POST   /api/subscribe   { endpoint, keys: { p256dh, auth } }    (Origin 화이트리스트만)
-//   DELETE /api/subscribe   { endpoint }                            (Origin 또는 Admin Bearer)
-//   GET    /api/subscribe   (Authorization: Bearer <ADMIN_TOKEN>)   (GitHub Actions 전용)
+//   POST   /api/subscribe   { endpoint, keys: { p256dh, auth } }
+//     → record 신규/갱신. 응답에 deleteToken 발급.
+//   DELETE /api/subscribe   { endpoint, deleteToken? , recordId? }
+//     → 사용자: Origin + deleteToken 일치 시 삭제
+//     → 관리자(Bearer ADMIN_TOKEN): recordId 일치 시만 삭제 (race condition 차단)
+//   GET    /api/subscribe   (Authorization: Bearer <ADMIN_TOKEN>)
+//     → 구독자 리스트(endpoint·keys·recordId만 반환, deleteToken은 제외)
 
 import { Redis } from '@upstash/redis';
 
@@ -66,6 +70,11 @@ function isShortString(s, max) {
   return typeof s === 'string' && s.length > 0 && s.length <= max;
 }
 
+function genToken() {
+  // Edge runtime은 crypto.randomUUID 지원 (Web Crypto)
+  return crypto.randomUUID().replace(/-/g, '');
+}
+
 export default async function handler(req) {
   if (req.method === 'OPTIONS') {
     if (!pickOrigin(req)) return new Response(null, { status: 403 });
@@ -80,27 +89,64 @@ export default async function handler(req) {
           !body.keys || !isShortString(body.keys.p256dh, 256) || !isShortString(body.keys.auth, 64)) {
         return jsonResponse(req, 400, { error: 'invalid subscription' });
       }
+      const key = makeKey(body.endpoint);
+      // 기존 record가 있으면 recordId·deleteToken 유지 (멱등성) — 페이지 로드 시 자동 재동기화에서 영구 토큰 X
+      const existing = await redis.get(key);
+      const now = new Date().toISOString();
       const record = {
         endpoint: body.endpoint,
         keys: { p256dh: body.keys.p256dh, auth: body.keys.auth },
-        addedAt: new Date().toISOString(),
+        recordId: existing?.recordId || genToken(),
+        deleteToken: existing?.deleteToken || genToken(),
+        addedAt: existing?.addedAt || now,
+        updatedAt: now,
       };
-      await redis.set(makeKey(body.endpoint), record);
+      await redis.set(key, record);
       try { console.log('[push-api] subscribe', new URL(body.endpoint).host); } catch (_) {}
-      return jsonResponse(req, 200, { ok: true });
+      // 클라이언트에 deleteToken 반환 (재방문 시 동일값 — 안전)
+      return jsonResponse(req, 200, { ok: true, deleteToken: record.deleteToken });
     }
 
     if (req.method === 'DELETE') {
       const auth = req.headers.get('authorization') || '';
       const isAdmin = !!process.env.ADMIN_TOKEN && auth === `Bearer ${process.env.ADMIN_TOKEN}`;
-      if (!isAdmin && !pickOrigin(req)) return jsonResponse(req, 403, { error: 'origin not allowed' });
       const body = await req.json().catch(() => null);
       if (!body || !isValidEndpoint(body.endpoint)) {
         return jsonResponse(req, 400, { error: 'endpoint required' });
       }
-      await redis.del(makeKey(body.endpoint));
-      try { console.log('[push-api] unsubscribe', new URL(body.endpoint).host, isAdmin ? '(admin)' : ''); } catch (_) {}
-      return jsonResponse(req, 200, { ok: true });
+
+      const key = makeKey(body.endpoint);
+
+      if (isAdmin) {
+        // 관리자(GitHub Actions): recordId 일치 시만 삭제 (race condition 차단)
+        // recordId 미제공 시 일치 검증 건너뛰고 무조건 삭제 (사용자 명시적 unsubscribe Admin 호출 케이스)
+        if (body.recordId) {
+          const existing = await redis.get(key);
+          if (existing && existing.recordId !== body.recordId) {
+            return jsonResponse(req, 409, { error: 'recordId mismatch — record updated since fetch', skipped: true });
+          }
+        }
+        await redis.del(key);
+        try { console.log('[push-api] unsubscribe', new URL(body.endpoint).host, '(admin)'); } catch (_) {}
+        return jsonResponse(req, 200, { ok: true, mode: 'admin' });
+      }
+
+      // 사용자(브라우저): Origin + deleteToken 검증
+      if (!pickOrigin(req)) return jsonResponse(req, 403, { error: 'origin not allowed' });
+      if (!isShortString(body.deleteToken, 64)) {
+        return jsonResponse(req, 401, { error: 'deleteToken required' });
+      }
+      const existing = await redis.get(key);
+      if (!existing) {
+        // 이미 없음 — 무해 처리 (재시도 등)
+        return jsonResponse(req, 200, { ok: true, already_gone: true });
+      }
+      if (existing.deleteToken !== body.deleteToken) {
+        return jsonResponse(req, 403, { error: 'deleteToken mismatch' });
+      }
+      await redis.del(key);
+      try { console.log('[push-api] unsubscribe', new URL(body.endpoint).host, '(user)'); } catch (_) {}
+      return jsonResponse(req, 200, { ok: true, mode: 'user' });
     }
 
     if (req.method === 'GET') {
@@ -111,15 +157,21 @@ export default async function handler(req) {
       let cursor = '0';
       const keys = [];
       do {
-        const [next, batch] = await redis.scan(cursor, { match: `${KEY_PREFIX}*`, count: 100 });
+        const [next, batch] = await redis.scan(cursor, { match: `${KEY_PREFIX}*`, count: 200 });
         cursor = next;
         if (Array.isArray(batch) && batch.length) keys.push(...batch);
       } while (cursor !== '0' && cursor !== 0);
 
       const values = keys.length ? await redis.mget(...keys) : [];
-      const subs = values.filter(Boolean);
-      console.log('[push-api] list', subs.length, 'subscriptions');
-      return jsonResponse(req, 200, { subscriptions: subs });
+      // 응답에서 deleteToken 제거 — 운영자에게 노출 X
+      const safe = values.filter(Boolean).map(s => ({
+        endpoint: s.endpoint,
+        keys: s.keys,
+        recordId: s.recordId,
+        addedAt: s.addedAt,
+      }));
+      console.log('[push-api] list', safe.length, 'subscriptions');
+      return jsonResponse(req, 200, { subscriptions: safe });
     }
 
     return jsonResponse(req, 405, { error: 'method not allowed' });

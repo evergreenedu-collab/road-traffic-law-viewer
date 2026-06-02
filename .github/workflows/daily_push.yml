@@ -180,6 +180,11 @@ jobs:
           const payload = JSON.stringify({ title, body, url });
           console.log('payload size:', payload.length, 'bytes');
 
+          // 200명+ 환경용 worker pool 설정
+          const CHUNK_SIZE = 10;          // 한 번에 동시 발송할 endpoint 수 (FCM 429 회피)
+          const CHUNK_DELAY_MS = 100;     // 청크 사이 짧은 텀 (부하 분산)
+          const MAX_RETRY_AFTER_MS = 5000;// 429 응답 시 최대 대기 시간
+
           (async () => {
             // 1. Vercel API에서 구독자 리스트 조회 (Bearer 인증)
             const apiUrl = process.env.PUSH_API_URL;
@@ -207,21 +212,38 @@ jobs:
               console.log('구독자 없음 — 발송 건너뜀 (정상 종료).');
               process.exit(0);
             }
-            console.log(`구독자 ${subscriptions.length}명에게 발송 시도`);
+            console.log(`구독자 ${subscriptions.length}명에게 발송 시도 (청크 ${CHUNK_SIZE}개)`);
 
-            // 2. 다중 발송 (allSettled로 일부 실패해도 전체 진행)
-            const results = await Promise.allSettled(subscriptions.map(sub =>
-              webpush.sendNotification(sub, payload, {
-                TTL: 86400, urgency: 'high', headers: { Urgency: 'high' },
-              })
-            ));
+            // 2. Worker pool 다중 발송 — 청크 단위 순차, 청크 내 동시
+            const allResults = [];
+            for (let i = 0; i < subscriptions.length; i += CHUNK_SIZE) {
+              const chunk = subscriptions.slice(i, i + CHUNK_SIZE);
+              const chunkResults = await Promise.allSettled(chunk.map(sub =>
+                webpush.sendNotification(sub, payload, {
+                  TTL: 86400, urgency: 'high', headers: { Urgency: 'high' },
+                })
+              ));
+              allResults.push(...chunkResults);
 
-            // 3. 결과 집계 + 404/410 stale endpoint는 Vercel API에서 자동 제거
+              // 429 (Too Many Requests) 받았으면 Retry-After 헤더 존중
+              const r429 = chunkResults.find(r => r.status === 'rejected' && r.reason?.statusCode === 429);
+              if (r429) {
+                const retryAfter = parseInt(r429.reason?.headers?.['retry-after'] || '1', 10);
+                const waitMs = Math.min(retryAfter * 1000, MAX_RETRY_AFTER_MS);
+                console.log(`청크 ${Math.floor(i / CHUNK_SIZE) + 1}: 429 응답. ${waitMs}ms 대기 후 다음 청크.`);
+                await new Promise(r => setTimeout(r, waitMs));
+              } else if (i + CHUNK_SIZE < subscriptions.length) {
+                await new Promise(r => setTimeout(r, CHUNK_DELAY_MS));
+              }
+            }
+
+            // 3. 결과 집계 + 404/410 stale endpoint 자동 정리 (recordId 일치 시만)
             let ok = 0, fail = 0;
             const stalePromises = [];
-            for (let i = 0; i < results.length; i++) {
-              const r = results[i];
-              const host = (() => { try { return new URL(subscriptions[i].endpoint).host; } catch (_) { return '?'; } })();
+            for (let i = 0; i < allResults.length; i++) {
+              const r = allResults[i];
+              const sub = subscriptions[i];
+              const host = (() => { try { return new URL(sub.endpoint).host; } catch (_) { return '?'; } })();
               if (r.status === 'fulfilled') {
                 ok++;
                 console.log(`OK [${host}] ${r.value.statusCode}`);
@@ -229,22 +251,25 @@ jobs:
                 fail++;
                 const code = r.reason?.statusCode;
                 console.log(`FAIL [${host}] ${code} ${r.reason?.message || ''}`);
-                // Codex 권장 #6: 404·410은 stale로 자동 정리 (Bearer 어드민 권한으로 DELETE)
+                // 404·410 stale 자동 정리 — recordId 함께 보내 race condition 차단
                 if (code === 404 || code === 410) {
                   stalePromises.push(
                     fetch(apiUrl, {
                       method: 'DELETE',
                       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` },
-                      body: JSON.stringify({ endpoint: subscriptions[i].endpoint }),
-                    }).then(() => console.log(`stale 정리: ${host}`)).catch(e => console.warn(`stale 정리 실패: ${host}`, e.message))
+                      body: JSON.stringify({ endpoint: sub.endpoint, recordId: sub.recordId }),
+                    }).then(res => {
+                      if (res.ok) console.log(`stale 정리: ${host}`);
+                      else if (res.status === 409) console.log(`stale 스킵 (record 갱신됨): ${host}`);
+                      else console.warn(`stale 정리 실패: ${host} status=${res.status}`);
+                    }).catch(e => console.warn(`stale 정리 네트워크 실패: ${host}`, e.message))
                   );
                 }
               }
             }
             if (stalePromises.length) await Promise.allSettled(stalePromises);
 
-            console.log(`==SUMMARY== 성공 ${ok} / 실패 ${fail} / 총 ${results.length}`);
-            // 모두 실패하면 워크플로 실패로 표시 (운영자가 알아챌 수 있게)
+            console.log(`==SUMMARY== 성공 ${ok} / 실패 ${fail} / 총 ${allResults.length}`);
             if (ok === 0 && fail > 0) process.exit(1);
           })().catch(e => { console.error('치명 에러:', e); process.exit(1); });
           EOF
