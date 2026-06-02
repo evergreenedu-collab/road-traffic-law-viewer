@@ -29,8 +29,11 @@ def main():
     handler.extensions_map.setdefault(".js", "application/javascript;charset=utf-8")
     handler.extensions_map.setdefault(".json", "application/json;charset=utf-8")
 
+    # 2026-06-02: 단일 스레드 TCPServer → 멀티 스레드 ThreadingHTTPServer
+    # 강제 새로고침 시 동시 요청 수십 개를 병렬 처리해서 로딩 속도 대폭 개선
     try:
-        with socketserver.TCPServer(("", PORT), handler) as httpd:
+        with http.server.ThreadingHTTPServer(("", PORT), handler) as httpd:
+            httpd.daemon_threads = True   # Ctrl+C 종료 시 백그라운드 스레드도 같이 종료
             url = f"http://localhost:{PORT}/viewer.html"
             print(f"\n📡 로컬 서버 시작: {url}")
             print(f"📁 폴더: {SCRIPT_DIR}")

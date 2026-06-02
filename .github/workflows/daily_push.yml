@@ -184,7 +184,13 @@ jobs:
             console.error('카드 읽기 실패:', e.message);
           }
 
-          const subscription = JSON.parse(process.env.PUSH_SUBSCRIPTION_JSON);
+          // 2026-06-02: 구독 취소로 Secret이 비어있으면 정상 종료 (워크플로 실패 방지)
+          const rawSub = process.env.PUSH_SUBSCRIPTION_JSON;
+          if (!rawSub || rawSub.trim() === '') {
+            console.log('PUSH_SUBSCRIPTION_JSON이 비어있어 발송을 건너뜁니다 (구독자 없음).');
+            process.exit(0);
+          }
+          const subscription = JSON.parse(rawSub);
           const payload = JSON.stringify({ title, body, url });
           console.log('payload size:', payload.length, 'bytes');
           console.log('endpoint host:', new URL(subscription.endpoint).host);
