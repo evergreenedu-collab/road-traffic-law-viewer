@@ -1199,27 +1199,33 @@ function showPwaInstallModal(force){
   modal.style.display = 'flex';
 }
 
-// 2026-06-02: PWA 삭제 자동 감지 (운영 환경 전용 — localhost는 manifest URL 미일치로 작동 X)
-// 사용자가 PWA를 설치했다 지운 후 일반 브라우저로 접속 시, 자동으로 재설치 안내 모달 표시.
+// 2026-06-02: PWA 삭제 자동 감지 (iOS 휴리스틱 포함)
+// - PWA로 들어옴(_isStandalone) → localStorage.pwaInstalled 자동 설정 (iOS·appinstalled 미지원 환경 보완)
+// - 일반 브라우저 + 이전 설치 흔적 + API 결과 없음 → 삭제 추정 → 안내 모달
 async function _detectPwaUninstalled(){
-  if (_isStandalone()) return;
+  if (_isStandalone()) {
+    // iOS Safari는 appinstalled 이벤트 없음 — standalone 진입을 설치 흔적으로 기록
+    try { localStorage.setItem('pwaInstalled', '1'); } catch(e){}
+    return;
+  }
   let wasInstalled = false;
   try { wasInstalled = localStorage.getItem('pwaInstalled') === '1'; } catch(e){}
   if (!wasInstalled) return;
-  if (!navigator.getInstalledRelatedApps) return; // Safari·Firefox 미지원
+  // Chrome/Edge: getInstalledRelatedApps로 정확 확인. 결과 있으면 아직 설치된 상태.
+  if (navigator.getInstalledRelatedApps) {
+    try {
+      const apps = await navigator.getInstalledRelatedApps();
+      if (Array.isArray(apps) && apps.length > 0) return;
+    } catch(e) { /* 무시 — 아래 fallback */ }
+  }
+  // 삭제 추정 — localStorage 정리 후 안내 표시
+  // API 지원(Chrome/Edge): force=true (정확한 감지). iOS Safari 등 미지원: force=false (가짜 양성 완화 위해 7일 쿨다운 존중)
   try {
-    const apps = await navigator.getInstalledRelatedApps();
-    const stillInstalled = Array.isArray(apps) && apps.length > 0;
-    if (!stillInstalled) {
-      // 삭제 감지 — 가드용 localStorage 정리 후 안내 강제 표시
-      try {
-        localStorage.removeItem('pwaInstalled');
-        localStorage.removeItem('pwaInstallDismissedAt');
-      } catch(e){}
-      // 페이지 로드 직후 너무 빠르면 사용자가 못 봄 — 약간 텀
-      setTimeout(function(){ showPwaInstallModal(true); }, 800);
-    }
-  } catch(e) { /* API 호출 실패 — 무시 */ }
+    localStorage.removeItem('pwaInstalled');
+    localStorage.removeItem('pwaInstallDismissedAt');
+  } catch(e){}
+  const isPrecise = !!navigator.getInstalledRelatedApps;
+  setTimeout(function(){ showPwaInstallModal(isPrecise); }, 800);
 }
 window.addEventListener('load', _detectPwaUninstalled);
 
