@@ -2924,25 +2924,16 @@ function urlBase64ToUint8Array(b64) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
-// 2026-06-03: viewer 전용 — 파란 오버레이 대신 헤더 버튼 텍스트 변경
+// 2026-06-02: 로딩 오버레이 (파란 박스 + 스피너) — tutor와 동일
 function showLoading(text){
-  const btn = document.getElementById('pushBtn');
-  if (!btn) return;
-  if (!btn.dataset.origText) btn.dataset.origText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = text || '⏳ 처리 중...';
+  const overlay = document.getElementById('loadingOverlay');
+  const txt = document.getElementById('loadingOverlayText');
+  if (txt) txt.textContent = text || '처리 중...';
+  if (overlay) overlay.style.display = 'flex';
 }
 function hideLoading(){
-  const btn = document.getElementById('pushBtn');
-  if (!btn) return;
-  btn.disabled = false;
-  // 호출자가 이미 새 텍스트(🔔 구독 중 / 🔔 알림 받기)로 갱신했으면 그대로,
-  // busy 텍스트가 남아있으면 원래 텍스트로 복원
-  const busy = btn.textContent || '';
-  if (busy.startsWith('⏳') || busy.includes('구독 처리') || busy.includes('구독 취소') || busy.includes('구독 상태')) {
-    if (btn.dataset.origText) btn.textContent = btn.dataset.origText;
-  }
-  delete btn.dataset.origText;
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) overlay.style.display = 'none';
 }
 
 // 2026-06-02: 구독 확인 모달 (의도 명시 후 권한 요청)
@@ -2990,9 +2981,10 @@ async function subscribePush() {
       });
     }
     // Phase 5: 다중 사용자 알림 백엔드(Vercel) 등록 — endpoint·keys 전송
+    // 실패해도 alert 안 띄움 — 페이지 로드 시 자동 재동기화가 다음 방문 때 복구함
     const apiResult = await _registerToPushApi(sub);
     if (!apiResult.ok) {
-      alert('브라우저 구독은 완료됐지만 서버 동기화에 실패했어요.\n잠시 후 다시 [🔔 알림 받기]를 눌러주세요.');
+      console.warn('[push-api] 서버 등록 실패(자동 재시도 예정):', apiResult);
     }
     document.getElementById('subModal').style.display = 'flex';
     // 로컬은 endpoint만 저장 (전체 JSON 콘솔 노출 제거 — Codex 권장 #2)

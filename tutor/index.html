@@ -1123,10 +1123,10 @@ async function subscribePush() {
       });
     }
     // Phase 5: 다중 사용자 알림 백엔드(Vercel) 등록 — endpoint·keys 전송
+    // 실패해도 alert 안 띄움 — 페이지 로드 시 자동 재동기화가 다음 방문 때 복구함
     const apiResult = await _registerToPushApi(sub);
     if (!apiResult.ok) {
-      // 브라우저 구독은 됐지만 서버 동기화 실패 — 명확히 안내 (Codex 권장 #4)
-      alert('브라우저 구독은 완료됐지만 서버 동기화에 실패했어요.\n잠시 후 다시 [🔔 알림 받기]를 눌러주세요.');
+      console.warn('[push-api] 서버 등록 실패(자동 재시도 예정):', apiResult);
     }
     document.getElementById('subModal').style.display = 'flex';
     // 로컬은 endpoint만 저장 (전체 JSON 콘솔 노출 제거 — Codex 권장 #2)
