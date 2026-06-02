@@ -567,11 +567,30 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .gpts-starter-item{text-align:left;width:100%;padding:8px 10px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;font-size:12px;color:#374151;font-family:inherit;line-height:1.45;display:flex;justify-content:space-between;align-items:center;gap:8px;overflow-wrap:anywhere;min-width:0;text-decoration:none}
 .gpts-starter-item:hover{background:#f3f4f6;border-color:#7c3aed;color:#1f2937}
 .gpts-starter-item .copy-ico{opacity:0.5;font-size:11px;flex-shrink:0}
-/* 2026-05-29: 화살표 강조 — 누르게끔 유도. 2차 미세조정: 크기 축소·대각선 멈춤 fix */
+/* 2026-06-02: 화살표 회전(transition) 폐기 — ▼/▲ content 교체로 대각선 멈춤 근본 차단 */
 .gpts-starter summary{justify-content:flex-start;gap:8px;font-size:13px;font-weight:600}
-.gpts-starter summary .caret{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e5e7eb;color:#374151;font-size:11px;font-weight:700;line-height:1;margin-left:auto;flex-shrink:0;will-change:transform;transition:transform 0.18s ease-in-out,background-color 0.18s ease-in-out;transform-origin:center}
+.gpts-starter summary .caret{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e5e7eb;color:#374151;font-size:11px;font-weight:700;line-height:1;margin-left:auto;flex-shrink:0;transition:background-color 0.15s ease}
+.gpts-starter summary .caret::before{content:'▼'}
+.gpts-starter[open] summary .caret::before{content:'▲'}
 .gpts-starter summary:hover .caret{background:#d1d5db;color:#1f2937}
-.gpts-starter[open] summary .caret{transform:rotate(180deg)}
+
+/* 2026-06-02: 연혁 전후비교 접근성 강조 — 절제된 박스화 (Codex 권장) */
+.diff-box{border:1px solid #fdba74;border-radius:6px;background:#fffaf3;overflow:hidden}
+.diff-box-law{border-width:2px}
+.diff-box > summary{padding:9px 12px;cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:12px;color:#7c2d12;font-weight:600;background:rgba(253,186,116,0.18)}
+.diff-box-law > summary{font-weight:700}
+.diff-box > summary::-webkit-details-marker{display:none}
+.diff-box > summary:hover{background:rgba(253,186,116,0.32)}
+.diff-box .diff-label{flex:1 1 auto;min-width:0;line-height:1.4}
+.diff-box .diff-hint{flex:0 0 auto;white-space:nowrap;font-size:11px;color:#9a3412;font-weight:500;opacity:0.85}
+.diff-box[open] > summary{border-bottom:1px solid #fdba74}
+.diff-box[open] .diff-hint::before{content:'접기 ▲'}
+.diff-box:not([open]) .diff-hint::before{content:'변경 내용 보기 ▼'}
+.diff-box .diff-content{padding:10px 12px;background:#fff}
+@media (max-width:420px){
+  .diff-box > summary{align-items:flex-start;flex-wrap:wrap}
+  .diff-box .diff-hint{font-size:10px}
+}
 .gpts-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,0.3);z-index:2000;opacity:0;pointer-events:none;transition:opacity 0.25s,transform 0.25s;max-width:calc(100vw - 32px);box-sizing:border-box;text-align:center}
 .gpts-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 /* 모바일에서 헤더 버튼 그룹 — absolute 빼고 자연 흐름으로 위→아래 stacking (h1 겹침 회피) */
@@ -813,7 +832,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   </div>
   <!-- 2026-05-29: <a target=_blank>로 popup blocker 우회 + 클릭 시 클립보드 복사 -->
   <details class="gpts-starter">
-    <summary>💡 궁금한 사례는 GPTs에서 질문해보세요 <span class="caret">▼</span></summary>
+    <summary>💡 궁금한 사례는 GPTs에서 질문해보세요 <span class="caret" aria-hidden="true"></span></summary>
     <div class="gpts-starter-list">
       <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="교차로 내에서 유도선이 있어도 차로변경이 허용되나요?">교차로 내에서 유도선이 있어도 차로변경이 허용되나요? <span class="copy-ico">📋</span></a>
       <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="혈중알코올농도 0.08% 넘었는데도 위험운전치사상이 부정된 사례가 있나요? 어떤 사정에서 부정되나요?">혈중알코올 0.08% 초과해도 위험운전치사상 부정 사례는? <span class="copy-ico">📋</span></a>
@@ -2361,12 +2380,12 @@ function renderHistory(){
       if(exc) html+=renderAddendaDetails(exc, law.부칙_시행일);
       html+=`</div>`;
     }
-    // 현재 조문의 전후비교
+    // 현재 조문의 전후비교 (2026-06-02: 접근성 강조 — 박스화)
     const lawDiffs=(diffData.법률||{})[jo]||[];
     const thisDiff=lawDiffs.find(d=>d.공포일자===law.공포일자);
     if(thisDiff){
-      html+=`<details style="margin-top:8px"><summary style="font-size:12px;color:var(--warn);cursor:pointer;font-weight:600">제${jo}조 전후비교 (실제 변경 내용)</summary>`;
-      html+=renderDiffView(thisDiff.이전, thisDiff.이후);
+      html+=`<details class="diff-box diff-box-law" style="margin-top:10px"><summary><span class="diff-label">↔ 제${jo}조 전후비교 · 실제 변경 내용</span><span class="diff-hint"></span></summary>`;
+      html+=`<div class="diff-content">${renderDiffView(thisDiff.이전, thisDiff.이후)}</div>`;
       html+=`</details>`;
     }
 
@@ -2418,8 +2437,8 @@ function renderHistory(){
         const decDiffs=(diffData.시행령||{})[a.조문키]||[];
         const dd=decDiffs.find(d=>d.공포일자===dec.공포일자);
         if(dd){
-          html+=`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--warn);cursor:pointer;font-weight:500">시행령 제${a.조문키}조 (${a.조문제목||''}) 전후비교 — 제${jo}조 관련</summary>`;
-          html+=renderDiffView(dd.이전, dd.이후);
+          html+=`<details class="diff-box" style="margin-top:8px"><summary><span class="diff-label">↔ 시행령 제${a.조문키}조 (${a.조문제목||''}) 전후비교 — 제${jo}조 관련</span><span class="diff-hint"></span></summary>`;
+          html+=`<div class="diff-content">${renderDiffView(dd.이전, dd.이후)}</div>`;
           html+=`</details>`;
         }
       }
@@ -2507,8 +2526,8 @@ function renderHistory(){
         const ruleDiffs=(diffData.시행규칙||{})[a.조문키]||[];
         const rd=ruleDiffs.find(d=>d.공포일자===rule.공포일자);
         if(rd){
-          html+=`<details style="margin-top:6px"><summary style="font-size:12px;color:var(--warn);cursor:pointer;font-weight:500">시행규칙 제${a.조문키}조 (${a.조문제목||''}) 전후비교 — 제${jo}조 관련</summary>`;
-          html+=renderDiffView(rd.이전, rd.이후);
+          html+=`<details class="diff-box" style="margin-top:8px"><summary><span class="diff-label">↔ 시행규칙 제${a.조문키}조 (${a.조문제목||''}) 전후비교 — 제${jo}조 관련</span><span class="diff-hint"></span></summary>`;
+          html+=`<div class="diff-content">${renderDiffView(rd.이전, rd.이후)}</div>`;
           html+=`</details>`;
         }
       }
