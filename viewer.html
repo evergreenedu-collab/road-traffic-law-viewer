@@ -337,7 +337,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
   </details>
 </div>
 
-<!-- 2026-06-02 개편: 사용자 친화적 구독 완료 모달 (JSON·운영 안내 제거) -->
+<!-- Phase 5: 구독 완료 모달 (다중 사용자 자동 등록) -->
 <div id="subModal" role="dialog" aria-modal="true" aria-labelledby="viewerSubModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px;text-align:center">
     <div style="font-size:36px;margin-bottom:8px" aria-hidden="true">🎉</div>
@@ -353,9 +353,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 </div>
 
 <!-- 최근 개정 알림 모달 (alarm.html을 iframe으로 띄움) -->
-<div id="alarmModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box"><div onclick="closeAlarmModal()" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:0"></div><div style="position:relative;z-index:1;background:white;width:100%;max-width:960px;height:90vh;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column"><button type="button" onclick="closeAlarmModal()" aria-label="닫기" style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.9);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3">×</button><iframe id="alarmIframe" src="alarm/alarm.html?v=20260602101232" style="flex:1;width:100%;border:none;background:#f8fafc;display:block"></iframe></div></div>
+<div id="alarmModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box"><div onclick="closeAlarmModal()" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:0"></div><div style="position:relative;z-index:1;background:white;width:100%;max-width:960px;height:90vh;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column"><button type="button" onclick="closeAlarmModal()" aria-label="닫기" style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.9);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3">×</button><iframe id="alarmIframe" src="alarm/alarm.html?v=20260603021118" style="flex:1;width:100%;border:none;background:#f8fafc;display:block"></iframe></div></div>
 
-<!-- 2026-06-02: PWA 설치 안내 모달 (tutor와 동일 — 추가 + 삭제 + 모든 기기 안내) -->
+<!-- Phase 5: PWA 설치 안내 모달 -->
 <div id="pwaModal" role="dialog" aria-modal="true" aria-labelledby="viewerPwaModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto">
   <div style="background:#fff;border-radius:10px;max-width:460px;width:100%;padding:24px;text-align:center;max-height:90vh;overflow-y:auto;box-sizing:border-box">
     <div style="font-size:40px;margin-bottom:8px" aria-hidden="true">📱</div>
@@ -395,7 +395,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
   </div>
 </div>
 
-<!-- 2026-06-02: 구독 의도 확인 모달 -->
+<!-- Phase 5: 구독 의도 확인 모달 -->
 <div id="confirmSubModal" role="dialog" aria-modal="true" aria-labelledby="viewerConfirmSubModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:99998;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -413,7 +413,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
   </div>
 </div>
 
-<!-- 2026-06-02: 처리 중 로딩 오버레이 (push 구독 전용 — 기존 alarm용 #loadingOverlay와 ID 충돌 방지 위해 별도 ID) -->
+<!-- Phase 5: 처리 중 로딩 오버레이 -->
 <div id="pushLoadingOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(30,64,175,.18);z-index:99999;align-items:center;justify-content:center">
   <div style="background:var(--law,#1e40af);color:#fff;border-radius:12px;padding:16px 26px;box-shadow:0 8px 24px rgba(30,64,175,.4);display:flex;align-items:center;gap:12px;font-size:14px;font-weight:500">
     <div style="width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:_pushLoadingSpin 0.8s linear infinite"></div>
@@ -422,7 +422,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 </div>
 <style>@keyframes _pushLoadingSpin{to{transform:rotate(360deg)}}</style>
 
-<!-- 2026-06-02: 구독 관리 모달 (viewer — 취소만, PWA 설치 안내는 튜터에서) -->
+<!-- Phase 5: 구독 관리 모달 -->
 <div id="manageModal" role="dialog" aria-modal="true" aria-labelledby="viewerManageModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -529,7 +529,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core.js?v=20260602101232" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core.js?v=20260603021118" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -553,7 +553,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260602101232';
+const _LAZY_TS = '20260603021118';
 const _LAZY_SFX = '';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
@@ -2769,21 +2769,18 @@ function closeAlarmModal(){
   document.body.style.overflow='';
 }
 
-// ESC 키로 최상위 모달 하나만 닫기 — push 관련 모달들 포함
-// 2026-06-03 UI: 우선순위(z-index 역순): pushLoadingOverlay(99999) → confirmSubModal(99998) → manageModal(9999) → subModal(9999) → pwaModal(9999) → alarmModal(9999) → modalOverlay
+// 2026-06-03 UI: ESC로 최상위 모달 하나만 닫기 — push 모달들 + alarm + modalOverlay
+// 우선순위(z-index 역순): confirmSubModal → manageModal → subModal → pwaModal → alarmModal → modalOverlay
+// pushLoadingOverlay는 사용자 임의 닫기 금지 (작업 끝나면 자동)
 document.addEventListener('keydown',e=>{
   if (e.key !== 'Escape') return;
-  // push 처리 중 로딩 오버레이는 사용자 임의 닫기 금지 (작업 끝나면 자동)
-  // confirmSubModal/manageModal/subModal/pwaModal — 직접 display 조작 (closeSubModal의 PWA 시퀀스 부작용 회피)
   const directList = ['confirmSubModal', 'manageModal', 'subModal', 'pwaModal'];
   for (const id of directList) {
     const m = document.getElementById(id);
     if (m && m.style.display === 'flex') { m.style.display = 'none'; e.preventDefault(); return; }
   }
-  // alarmModal — 기존 닫기 함수 호출 (body scroll lock 정리 필요)
   const alarm = document.getElementById('alarmModal');
   if (alarm && alarm.style.display === 'flex') { closeAlarmModal(); e.preventDefault(); return; }
-  // modalOverlay (조문 미리보기) — 기존 closeModal 호출
   const mo = document.getElementById('modalOverlay');
   if (mo && mo.classList.contains('open')) { closeModal(); e.preventDefault(); }
 });
@@ -2898,8 +2895,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // PWA PR-H2-α — 알림 구독 UI (viewer 헤더 우상단 [🔔 알림 받기])
-// 2026-06-02: 캐시된 옛 코드에서 const TDZ 사고를 막기 위해 VAPID 키는 subscribePush() 함수 내부로 이동
-// 2026-06-02 Phase 5: 다중 사용자 알림 — Vercel Edge Function 백엔드
+// Phase 5: 다중 사용자 알림 백엔드 (Vercel Edge + Upstash Redis)
 const PUSH_API_URL = 'https://road-traffic-law-viewer.vercel.app/api/subscribe';
 
 async function _registerToPushApi(sub){
@@ -2955,7 +2951,7 @@ function urlBase64ToUint8Array(b64) {
 }
 
 // 2026-06-02: push 구독용 파란 박스 오버레이 (tutor와 동일 디자인)
-// 주의: viewer.html에는 이미 다른 #loadingOverlay (alarm·연혁 풀스크린 로딩)가 295번 줄에 있어
+// 주의: viewer에 이미 다른 #loadingOverlay (alarm·연혁 풀스크린 로딩)가 있어
 // ID 충돌 방지 위해 push 전용은 #pushLoadingOverlay로 분리
 function showLoading(text){
   const overlay = document.getElementById('pushLoadingOverlay');
@@ -3019,7 +3015,7 @@ async function subscribePush() {
       console.warn('[push-api] 서버 등록 실패(자동 재시도 예정):', apiResult);
     }
     document.getElementById('subModal').style.display = 'flex';
-    // 로컬은 endpoint만 저장 (전체 JSON 콘솔 노출 제거 — Codex 권장 #2)
+    // 로컬은 endpoint만 저장 (전체 JSON 콘솔 노출 제거 — Codex 권장)
     try { localStorage.setItem('pushSubscription', JSON.stringify({ endpoint: sub.endpoint })); } catch (e) {}
     const btn = document.getElementById('pushBtn');
     if (btn) btn.textContent = '🔔 구독 중';
@@ -3107,8 +3103,6 @@ function showPwaInstallModal(force){
 }
 
 // 2026-06-02: PWA 삭제 자동 감지 (iOS 휴리스틱 포함)
-// - PWA로 들어옴(_isStandalone) → localStorage.pwaInstalled 자동 설정 (iOS·appinstalled 미지원 환경 보완)
-// - 일반 브라우저 + 이전 설치 흔적 + API 결과 없음 → 삭제 추정 → 안내 모달
 async function _detectPwaUninstalled(){
   if (_isStandalone()) {
     try { localStorage.setItem('pwaInstalled', '1'); } catch(e){}
