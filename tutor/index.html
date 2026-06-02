@@ -383,7 +383,7 @@ footer a { color: var(--sub); text-decoration: underline; }
       <button onclick="closeManageModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <button onclick="closeManageModal();showPwaInstallModal(true)" style="padding:12px 16px;background:#f3f4f6;color:#111827;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;text-align:left;font-family:inherit">📱 홈 화면에 추가하는 방법 보기</button>
+      <button id="pwaGuideOption" onclick="closeManageModal();showPwaInstallModal(true)" style="padding:12px 16px;background:#f3f4f6;color:#111827;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;text-align:left;font-family:inherit">📱 홈 화면에 추가하는 방법 보기</button>
       <button id="manageUnsubBtn" onclick="unsubscribePush()" style="padding:12px 16px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;text-align:left;font-family:inherit">🔕 알림 구독 취소</button>
       <button onclick="closeManageModal()" style="padding:10px 16px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;margin-top:4px">닫기</button>
     </div>
@@ -1154,6 +1154,20 @@ function _isIos(){
 function _isStandalone(){
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
+// 2026-06-02: PWA 설치 여부 정확 판단 (3단계 fallback — PC Chrome/Edge·Android Chrome·iOS Safari 모두 지원)
+async function isPwaInstalled(){
+  if (_isStandalone()) return true;
+  if (navigator.getInstalledRelatedApps) {
+    try {
+      const apps = await navigator.getInstalledRelatedApps();
+      if (Array.isArray(apps) && apps.length > 0) return true;
+    } catch(e) {}
+  }
+  try {
+    if (localStorage.getItem('pwaInstalled') === '1') return true;
+  } catch(e) {}
+  return false;
+}
 function _shouldShowPwaModal(){
   if (_isStandalone()) return false;
   try {
@@ -1252,11 +1266,14 @@ function closeConfirmSubModal(){
 }
 
 // 구독 모달 닫기 공통 함수 — Codex 권장: closeSubModal 한 곳으로 통합
-function closeSubModal(){
+// 2026-06-02: PWA 미설치 상태에서만 안내 표시 (설치된 상태면 모순 없도록 안 띄움). force=true로 7일 쿨다운 우회.
+async function closeSubModal(){
   const m = document.getElementById('subModal');
   if (m) m.style.display = 'none';
-  // 구독 시퀀스 끝나면 PWA 안내 표시 (한 박자 텀)
-  setTimeout(showPwaInstallModal, 400);
+  const installed = await isPwaInstalled();
+  if (!installed) {
+    setTimeout(function(){ showPwaInstallModal(true); }, 400);
+  }
 }
 
 // "나중에" 버튼 바인딩 (DOMContentLoaded 후 안전)
@@ -1266,9 +1283,15 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 // 2026-06-02: 구독 관리 (취소 + PWA 안내 다시 보기)
-function openManageModal(){
+async function openManageModal(){
   const m = document.getElementById('manageModal');
   if (m) m.style.display = 'flex';
+  // PWA 이미 설치된 상태면 "홈 화면 추가 방법 보기" 옵션 숨김
+  const guideBtn = document.getElementById('pwaGuideOption');
+  if (guideBtn) {
+    const installed = await isPwaInstalled();
+    guideBtn.style.display = installed ? 'none' : 'block';
+  }
 }
 function closeManageModal(){
   const m = document.getElementById('manageModal');
