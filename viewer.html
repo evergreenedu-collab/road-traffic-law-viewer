@@ -407,14 +407,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   </div>
 </div>
 
-<!-- 2026-06-02: 처리 중 로딩 오버레이 (전역) -->
-<div id="loadingOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(30,64,175,.18);z-index:99999;align-items:center;justify-content:center">
+<!-- 2026-06-02: 처리 중 로딩 오버레이 (push 구독 전용 — 기존 alarm용 #loadingOverlay와 ID 충돌 방지 위해 별도 ID) -->
+<div id="pushLoadingOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(30,64,175,.18);z-index:99999;align-items:center;justify-content:center">
   <div style="background:var(--law,#1e40af);color:#fff;border-radius:12px;padding:16px 26px;box-shadow:0 8px 24px rgba(30,64,175,.4);display:flex;align-items:center;gap:12px;font-size:14px;font-weight:500">
-    <div style="width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:_loadingSpin 0.8s linear infinite"></div>
-    <span id="loadingOverlayText">처리 중...</span>
+    <div style="width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:_pushLoadingSpin 0.8s linear infinite"></div>
+    <span id="pushLoadingOverlayText">처리 중...</span>
   </div>
 </div>
-<style>@keyframes _loadingSpin{to{transform:rotate(360deg)}}</style>
+<style>@keyframes _pushLoadingSpin{to{transform:rotate(360deg)}}</style>
 
 <!-- 2026-06-02: 구독 관리 모달 (viewer — 취소만, PWA 설치 안내는 튜터에서) -->
 <div id="manageModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
@@ -2924,15 +2924,17 @@ function urlBase64ToUint8Array(b64) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
-// 2026-06-02: 로딩 오버레이 (파란 박스 + 스피너) — tutor와 동일
+// 2026-06-02: push 구독용 파란 박스 오버레이 (tutor와 동일 디자인)
+// 주의: viewer.html에는 이미 다른 #loadingOverlay (alarm·연혁 풀스크린 로딩)가 295번 줄에 있어
+// ID 충돌 방지 위해 push 전용은 #pushLoadingOverlay로 분리
 function showLoading(text){
-  const overlay = document.getElementById('loadingOverlay');
-  const txt = document.getElementById('loadingOverlayText');
+  const overlay = document.getElementById('pushLoadingOverlay');
+  const txt = document.getElementById('pushLoadingOverlayText');
   if (txt) txt.textContent = text || '처리 중...';
   if (overlay) overlay.style.display = 'flex';
 }
 function hideLoading(){
-  const overlay = document.getElementById('loadingOverlay');
+  const overlay = document.getElementById('pushLoadingOverlay');
   if (overlay) overlay.style.display = 'none';
 }
 
