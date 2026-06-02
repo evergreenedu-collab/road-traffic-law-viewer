@@ -18,7 +18,7 @@ import socketserver
 import sys
 import webbrowser
 
-PORT = 8000
+PORT = 8001  # UI 개선 검증용 (메인 8000과 분리)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 

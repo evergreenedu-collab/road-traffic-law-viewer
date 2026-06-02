@@ -6,7 +6,8 @@
 <title>📚 출근길 법령 튜터 — 도로교통법 한눈에</title>
 <!-- PWA PR-H1 — manifest + theme color -->
 <link rel="manifest" href="../manifest.json">
-<meta name="theme-color" content="#1e40af">
+<meta name="theme-color" content="#1e3a5f">
+<link rel="icon" type="image/svg+xml" href="../icons/icon-192.svg">
 <link rel="apple-touch-icon" href="../icons/icon-192.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -28,8 +29,14 @@ body {
   max-width: 800px; margin: 0 auto; padding: 16px;
 }
 header {
-  background: linear-gradient(135deg, #1a5276 0%, #2980b9 100%);
+  background: linear-gradient(135deg, #1e3a5f 0%, #2c4f7a 100%);
   color: #fff; padding: 22px 24px; border-radius: 8px; margin-bottom: 14px;
+}
+/* 2026-06-03 UI: focus-visible 전역 — 키보드 사용자에게 outline 일관 표시 (마우스 클릭엔 안 보임) */
+:focus { outline: none; }
+button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex]:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid #1e3a5f; outline-offset: 2px; border-radius: 4px;
 }
 header h1 { font-size: 21px; margin-bottom: 6px; font-weight: 700; }
 header p { font-size: 13px; opacity: 0.9; }
@@ -289,10 +296,10 @@ footer a { color: var(--sub); text-decoration: underline; }
 </header>
 
 <!-- 2026-06-02 개편: 사용자 친화적 구독 완료 모달 (JSON·운영 안내 제거) -->
-<div id="subModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+<div id="subModal" role="dialog" aria-modal="true" aria-labelledby="subModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:8px">🎉</div>
-    <h2 style="margin:0 0 12px;font-size:18px;color:var(--law)">알림 구독 완료</h2>
+    <div style="font-size:36px;margin-bottom:8px" aria-hidden="true">🎉</div>
+    <h2 id="subModalTitle" style="margin:0 0 12px;font-size:18px;color:var(--law)">알림 구독 완료</h2>
     <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 18px">
       매일 아침 <b>06:30</b>에 학습 카드 알림이 도착합니다.<br>
       <span style="color:#6b7280;font-size:12px">알림을 클릭하면 바로 카드로 이동해요.</span>
@@ -304,7 +311,7 @@ footer a { color: var(--sub); text-decoration: underline; }
 </div>
 
 <!-- 2026-05-29 → 2026-06-02 개편: PWA 설치 안내 모달 (추가 + 삭제 + 모든 기기 안내) -->
-<div id="pwaModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1001;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto">
+<div id="pwaModal" role="dialog" aria-modal="true" aria-labelledby="pwaModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1001;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto">
   <div style="background:#fff;border-radius:10px;max-width:460px;width:100%;padding:24px;text-align:center;max-height:90vh;overflow-y:auto;box-sizing:border-box">
     <div style="font-size:40px;margin-bottom:8px">📱</div>
     <h2 id="pwaModalTitle" style="margin:0 0 8px;font-size:18px;color:var(--law)">홈 화면에 추가하시겠어요?</h2>
@@ -349,11 +356,11 @@ footer a { color: var(--sub); text-decoration: underline; }
 </div>
 
 <!-- 2026-06-02: 구독 의도 확인 모달 (알림 받기 클릭 시 즉시 표시) -->
-<div id="confirmSubModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1003;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+<div id="confirmSubModal" role="dialog" aria-modal="true" aria-labelledby="confirmSubModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1003;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <h2 style="margin:0;font-size:17px;color:var(--law)">🔔 알림 구독</h2>
-      <button onclick="closeConfirmSubModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+      <h2 id="confirmSubModalTitle" style="margin:0;font-size:17px;color:var(--law)">🔔 알림 구독</h2>
+      <button onclick="closeConfirmSubModal()" aria-label="알림 구독 모달 닫기" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
     </div>
     <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 18px">
       매일 아침 06:30에 학습 카드 알림을 받으시겠어요?<br>
@@ -376,11 +383,11 @@ footer a { color: var(--sub); text-decoration: underline; }
 <style>@keyframes _loadingSpin{to{transform:rotate(360deg)}}</style>
 
 <!-- 2026-06-02: 구독 관리 모달 (구독 중일 때 버튼 클릭 시 표시) -->
-<div id="manageModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1002;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+<div id="manageModal" role="dialog" aria-modal="true" aria-labelledby="manageModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1002;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h2 style="margin:0;font-size:17px;color:var(--law)">🔔 알림 구독 관리</h2>
-      <button onclick="closeManageModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+      <h2 id="manageModalTitle" style="margin:0;font-size:17px;color:var(--law)">🔔 알림 구독 관리</h2>
+      <button onclick="closeManageModal()" aria-label="구독 관리 모달 닫기" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button id="pwaGuideOption" onclick="closeManageModal();showPwaInstallModal(true)" style="padding:12px 16px;background:#f3f4f6;color:#111827;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;text-align:left;font-family:inherit">📱 홈 화면에 추가하는 방법 보기</button>
@@ -420,6 +427,21 @@ footer a { color: var(--sub); text-decoration: underline; }
   데이터 출처: <a href="https://www.law.go.kr" target="_blank">국가법령정보센터</a> ·
   해설집·판례·행정심판례 RAG · AI 생성 (코드 자기검증)
 </footer>
+
+<!-- 2026-06-03 UI: 맨 위로 FAB (viewer와 동일 패턴, 카드 길어질 때 도움) -->
+<button id="scrollTopFab" type="button" aria-label="맨 위로" title="맨 위로" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;right:20px;bottom:max(24px,env(safe-area-inset-bottom,0px));width:44px;height:44px;border-radius:50%;border:none;background:#1e3a5f;color:#fff;font-size:22px;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.22);z-index:150;opacity:0;pointer-events:none;transition:opacity .22s ease">↑</button>
+<script>
+// FAB 노출 조건: 스크롤 300px 넘으면 표시
+(function(){
+  const fab = document.getElementById('scrollTopFab');
+  if (!fab) return;
+  const onScroll = () => {
+    if (window.scrollY > 300) { fab.style.opacity = '1'; fab.style.pointerEvents = 'auto'; }
+    else { fab.style.opacity = '0'; fab.style.pointerEvents = 'none'; }
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+})();
+</script>
 
 <script>
 const LAW_TYPE_CLASS = { '법률': 'law', '시행령': 'decree', '시행규칙': 'rule' };
@@ -928,13 +950,21 @@ function renderDatePopover(){
     if (dateStr === todayS) cls.push('today');
     if (dateStr === _selectedDate) cls.push('selected');
     if (dayDow === 0 || dayDow === 6) cls.push('weekend');
-    html += `<div class="${cls.join(' ')}" data-date="${dateStr}">${d}</div>`;
+    // 2026-06-03 UI: 활성 날짜 셀에 role=button + tabindex로 키보드 접근성 (.other는 비활성이라 제외)
+    html += `<div class="${cls.join(' ')}" data-date="${dateStr}" role="button" tabindex="0" aria-label="${dateStr} 카드">${d}</div>`;
   }
   document.getElementById('dpDays').innerHTML = html;
   document.querySelectorAll('#dpDays .dp-day:not(.other)').forEach(el => {
-    el.addEventListener('click', () => {
+    const go = () => {
       const dateStr = el.dataset.date;
       if (dateStr) location.search = '?date=' + dateStr;
+    };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault(); // Space로 스크롤되지 않게
+        go();
+      }
     });
   });
 }
@@ -1330,6 +1360,22 @@ async function closeSubModal(){
 document.addEventListener('DOMContentLoaded', function(){
   const later = document.getElementById('pwaLaterBtn');
   if (later) later.addEventListener('click', function(){ _closePwaModal('later'); });
+});
+
+// 2026-06-03 UI: ESC로 최상위 모달 하나만 닫기 (closeSubModal의 PWA 후속 시퀀스 트리거 회피 위해 직접 display 조작)
+// 우선순위 (z-index 역순): confirmSubModal(1003) → manageModal(1002) → pwaModal(1001) → subModal(1000)
+document.addEventListener('keydown', function(ev){
+  if (ev.key !== 'Escape') return;
+  const order = ['confirmSubModal', 'manageModal', 'pwaModal', 'subModal'];
+  for (const id of order) {
+    const m = document.getElementById(id);
+    if (m && m.style.display === 'flex') {
+      m.style.display = 'none';
+      // subModal은 closeSubModal()이 후속 PWA 안내 시퀀스를 트리거하므로 ESC 닫기에서는 그 부작용을 피해 직접 종료
+      ev.preventDefault();
+      return;
+    }
+  }
 });
 
 // 2026-06-02: 구독 관리 (취소 + PWA 안내 다시 보기)
