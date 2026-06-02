@@ -323,7 +323,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
   <h1>특정범죄 가중처벌 등에 관한 법률 한눈에</h1>
   <div class="subtitle-row">
     <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
-    <button id="pushBtn" type="button" class="header-action-btn push-sub" onclick="subscribePush()">🔔 알림 받기</button><script>try{if(localStorage.getItem("pushSubscription")){document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script>
+    <button id="pushBtn" type="button" class="header-action-btn push-sub" onclick="onPushBtnClick()">🔔 알림 받기</button><script>try{if(localStorage.getItem("pushSubscription")){document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script>
   </div>
   <!-- 2026-05-29: <a target=_blank>로 popup blocker 우회 + 클릭 시 클립보드 복사 -->
   <details class="gpts-starter">
@@ -337,26 +337,104 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
   </details>
 </div>
 
-<!-- PR-H2-α — 구독 결과 JSON 모달 -->
-<div id="subModal" role="dialog" aria-modal="true" aria-labelledby="genSubModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
-  <div style="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:24px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <h2 id="genSubModalTitle" style="margin:0;font-size:18px">🔔 알림 구독 완료</h2>
-      <button type="button" onclick="document.getElementById('subModal').style.display='none'" aria-label="구독 완료 모달 닫기" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
-    </div>
-    <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 12px">
-      아래 JSON을 <b>전부 복사</b>해서 Claude에 붙여넣어 주세요.
-      GitHub Secret <code style="background:#f3f4f6;padding:2px 6px;border-radius:3px">PUSH_SUBSCRIPTION_JSON</code>으로 자동 등록됩니다.
-      매일 아침 06:30에 푸시 알림 도착.
+<!-- Phase 5: 구독 완료 모달 (다중 사용자 자동 등록) -->
+<div id="subModal" role="dialog" aria-modal="true" aria-labelledby="viewerSubModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+  <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px;text-align:center">
+    <div style="font-size:36px;margin-bottom:8px" aria-hidden="true">🎉</div>
+    <h2 id="viewerSubModalTitle" style="margin:0 0 12px;font-size:18px;color:var(--law)">알림 구독 완료</h2>
+    <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 18px">
+      매일 아침 <b>06:30</b>에 학습 카드 알림이 도착합니다.<br>
+      <span style="color:#6b7280;font-size:12px">알림을 클릭하면 바로 카드로 이동해요.</span>
     </p>
-    <textarea id="subJson" readonly style="width:100%;height:200px;font-family:Menlo,Consolas,monospace;font-size:12px;padding:10px;border:1px solid var(--border);border-radius:6px;background:#f9fafb"></textarea>
-    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
-      <button type="button" onclick="copySubJson()" style="padding:8px 16px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📋 복사</button>
+    <div style="display:flex;justify-content:center">
+      <button type="button" onclick="closeSubModal()" style="padding:10px 24px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">닫기</button>
     </div>
   </div>
 </div>
 
 
+
+<!-- Phase 5: PWA 설치 안내 모달 -->
+<div id="pwaModal" role="dialog" aria-modal="true" aria-labelledby="viewerPwaModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto">
+  <div style="background:#fff;border-radius:10px;max-width:460px;width:100%;padding:24px;text-align:center;max-height:90vh;overflow-y:auto;box-sizing:border-box">
+    <div style="font-size:40px;margin-bottom:8px" aria-hidden="true">📱</div>
+    <h2 id="viewerPwaModalTitle" style="margin:0 0 8px;font-size:18px;color:var(--law)">홈 화면에 추가하시겠어요?</h2>
+    <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 16px">
+      한 번 설치하시면 <b>매일 카드를 앱처럼</b> 한 번에 열 수 있어요.<br>
+      알림 클릭 → 바로 학습 시작, 빠른 접근 ✨
+    </p>
+    <div style="background:#f3f4f6;border-radius:8px;padding:14px;margin-bottom:12px;text-align:left;font-size:12px;line-height:1.7;color:#374151">
+      <div style="font-weight:600;margin-bottom:8px;color:#111827">📌 추가하는 방법</div>
+      <div style="margin-bottom:8px">
+        <b>🍎 iPhone/iPad (Safari)</b><br>
+        하단 <span style="font-size:14px">📤</span> 공유 → <b>"홈 화면에 추가"</b> → "추가"
+      </div>
+      <div style="margin-bottom:8px">
+        <b>📱 안드로이드 (Chrome)</b><br>
+        메뉴(⋮) → <b>"앱 설치"</b> 또는 <b>"홈 화면에 추가"</b>
+      </div>
+      <div>
+        <b>💻 PC (Chrome/Edge)</b><br>
+        주소창 오른쪽 <span style="font-size:14px">⊕</span> 아이콘, 또는 메뉴 → <b>"앱 설치"</b><br>
+        <span style="color:#6b7280">(또는 아래 [설치하기] 버튼)</span>
+      </div>
+    </div>
+    <details style="background:#fef3c7;border-radius:8px;padding:10px 14px;margin-bottom:14px;text-align:left;font-size:12px;line-height:1.7;color:#374151">
+      <summary style="font-weight:600;cursor:pointer;color:#92400e">🗑️ 나중에 지우려면 (선택)</summary>
+      <div style="margin-top:8px">
+        <b>🍎 iOS</b> — 홈 화면 아이콘 길게 누름 → <b>"앱 제거"</b><br>
+        <b>📱 Android</b> — 아이콘 길게 누름 → 휴지통으로 드래그<br>
+        <b>💻 PC</b> — 주소창에 <code style="background:#fff;padding:1px 4px;border-radius:3px">chrome://apps</code> → 우클릭 → <b>"Chrome에서 제거"</b>
+      </div>
+    </details>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button id="pwaInstallBtn" style="display:none;padding:10px 20px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">설치하기</button>
+      <button id="pwaLaterBtn" style="padding:10px 20px;background:#e5e7eb;color:#374151;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit">나중에</button>
+    </div>
+  </div>
+</div>
+
+<!-- Phase 5: 구독 의도 확인 모달 -->
+<div id="confirmSubModal" role="dialog" aria-modal="true" aria-labelledby="viewerConfirmSubModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:99998;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+  <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2 id="viewerConfirmSubModalTitle" style="margin:0;font-size:17px;color:var(--law)">🔔 알림 구독</h2>
+      <button onclick="closeConfirmSubModal()" aria-label="알림 구독 모달 닫기" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 18px">
+      매일 아침 06:30에 학습 카드 알림을 받으시겠어요?<br>
+      <span style="color:#6b7280;font-size:12px">권한 허용 후 구독이 활성화됩니다.</span>
+    </p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeConfirmSubModal()" style="padding:9px 18px;background:#e5e7eb;color:#374151;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit">취소</button>
+      <button onclick="closeConfirmSubModal();subscribePush()" style="padding:9px 18px;background:var(--law);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">구독하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Phase 5: 처리 중 로딩 오버레이 -->
+<div id="pushLoadingOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(30,64,175,.18);z-index:99999;align-items:center;justify-content:center">
+  <div style="background:var(--law,#1e40af);color:#fff;border-radius:12px;padding:16px 26px;box-shadow:0 8px 24px rgba(30,64,175,.4);display:flex;align-items:center;gap:12px;font-size:14px;font-weight:500">
+    <div style="width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:_pushLoadingSpin 0.8s linear infinite"></div>
+    <span id="pushLoadingOverlayText">처리 중...</span>
+  </div>
+</div>
+<style>@keyframes _pushLoadingSpin{to{transform:rotate(360deg)}}</style>
+
+<!-- Phase 5: 구독 관리 모달 -->
+<div id="manageModal" role="dialog" aria-modal="true" aria-labelledby="viewerManageModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+  <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 id="viewerManageModalTitle" style="margin:0;font-size:17px;color:var(--law)">🔔 알림 구독 관리</h2>
+      <button onclick="closeManageModal()" aria-label="구독 관리 모달 닫기" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button id="pwaGuideOption" onclick="closeManageModal();showPwaInstallModal(true)" style="padding:12px 16px;background:#f3f4f6;color:#111827;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;text-align:left;font-family:inherit">📱 홈 화면에 추가하는 방법 보기</button>
+      <button id="manageUnsubBtn" onclick="unsubscribePush()" style="padding:12px 16px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;text-align:left;font-family:inherit">🔕 알림 구독 취소</button>
+      <button onclick="closeManageModal()" style="padding:10px 16px;background:#e5e7eb;color:#374151;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;margin-top:4px">닫기</button>
+    </div>
+  </div>
+</div>
 
 <div class="toolbar">
   <label>법령</label>
@@ -450,7 +528,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core_tkga.js?v=20260603011714" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core_tkga.js?v=20260603021150" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -474,7 +552,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20260603011714';
+const _LAZY_TS = '20260603021150';
 const _LAZY_SFX = '_tkga';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
@@ -2816,7 +2894,53 @@ if ('serviceWorker' in navigator) {
 }
 
 // PWA PR-H2-α — 알림 구독 UI (viewer 헤더 우상단 [🔔 알림 받기])
-const VAPID_PUBLIC_KEY = 'BB5tBlvRBOMhfWHazK68THkT2t5oQo7S2SBKP7WsT1TmHWikV_gIukOlfkDGoLiy5Gb6TlN-HJ7osXVjEOzoRBM';
+// Phase 5: 다중 사용자 알림 백엔드 (Vercel Edge + Upstash Redis)
+const PUSH_API_URL = 'https://road-traffic-law-viewer.vercel.app/api/subscribe';
+
+async function _registerToPushApi(sub){
+  try {
+    const payload = sub && typeof sub.toJSON === 'function' ? sub.toJSON() : sub;
+    if (!payload || !payload.endpoint || !payload.keys) return { ok: false, reason: 'invalid' };
+    const res = await fetch(PUSH_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: payload.endpoint, keys: payload.keys }),
+      keepalive: true,
+    });
+    if (res.ok) {
+      try {
+        const data = await res.json();
+        if (data && data.deleteToken) {
+          localStorage.setItem('pushDeleteToken', data.deleteToken);
+        }
+      } catch (_) {}
+    }
+    return { ok: res.ok, status: res.status };
+  } catch (e) {
+    console.warn('[push-api] 등록 네트워크 실패:', e?.message || e);
+    return { ok: false, reason: 'network' };
+  }
+}
+async function _unregisterFromPushApi(endpoint){
+  if (!endpoint) return { ok: false, reason: 'no-endpoint' };
+  try {
+    let deleteToken = null;
+    try { deleteToken = localStorage.getItem('pushDeleteToken'); } catch (_) {}
+    const res = await fetch(PUSH_API_URL, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint, deleteToken }),
+      keepalive: true,
+    });
+    if (res.ok) {
+      try { localStorage.removeItem('pushDeleteToken'); } catch (_) {}
+    }
+    return { ok: res.ok, status: res.status };
+  } catch (e) {
+    console.warn('[push-api] 제거 네트워크 실패:', e?.message || e);
+    return { ok: false, reason: 'network' };
+  }
+}
 
 function urlBase64ToUint8Array(b64) {
   const padding = '='.repeat((4 - b64.length % 4) % 4);
@@ -2825,12 +2949,39 @@ function urlBase64ToUint8Array(b64) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
+// 2026-06-02: push 구독용 파란 박스 오버레이 (tutor와 동일 디자인)
+// 주의: viewer에 이미 다른 #loadingOverlay (alarm·연혁 풀스크린 로딩)가 있어
+// ID 충돌 방지 위해 push 전용은 #pushLoadingOverlay로 분리
+function showLoading(text){
+  const overlay = document.getElementById('pushLoadingOverlay');
+  const txt = document.getElementById('pushLoadingOverlayText');
+  if (txt) txt.textContent = text || '처리 중...';
+  if (overlay) overlay.style.display = 'flex';
+}
+function hideLoading(){
+  const overlay = document.getElementById('pushLoadingOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+// 2026-06-02: 구독 확인 모달 (의도 명시 후 권한 요청)
+function openConfirmSubModal(){
+  const m = document.getElementById('confirmSubModal');
+  if (m) m.style.display = 'flex';
+}
+function closeConfirmSubModal(){
+  const m = document.getElementById('confirmSubModal');
+  if (m) m.style.display = 'none';
+}
+
 async function subscribePush() {
+  // 2026-06-02: TDZ 사고 차단 위해 const를 함수 안으로 이동
+  const VAPID_PUBLIC_KEY = 'BB5tBlvRBOMhfWHazK68THkT2t5oQo7S2SBKP7WsT1TmHWikV_gIukOlfkDGoLiy5Gb6TlN-HJ7osXVjEOzoRBM';
   // PR-H8-audit (Claude#2): 권한 거부·미지원·에러 시 subModal이 떠 있을 수 있어 명시 정리
   const _closeSubModal = function(){
     const m = document.getElementById('subModal');
     if (m) m.style.display = 'none';
   };
+  showLoading('구독 처리 중...');
   try {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       _closeSubModal();
@@ -2856,35 +3007,247 @@ async function subscribePush() {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
     }
-    const json = JSON.stringify(sub.toJSON(), null, 2);
-    document.getElementById('subJson').value = json;
+    // Phase 5: 다중 사용자 알림 백엔드(Vercel) 등록 — endpoint·keys 전송
+    // 실패해도 alert 안 띄움 — 페이지 로드 시 자동 재동기화가 다음 방문 때 복구함
+    const apiResult = await _registerToPushApi(sub);
+    if (!apiResult.ok) {
+      console.warn('[push-api] 서버 등록 실패(자동 재시도 예정):', apiResult);
+    }
     document.getElementById('subModal').style.display = 'flex';
-    try { localStorage.setItem('pushSubscription', json); } catch (e) {}
+    // 로컬은 endpoint만 저장 (전체 JSON 콘솔 노출 제거 — Codex 권장)
+    try { localStorage.setItem('pushSubscription', JSON.stringify({ endpoint: sub.endpoint })); } catch (e) {}
     const btn = document.getElementById('pushBtn');
     if (btn) btn.textContent = '🔔 구독 중';
   } catch (e) {
     _closeSubModal();
     console.error('구독 실패:', e);
     alert('알림 구독 실패: ' + (e.message || e));
+  } finally {
+    hideLoading();
   }
 }
 
-function copySubJson() {
-  const ta = document.getElementById('subJson');
-  ta.select();
-  document.execCommand('copy');
-  alert('JSON을 복사했어요. Claude에 붙여넣어 주세요.');
+// 2026-06-02: PWA 설치 안내 모달 (tutor와 동일 — beforeinstallprompt, 7일 쿨다운, iOS 감지)
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+});
+window.addEventListener('appinstalled', function(){
+  _deferredInstallPrompt = null;
+  try { localStorage.setItem('pwaInstalled', '1'); } catch(e){}
+});
+function _isIos(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function _isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+// 2026-06-02: PWA 설치 여부 정확 판단 (3단계 fallback — PC Chrome/Edge·Android Chrome·iOS Safari 모두 지원)
+async function isPwaInstalled(){
+  if (_isStandalone()) return true;
+  if (navigator.getInstalledRelatedApps) {
+    try {
+      const apps = await navigator.getInstalledRelatedApps();
+      if (Array.isArray(apps) && apps.length > 0) return true;
+    } catch(e) {}
+  }
+  try {
+    if (localStorage.getItem('pwaInstalled') === '1') return true;
+  } catch(e) {}
+  return false;
+}
+function _shouldShowPwaModal(){
+  if (_isStandalone()) return false;
+  try {
+    if (localStorage.getItem('pwaInstalled') === '1') return false;
+    const dismissedAt = parseInt(localStorage.getItem('pwaInstallDismissedAt') || '0', 10);
+    if (dismissedAt && (Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000)) return false;
+  } catch(e){}
+  return true;
+}
+function _closePwaModal(reason){
+  const m = document.getElementById('pwaModal');
+  if (m) m.style.display = 'none';
+  if (reason === 'later') {
+    try { localStorage.setItem('pwaInstallDismissedAt', String(Date.now())); } catch(e){}
+  }
+}
+function showPwaInstallModal(force){
+  if (_isStandalone()) return;
+  if (!force && !_shouldShowPwaModal()) return;
+  const modal = document.getElementById('pwaModal');
+  if (!modal) return;
+  const installBtn = document.getElementById('pwaInstallBtn');
+  installBtn.style.display = 'none';
+  if (_deferredInstallPrompt) {
+    installBtn.style.display = 'inline-block';
+    installBtn.onclick = async function(){
+      const dp = _deferredInstallPrompt;
+      _deferredInstallPrompt = null;
+      try {
+        dp.prompt();
+        const { outcome } = await dp.userChoice;
+        if (outcome === 'accepted') {
+          try { localStorage.setItem('pwaInstalled', '1'); } catch(e){}
+        } else {
+          try { localStorage.setItem('pwaInstallDismissedAt', String(Date.now())); } catch(e){}
+        }
+      } catch(e) { console.warn('PWA prompt 실패', e); }
+      _closePwaModal();
+    };
+  }
+  modal.style.display = 'flex';
+}
+
+// 2026-06-02: PWA 삭제 자동 감지 (iOS 휴리스틱 포함)
+async function _detectPwaUninstalled(){
+  if (_isStandalone()) {
+    try { localStorage.setItem('pwaInstalled', '1'); } catch(e){}
+    return;
+  }
+  let wasInstalled = false;
+  try { wasInstalled = localStorage.getItem('pwaInstalled') === '1'; } catch(e){}
+  if (!wasInstalled) return;
+  if (navigator.getInstalledRelatedApps) {
+    try {
+      const apps = await navigator.getInstalledRelatedApps();
+      if (Array.isArray(apps) && apps.length > 0) return;
+    } catch(e) { /* 무시 */ }
+  }
+  try {
+    localStorage.removeItem('pwaInstalled');
+    localStorage.removeItem('pwaInstallDismissedAt');
+  } catch(e){}
+  const isPrecise = !!navigator.getInstalledRelatedApps;
+  setTimeout(function(){ showPwaInstallModal(isPrecise); }, 800);
+}
+window.addEventListener('load', _detectPwaUninstalled);
+
+// 2026-06-02: 구독 완료 모달 닫기 — PWA 미설치 상태에서만 안내 표시 (force=true로 7일 쿨다운 우회)
+async function closeSubModal(){
+  const m = document.getElementById('subModal');
+  if (m) m.style.display = 'none';
+  const installed = await isPwaInstalled();
+  if (!installed) {
+    setTimeout(function(){ showPwaInstallModal(true); }, 400);
+  }
+}
+
+// "나중에" 버튼 바인딩 (DOMContentLoaded 후)
+document.addEventListener('DOMContentLoaded', function(){
+  const later = document.getElementById('pwaLaterBtn');
+  if (later) later.addEventListener('click', function(){ _closePwaModal('later'); });
+});
+
+// 2026-06-02: SW 기준 구독 상태 유틸 (localStorage는 UI 캐시)
+async function getCurrentSubscription(){
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  const reg = await navigator.serviceWorker.ready;
+  return await reg.pushManager.getSubscription();
 }
 
 window.addEventListener('load', async () => {
   if (!('serviceWorker' in navigator)) return;
+  const btn = document.getElementById('pushBtn');
   try {
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    const btn = document.getElementById('pushBtn');
-    if (sub && btn) btn.textContent = '🔔 구독 중';
-  } catch (e) {}
+    const sub = await getCurrentSubscription();
+    if (sub) {
+      if (btn) btn.textContent = '🔔 구독 중';
+      try { localStorage.setItem('pushSubscription', JSON.stringify({ endpoint: sub.endpoint })); } catch (e) {}
+      // Phase 5: 서버 재동기화 (best-effort)
+      _registerToPushApi(sub);
+    } else {
+      try { localStorage.removeItem('pushSubscription'); } catch (e) {}
+      if (btn) btn.textContent = '🔔 알림 받기';
+    }
+  } catch (e) { /* 조회 실패 — 상태 변경 금지 */ }
 });
+
+// 2026-06-02: 구독 관리 (PWA 안내 + 구독 취소 — 설치 상태에 따라 동적 분기)
+async function openManageModal(){
+  const m = document.getElementById('manageModal');
+  if (m) m.style.display = 'flex';
+  // PWA 이미 설치된 상태면 "홈 화면 추가 방법 보기" 옵션 숨김
+  const guideBtn = document.getElementById('pwaGuideOption');
+  if (guideBtn) {
+    const installed = await isPwaInstalled();
+    guideBtn.style.display = installed ? 'none' : 'block';
+  }
+}
+function closeManageModal(){
+  const m = document.getElementById('manageModal');
+  if (m) m.style.display = 'none';
+}
+
+async function onPushBtnClick(){
+  const btn = document.getElementById('pushBtn');
+  showLoading('구독 상태 확인 중...');
+  let sub;
+  try {
+    sub = await getCurrentSubscription();
+  } catch (e) {
+    hideLoading();
+    alert('구독 상태를 확인할 수 없어요. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+  hideLoading();
+  if (sub) {
+    try {
+      if (!localStorage.getItem('pushSubscription')) {
+        localStorage.setItem('pushSubscription', JSON.stringify(sub.toJSON()));
+      }
+    } catch (e) {}
+    if (btn) btn.textContent = '🔔 구독 중';
+    openManageModal();
+  } else {
+    try { localStorage.removeItem('pushSubscription'); } catch (e) {}
+    if (btn) btn.textContent = '🔔 알림 받기';
+    openConfirmSubModal();   // 의도 확인 후 사용자가 [구독하기] 누르면 subscribePush()
+  }
+}
+
+async function unsubscribePush(){
+  const btn = document.getElementById('pushBtn');
+  const cancelBtn = document.getElementById('manageUnsubBtn');
+  if (cancelBtn) cancelBtn.disabled = true;
+  showLoading('구독 취소 중...');
+  try {
+    const sub = await getCurrentSubscription();
+    let endpointForServer = sub ? sub.endpoint : null;
+    if (!endpointForServer) {
+      try {
+        const cached = localStorage.getItem('pushSubscription');
+        if (cached) endpointForServer = (JSON.parse(cached) || {}).endpoint || null;
+      } catch (e) {}
+    }
+    if (!sub) {
+      try { localStorage.removeItem('pushSubscription'); } catch (e) {}
+      if (btn) btn.textContent = '🔔 알림 받기';
+      if (endpointForServer) _unregisterFromPushApi(endpointForServer);
+      closeManageModal();
+      alert('🔕 알림 구독이 이미 해제된 상태였습니다.');
+      return;
+    }
+    const ok = await sub.unsubscribe();
+    if (ok) {
+      try { localStorage.removeItem('pushSubscription'); } catch (e) {}
+      if (btn) btn.textContent = '🔔 알림 받기';
+      if (endpointForServer) await _unregisterFromPushApi(endpointForServer);
+      closeManageModal();
+      alert('🔕 알림 구독이 해제되었습니다.\n다시 받으시려면 [🔔 알림 받기]를 눌러주세요.');
+    } else {
+      alert('구독 취소가 완료되지 않았습니다. 다시 시도하거나 브라우저 알림 설정에서 직접 해제해주세요.');
+    }
+  } catch (e) {
+    console.error('구독 취소 실패:', e);
+    alert('구독 취소 실패: ' + (e.message || e));
+  } finally {
+    if (cancelBtn) cancelBtn.disabled = false;
+    hideLoading();
+  }
+}
 
 // 2026-05-29: GPTs Starter 도우미 — 클릭 시 클립보드 복사 + GPTs 새 탭 (앱·웹 무관)
 (function(){
