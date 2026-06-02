@@ -520,7 +520,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <meta http-equiv="Expires" content="0">
 <!-- PWA PR-H1 — manifest + theme color -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1e40af">
+<meta name="theme-color" content="#1e3a5f">
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
 <link rel="apple-touch-icon" href="icons/icon-192.svg">
 <title>{{LAW_TITLE}} 한눈에 — 법률·시행령·시행규칙·별표 통합 비교</title>
 <style>
@@ -536,6 +537,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);line-height:1.7;font-size:14px}
 
 .header{background:linear-gradient(135deg,var(--law) 0%,#2c4f7a 100%);color:#fff;padding:20px 24px;position:relative}
+/* 2026-06-03 UI: focus-visible 전역 — 키보드 사용자에게 outline 일관 표시 */
+:focus{outline:none}
+button:focus-visible,a:focus-visible,summary:focus-visible,[tabindex]:focus-visible,
+input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--law);outline-offset:2px;border-radius:4px}
 .header h1{font-size:21px;font-weight:700;margin-bottom:4px;text-align:center;letter-spacing:-.3px}
 .header p{font-size:13px;opacity:.85;text-align:center;font-weight:300}
 .header .header-stats{position:absolute;top:14px;right:20px;font-size:11px;opacity:.85;text-align:right;line-height:1.5}
@@ -843,11 +849,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- PR-H2-α — 구독 결과 JSON 모달 -->
-<div id="subModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+<div id="subModal" role="dialog" aria-modal="true" aria-labelledby="genSubModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="background:#fff;border-radius:10px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <h2 style="margin:0;font-size:18px">🔔 알림 구독 완료</h2>
-      <button type="button" onclick="document.getElementById('subModal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+      <h2 id="genSubModalTitle" style="margin:0;font-size:18px">🔔 알림 구독 완료</h2>
+      <button type="button" onclick="document.getElementById('subModal').style.display='none'" aria-label="구독 완료 모달 닫기" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
     </div>
     <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 12px">
       아래 JSON을 <b>전부 복사</b>해서 Claude에 붙여넣어 주세요.
@@ -3195,12 +3201,20 @@ function closeAlarmModal(){
   document.body.style.overflow='';
 }
 
-// ESC 키로 모달 닫기
+// 2026-06-03 UI: ESC로 최상위 모달 하나만 닫기 — push 모달들 + alarm + modalOverlay
+// 우선순위(z-index 역순): confirmSubModal → manageModal → subModal → pwaModal → alarmModal → modalOverlay
+// pushLoadingOverlay는 사용자 임의 닫기 금지 (작업 끝나면 자동)
 document.addEventListener('keydown',e=>{
-  const m=document.getElementById('alarmModal');
-  if(e.key==='Escape' && m && m.style.display==='flex'){
-    closeAlarmModal();
+  if (e.key !== 'Escape') return;
+  const directList = ['confirmSubModal', 'manageModal', 'subModal', 'pwaModal'];
+  for (const id of directList) {
+    const m = document.getElementById(id);
+    if (m && m.style.display === 'flex') { m.style.display = 'none'; e.preventDefault(); return; }
   }
+  const alarm = document.getElementById('alarmModal');
+  if (alarm && alarm.style.display === 'flex') { closeAlarmModal(); e.preventDefault(); return; }
+  const mo = document.getElementById('modalOverlay');
+  if (mo && mo.classList.contains('open')) { closeModal(); e.preventDefault(); }
 });
 
 // alarm.html(iframe)로부터 "연혁 보기" 메시지 수신 → 모달 닫고 메인 페이지에서 조문 이동
