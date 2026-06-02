@@ -9,7 +9,8 @@
 <meta http-equiv="Expires" content="0">
 <!-- PWA PR-H1 — manifest + theme color -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1e40af">
+<meta name="theme-color" content="#1e3a5f">
+<link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
 <link rel="apple-touch-icon" href="icons/icon-192.svg">
 <title>도로교통법 한눈에 — 법률·시행령·시행규칙·별표 통합 비교</title>
 <style>
@@ -25,6 +26,11 @@
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);line-height:1.7;font-size:14px}
 
 .header{background:linear-gradient(135deg,var(--law) 0%,#2c4f7a 100%);color:#fff;padding:20px 24px;position:relative}
+/* 2026-06-03 UI: focus-visible 전역 — 키보드 사용자에게 outline 일관 표시 */
+:focus{outline:none}
+button:focus-visible,a:focus-visible,summary:focus-visible,[tabindex]:focus-visible,
+input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--law);outline-offset:2px;border-radius:4px}
 .header h1{font-size:21px;font-weight:700;margin-bottom:4px;text-align:center;letter-spacing:-.3px}
 .header p{font-size:13px;opacity:.85;text-align:center;font-weight:300}
 .header .header-stats{position:absolute;top:14px;right:20px;font-size:11px;opacity:.85;text-align:right;line-height:1.5}
@@ -332,10 +338,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 2026-06-02 개편: 사용자 친화적 구독 완료 모달 (JSON·운영 안내 제거) -->
-<div id="subModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+<div id="subModal" role="dialog" aria-modal="true" aria-labelledby="viewerSubModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px;text-align:center">
-    <div style="font-size:36px;margin-bottom:8px">🎉</div>
-    <h2 style="margin:0 0 12px;font-size:18px;color:var(--law)">알림 구독 완료</h2>
+    <div style="font-size:36px;margin-bottom:8px" aria-hidden="true">🎉</div>
+    <h2 id="viewerSubModalTitle" style="margin:0 0 12px;font-size:18px;color:var(--law)">알림 구독 완료</h2>
     <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 18px">
       매일 아침 <b>06:30</b>에 학습 카드 알림이 도착합니다.<br>
       <span style="color:#6b7280;font-size:12px">알림을 클릭하면 바로 카드로 이동해요.</span>
@@ -350,10 +356,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <div id="alarmModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box"><div onclick="closeAlarmModal()" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:0"></div><div style="position:relative;z-index:1;background:white;width:100%;max-width:960px;height:90vh;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column"><button type="button" onclick="closeAlarmModal()" aria-label="닫기" style="position:absolute;top:10px;right:14px;background:rgba(255,255,255,0.9);border:1px solid #ddd;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;font-weight:700;line-height:1;z-index:3">×</button><iframe id="alarmIframe" src="alarm/alarm.html?v=20260602101232" style="flex:1;width:100%;border:none;background:#f8fafc;display:block"></iframe></div></div>
 
 <!-- 2026-06-02: PWA 설치 안내 모달 (tutor와 동일 — 추가 + 삭제 + 모든 기기 안내) -->
-<div id="pwaModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto">
+<div id="pwaModal" role="dialog" aria-modal="true" aria-labelledby="viewerPwaModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto">
   <div style="background:#fff;border-radius:10px;max-width:460px;width:100%;padding:24px;text-align:center;max-height:90vh;overflow-y:auto;box-sizing:border-box">
-    <div style="font-size:40px;margin-bottom:8px">📱</div>
-    <h2 style="margin:0 0 8px;font-size:18px;color:var(--law)">홈 화면에 추가하시겠어요?</h2>
+    <div style="font-size:40px;margin-bottom:8px" aria-hidden="true">📱</div>
+    <h2 id="viewerPwaModalTitle" style="margin:0 0 8px;font-size:18px;color:var(--law)">홈 화면에 추가하시겠어요?</h2>
     <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 16px">
       한 번 설치하시면 <b>매일 카드를 앱처럼</b> 한 번에 열 수 있어요.<br>
       알림 클릭 → 바로 학습 시작, 빠른 접근 ✨
@@ -390,11 +396,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </div>
 
 <!-- 2026-06-02: 구독 의도 확인 모달 -->
-<div id="confirmSubModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:99998;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+<div id="confirmSubModal" role="dialog" aria-modal="true" aria-labelledby="viewerConfirmSubModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:99998;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <h2 style="margin:0;font-size:17px;color:var(--law)">🔔 알림 구독</h2>
-      <button onclick="closeConfirmSubModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+      <h2 id="viewerConfirmSubModalTitle" style="margin:0;font-size:17px;color:var(--law)">🔔 알림 구독</h2>
+      <button onclick="closeConfirmSubModal()" aria-label="알림 구독 모달 닫기" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
     </div>
     <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0 0 18px">
       매일 아침 06:30에 학습 카드 알림을 받으시겠어요?<br>
@@ -417,11 +423,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <style>@keyframes _pushLoadingSpin{to{transform:rotate(360deg)}}</style>
 
 <!-- 2026-06-02: 구독 관리 모달 (viewer — 취소만, PWA 설치 안내는 튜터에서) -->
-<div id="manageModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+<div id="manageModal" role="dialog" aria-modal="true" aria-labelledby="viewerManageModalTitle" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="background:#fff;border-radius:10px;max-width:380px;width:100%;padding:24px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h2 style="margin:0;font-size:17px;color:var(--law)">🔔 알림 구독 관리</h2>
-      <button onclick="closeManageModal()" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
+      <h2 id="viewerManageModalTitle" style="margin:0;font-size:17px;color:var(--law)">🔔 알림 구독 관리</h2>
+      <button onclick="closeManageModal()" aria-label="구독 관리 모달 닫기" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--sub)">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button id="pwaGuideOption" onclick="closeManageModal();showPwaInstallModal(true)" style="padding:12px 16px;background:#f3f4f6;color:#111827;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;text-align:left;font-family:inherit">📱 홈 화면에 추가하는 방법 보기</button>
@@ -2763,12 +2769,23 @@ function closeAlarmModal(){
   document.body.style.overflow='';
 }
 
-// ESC 키로 모달 닫기
+// ESC 키로 최상위 모달 하나만 닫기 — push 관련 모달들 포함
+// 2026-06-03 UI: 우선순위(z-index 역순): pushLoadingOverlay(99999) → confirmSubModal(99998) → manageModal(9999) → subModal(9999) → pwaModal(9999) → alarmModal(9999) → modalOverlay
 document.addEventListener('keydown',e=>{
-  const m=document.getElementById('alarmModal');
-  if(e.key==='Escape' && m && m.style.display==='flex'){
-    closeAlarmModal();
+  if (e.key !== 'Escape') return;
+  // push 처리 중 로딩 오버레이는 사용자 임의 닫기 금지 (작업 끝나면 자동)
+  // confirmSubModal/manageModal/subModal/pwaModal — 직접 display 조작 (closeSubModal의 PWA 시퀀스 부작용 회피)
+  const directList = ['confirmSubModal', 'manageModal', 'subModal', 'pwaModal'];
+  for (const id of directList) {
+    const m = document.getElementById(id);
+    if (m && m.style.display === 'flex') { m.style.display = 'none'; e.preventDefault(); return; }
   }
+  // alarmModal — 기존 닫기 함수 호출 (body scroll lock 정리 필요)
+  const alarm = document.getElementById('alarmModal');
+  if (alarm && alarm.style.display === 'flex') { closeAlarmModal(); e.preventDefault(); return; }
+  // modalOverlay (조문 미리보기) — 기존 closeModal 호출
+  const mo = document.getElementById('modalOverlay');
+  if (mo && mo.classList.contains('open')) { closeModal(); e.preventDefault(); }
 });
 
 // alarm.html(iframe)로부터 "연혁 보기" 메시지 수신 → 모달 닫고 메인 페이지에서 조문 이동
