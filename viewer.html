@@ -2924,16 +2924,25 @@ function urlBase64ToUint8Array(b64) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
-// 2026-06-02: 로딩 오버레이 (파란 박스 + 스피너)
+// 2026-06-03: viewer 전용 — 파란 오버레이 대신 헤더 버튼 텍스트 변경
 function showLoading(text){
-  const overlay = document.getElementById('loadingOverlay');
-  const txt = document.getElementById('loadingOverlayText');
-  if (txt) txt.textContent = text || '처리 중...';
-  if (overlay) overlay.style.display = 'flex';
+  const btn = document.getElementById('pushBtn');
+  if (!btn) return;
+  if (!btn.dataset.origText) btn.dataset.origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = text || '⏳ 처리 중...';
 }
 function hideLoading(){
-  const overlay = document.getElementById('loadingOverlay');
-  if (overlay) overlay.style.display = 'none';
+  const btn = document.getElementById('pushBtn');
+  if (!btn) return;
+  btn.disabled = false;
+  // 호출자가 이미 새 텍스트(🔔 구독 중 / 🔔 알림 받기)로 갱신했으면 그대로,
+  // busy 텍스트가 남아있으면 원래 텍스트로 복원
+  const busy = btn.textContent || '';
+  if (busy.startsWith('⏳') || busy.includes('구독 처리') || busy.includes('구독 취소') || busy.includes('구독 상태')) {
+    if (btn.dataset.origText) btn.textContent = btn.dataset.origText;
+  }
+  delete btn.dataset.origText;
 }
 
 // 2026-06-02: 구독 확인 모달 (의도 명시 후 권한 요청)
