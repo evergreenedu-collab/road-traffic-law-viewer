@@ -1045,6 +1045,41 @@ if ('serviceWorker' in navigator) {
 
 // PWA PR-H2 — 알림 구독 UI
 // 2026-06-02: 캐시된 옛 코드에서 const TDZ 사고를 막기 위해 VAPID 키는 subscribePush() 함수 내부로 이동
+// 2026-06-02 Phase 5: 다중 사용자 알림 — Vercel Edge Function 백엔드
+const PUSH_API_URL = 'https://road-traffic-law-viewer.vercel.app/api/subscribe';
+
+async function _registerToPushApi(sub){
+  try {
+    const payload = sub && typeof sub.toJSON === 'function' ? sub.toJSON() : sub;
+    if (!payload || !payload.endpoint || !payload.keys) return { ok: false, reason: 'invalid' };
+    const res = await fetch(PUSH_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: payload.endpoint, keys: payload.keys }),
+      keepalive: true,
+    });
+    return { ok: res.ok, status: res.status };
+  } catch (e) {
+    console.warn('[push-api] 등록 네트워크 실패:', e?.message || e);
+    return { ok: false, reason: 'network' };
+  }
+}
+async function _unregisterFromPushApi(endpoint){
+  if (!endpoint) return { ok: false, reason: 'no-endpoint' };
+  try {
+    const res = await fetch(PUSH_API_URL, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint }),
+      keepalive: true,
+    });
+    return { ok: res.ok, status: res.status };
+  } catch (e) {
+    console.warn('[push-api] 제거 네트워크 실패:', e?.message || e);
+    return { ok: false, reason: 'network' };
+  }
+}
+
 function urlBase64ToUint8Array(b64) {
   const padding = '='.repeat((4 - b64.length % 4) % 4);
   const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -1087,12 +1122,15 @@ async function subscribePush() {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
     }
-    const json = JSON.stringify(sub.toJSON(), null, 2);
-    // 운영자(본인)가 새 endpoint를 GitHub Secret으로 등록해야 할 때만 콘솔에서 확인
-    console.log('[운영자용 — PUSH_SUBSCRIPTION_JSON]\n' + json);
+    // Phase 5: 다중 사용자 알림 백엔드(Vercel) 등록 — endpoint·keys 전송
+    const apiResult = await _registerToPushApi(sub);
+    if (!apiResult.ok) {
+      // 브라우저 구독은 됐지만 서버 동기화 실패 — 명확히 안내 (Codex 권장 #4)
+      alert('브라우저 구독은 완료됐지만 서버 동기화에 실패했어요.\n잠시 후 다시 [🔔 알림 받기]를 눌러주세요.');
+    }
     document.getElementById('subModal').style.display = 'flex';
-    // 로컬에도 저장 — 재방문 시 상태 표시
-    try { localStorage.setItem('pushSubscription', json); } catch (e) {}
+    // 로컬은 endpoint만 저장 (전체 JSON 콘솔 노출 제거 — Codex 권장 #2)
+    try { localStorage.setItem('pushSubscription', JSON.stringify({ endpoint: sub.endpoint })); } catch (e) {}
     const btn = document.getElementById('pushBtn');
     if (btn) btn.textContent = '🔔 구독 중';
   } catch (e) {
@@ -1112,7 +1150,7 @@ async function getCurrentSubscription(){
   return await reg.pushManager.getSubscription();
 }
 
-// 페이지 로드 시 SW 기준으로 localStorage·버튼 텍스트 동기화
+// 페이지 로드 시 SW 기준으로 localStorage·버튼 텍스트 동기화 + Phase 5 서버 재동기화
 window.addEventListener('load', async () => {
   if (!('serviceWorker' in navigator)) return;
   const btn = document.getElementById('pushBtn');
@@ -1120,11 +1158,9 @@ window.addEventListener('load', async () => {
     const sub = await getCurrentSubscription();
     if (sub) {
       if (btn) btn.textContent = '🔔 구독 중';
-      try {
-        if (!localStorage.getItem('pushSubscription')) {
-          localStorage.setItem('pushSubscription', JSON.stringify(sub.toJSON()));
-        }
-      } catch (e) {}
+      try { localStorage.setItem('pushSubscription', JSON.stringify({ endpoint: sub.endpoint })); } catch (e) {}
+      // Phase 5: 서버에 이 endpoint가 등록되어 있는지 확실히 — best-effort 재동기화
+      _registerToPushApi(sub);
     } else {
       try { localStorage.removeItem('pushSubscription'); } catch (e) {}
       if (btn) btn.textContent = '🔔 알림 받기';
@@ -1333,9 +1369,19 @@ async function unsubscribePush(){
   showLoading('구독 취소 중...');
   try {
     const sub = await getCurrentSubscription();
+    // 서버 측 제거에 쓸 endpoint를 미리 보관 (SW unsubscribe 후엔 사라짐)
+    let endpointForServer = sub ? sub.endpoint : null;
+    if (!endpointForServer) {
+      try {
+        const cached = localStorage.getItem('pushSubscription');
+        if (cached) endpointForServer = (JSON.parse(cached) || {}).endpoint || null;
+      } catch (e) {}
+    }
     if (!sub) {
       try { localStorage.removeItem('pushSubscription'); } catch (e) {}
       if (btn) btn.textContent = '🔔 알림 받기';
+      // 서버에 stale record 남아 있을 수 있으니 best-effort DELETE
+      if (endpointForServer) _unregisterFromPushApi(endpointForServer);
       closeManageModal();
       alert('🔕 알림 구독이 이미 해제된 상태였습니다.');
       return;
@@ -1344,6 +1390,8 @@ async function unsubscribePush(){
     if (ok) {
       try { localStorage.removeItem('pushSubscription'); } catch (e) {}
       if (btn) btn.textContent = '🔔 알림 받기';
+      // Phase 5: 서버에서도 endpoint 제거 (best-effort)
+      if (endpointForServer) await _unregisterFromPushApi(endpointForServer);
       closeManageModal();
       alert('🔕 알림 구독이 해제되었습니다.\n다시 받으시려면 [🔔 알림 받기]를 눌러주세요.');
     } else {

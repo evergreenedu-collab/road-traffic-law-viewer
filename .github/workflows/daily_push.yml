@@ -126,12 +126,13 @@ jobs:
           gh workflow run deploy_pages.yml --ref master
           echo "✅ deploy_pages workflow_dispatch 트리거 완료"
 
-      - name: 푸시 알림 발송
+      - name: 푸시 알림 발송 (Phase 5 — 다중 사용자)
         env:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
           VAPID_PUBLIC_KEY: BB5tBlvRBOMhfWHazK68THkT2t5oQo7S2SBKP7WsT1TmHWikV_gIukOlfkDGoLiy5Gb6TlN-HJ7osXVjEOzoRBM
-          PUSH_SUBSCRIPTION_JSON: ${{ secrets.PUSH_SUBSCRIPTION_JSON }}
+          PUSH_API_URL: https://road-traffic-law-viewer.vercel.app/api/subscribe
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           TODAY: ${{ steps.date.outputs.today }}
           DOW: ${{ steps.date.outputs.dow }}
         run: |
@@ -148,10 +149,7 @@ jobs:
           // 그날 카드에서 oneliner·법령명·조문번호 추출
           const today = process.env.TODAY;
           const dow = parseInt(process.env.DOW, 10);    // 1=월 ~ 5=금
-          const dayLabel = ['월','화','수','목','금'][dow - 1] || '';
           const cardPath = `tutor/data/daily_${today}.json`;
-          // PR-H3-ζ 한글·이모지 페이로드 복구 (사용자 확정 안 2 + 그룹 색 표지)
-          // 알림 도착 확인 완료 (PR-H3-ε Pages Actions 모드 후 새 subscription) — 양식 복구
           const dowLabel = ['월','화','수','목','금'][dow - 1] || '';
           let title = `🚗 ${today.slice(5)} (${dowLabel}) 출근길 법령튜터`;
           let body = '오늘의 카드가 준비됐어요.';
@@ -163,13 +161,8 @@ jobs:
             if (card) {
               const group = card.group || 'road';
               const colorMap = {
-                road: '🟦',
-                tlspc: '🟩',
-                tkga: '🟪',
-                car_mgmt: '🟪',
-                passenger_transport: '🟪',
-                cargo_transport: '🟪',
-                crim_proc: '🟪',
+                road: '🟦', tlspc: '🟩', tkga: '🟪',
+                car_mgmt: '🟪', passenger_transport: '🟪', cargo_transport: '🟪', crim_proc: '🟪',
               };
               const color = colorMap[group] || '🟦';
               const li = card.law_info || {};
@@ -184,35 +177,74 @@ jobs:
             console.error('카드 읽기 실패:', e.message);
           }
 
-          // 2026-06-02: 구독 취소로 Secret이 비어있으면 정상 종료 (워크플로 실패 방지)
-          const rawSub = process.env.PUSH_SUBSCRIPTION_JSON;
-          if (!rawSub || rawSub.trim() === '') {
-            console.log('PUSH_SUBSCRIPTION_JSON이 비어있어 발송을 건너뜁니다 (구독자 없음).');
-            process.exit(0);
-          }
-          const subscription = JSON.parse(rawSub);
           const payload = JSON.stringify({ title, body, url });
           console.log('payload size:', payload.length, 'bytes');
-          console.log('endpoint host:', new URL(subscription.endpoint).host);
 
-          // urgency: high + TTL — FCM이 즉시 디바이스로 푸시 (battery saver 회피)
-          webpush.sendNotification(subscription, payload, {
-            TTL: 86400,
-            urgency: 'high',
-            headers: { Urgency: 'high' },
-          })
-            .then(r => {
-              console.log('==RESULT==');
-              console.log('statusCode:', r.statusCode);
-              console.log('headers:', JSON.stringify(r.headers, null, 2));
-              console.log('body:', r.body || '(empty)');
-            })
-            .catch(e => {
-              console.error('==FAILED==');
-              console.error('statusCode:', e.statusCode);
-              console.error('headers:', JSON.stringify(e.headers, null, 2));
-              console.error('body:', e.body);
-              console.error('message:', e.message);
+          (async () => {
+            // 1. Vercel API에서 구독자 리스트 조회 (Bearer 인증)
+            const apiUrl = process.env.PUSH_API_URL;
+            if (!apiUrl || !process.env.ADMIN_TOKEN) {
+              console.log('PUSH_API_URL 또는 ADMIN_TOKEN 미설정 — 발송 건너뜀.');
+              process.exit(0);
+            }
+            let subscriptions = [];
+            try {
+              const res = await fetch(apiUrl, {
+                headers: { Authorization: `Bearer ${process.env.ADMIN_TOKEN}` },
+              });
+              if (!res.ok) {
+                console.error('Vercel API 응답 실패:', res.status, await res.text());
+                process.exit(1);
+              }
+              const data = await res.json();
+              subscriptions = Array.isArray(data.subscriptions) ? data.subscriptions : [];
+            } catch (e) {
+              console.error('Vercel API 호출 실패:', e.message);
               process.exit(1);
-            });
+            }
+
+            if (subscriptions.length === 0) {
+              console.log('구독자 없음 — 발송 건너뜀 (정상 종료).');
+              process.exit(0);
+            }
+            console.log(`구독자 ${subscriptions.length}명에게 발송 시도`);
+
+            // 2. 다중 발송 (allSettled로 일부 실패해도 전체 진행)
+            const results = await Promise.allSettled(subscriptions.map(sub =>
+              webpush.sendNotification(sub, payload, {
+                TTL: 86400, urgency: 'high', headers: { Urgency: 'high' },
+              })
+            ));
+
+            // 3. 결과 집계 + 404/410 stale endpoint는 Vercel API에서 자동 제거
+            let ok = 0, fail = 0;
+            const stalePromises = [];
+            for (let i = 0; i < results.length; i++) {
+              const r = results[i];
+              const host = (() => { try { return new URL(subscriptions[i].endpoint).host; } catch (_) { return '?'; } })();
+              if (r.status === 'fulfilled') {
+                ok++;
+                console.log(`OK [${host}] ${r.value.statusCode}`);
+              } else {
+                fail++;
+                const code = r.reason?.statusCode;
+                console.log(`FAIL [${host}] ${code} ${r.reason?.message || ''}`);
+                // Codex 권장 #6: 404·410은 stale로 자동 정리 (Bearer 어드민 권한으로 DELETE)
+                if (code === 404 || code === 410) {
+                  stalePromises.push(
+                    fetch(apiUrl, {
+                      method: 'DELETE',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` },
+                      body: JSON.stringify({ endpoint: subscriptions[i].endpoint }),
+                    }).then(() => console.log(`stale 정리: ${host}`)).catch(e => console.warn(`stale 정리 실패: ${host}`, e.message))
+                  );
+                }
+              }
+            }
+            if (stalePromises.length) await Promise.allSettled(stalePromises);
+
+            console.log(`==SUMMARY== 성공 ${ok} / 실패 ${fail} / 총 ${results.length}`);
+            // 모두 실패하면 워크플로 실패로 표시 (운영자가 알아챌 수 있게)
+            if (ok === 0 && fail > 0) process.exit(1);
+          })().catch(e => { console.error('치명 에러:', e); process.exit(1); });
           EOF

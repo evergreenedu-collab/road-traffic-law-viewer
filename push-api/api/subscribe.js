@@ -1,15 +1,10 @@
 // 2026-06-02: 다중 사용자 푸시 알림 백엔드 (Vercel Edge Function + Upstash Redis)
-// 엔드포인트:
-//   POST   /api/subscribe   { endpoint, keys: { p256dh, auth } }
-//     → Redis에 endpoint를 키로 저장. 중복 방지 (같은 endpoint = 같은 key).
-//   DELETE /api/subscribe   { endpoint }
-//     → Redis에서 해당 endpoint 제거.
-//   GET    /api/subscribe?token=<ADMIN_TOKEN>
-//     → GitHub Actions가 모든 구독자 리스트를 가져갈 때 사용.
-//        토큰 검증 후 [{ endpoint, keys, addedAt }, ...] 반환.
+// Codex 검증 반영: Origin 화이트리스트 + Bearer 인증 + Cache-Control + 입력 검증 강화
 //
-// @upstash/redis는 Edge Function에서 fetch 기반으로 동작 (Node 모듈 X).
-// Upstash for Redis Integration이 KV_REST_API_URL · KV_REST_API_TOKEN 환경변수 자동 주입.
+// 엔드포인트:
+//   POST   /api/subscribe   { endpoint, keys: { p256dh, auth } }    (Origin 화이트리스트만)
+//   DELETE /api/subscribe   { endpoint }                            (Origin 또는 Admin Bearer)
+//   GET    /api/subscribe   (Authorization: Bearer <ADMIN_TOKEN>)   (GitHub Actions 전용)
 
 import { Redis } from '@upstash/redis';
 
@@ -22,67 +17,97 @@ const redis = new Redis({
 
 const KEY_PREFIX = 'sub:';
 
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
+const ALLOWED_ORIGINS = new Set([
+  'https://evergreenedu-collab.github.io',
+  'https://road-traffic-law-viewer.vercel.app',
+  'http://localhost:8000',
+  'http://127.0.0.1:8000',
+]);
+
+function pickOrigin(req) {
+  const origin = req.headers.get('origin') || '';
+  if (ALLOWED_ORIGINS.has(origin)) return origin;
+  if (/^https:\/\/road-traffic-law-viewer-[a-z0-9-]+-evergreenedu-s-projects\.vercel\.app$/.test(origin)) return origin;
+  return null;
+}
+
+function corsHeaders(req) {
+  const allowed = pickOrigin(req);
+  const h = {
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Cache-Control': 'no-store',
+    'Vary': 'Origin',
   };
+  if (allowed) h['Access-Control-Allow-Origin'] = allowed;
+  return h;
+}
+
+function jsonResponse(req, status, body) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(req) },
+  });
 }
 
 function makeKey(endpoint) {
   return KEY_PREFIX + encodeURIComponent(endpoint);
 }
 
+function isValidEndpoint(s) {
+  if (typeof s !== 'string' || s.length > 2048) return false;
+  try {
+    const u = new URL(s);
+    return u.protocol === 'https:';
+  } catch (_) { return false; }
+}
+
+function isShortString(s, max) {
+  return typeof s === 'string' && s.length > 0 && s.length <= max;
+}
+
 export default async function handler(req) {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders() });
+    if (!pickOrigin(req)) return new Response(null, { status: 403 });
+    return new Response(null, { status: 204, headers: corsHeaders(req) });
   }
 
   try {
     if (req.method === 'POST') {
-      const body = await req.json();
-      if (!body?.endpoint || !body?.keys?.p256dh || !body?.keys?.auth) {
-        return new Response(JSON.stringify({ error: 'invalid subscription' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-        });
+      if (!pickOrigin(req)) return jsonResponse(req, 403, { error: 'origin not allowed' });
+      const body = await req.json().catch(() => null);
+      if (!body || !isValidEndpoint(body.endpoint) ||
+          !body.keys || !isShortString(body.keys.p256dh, 256) || !isShortString(body.keys.auth, 64)) {
+        return jsonResponse(req, 400, { error: 'invalid subscription' });
       }
       const record = {
         endpoint: body.endpoint,
         keys: { p256dh: body.keys.p256dh, auth: body.keys.auth },
         addedAt: new Date().toISOString(),
       };
-      // Upstash Redis는 object를 직접 받으면 내부에서 JSON.stringify 처리
       await redis.set(makeKey(body.endpoint), record);
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-      });
+      try { console.log('[push-api] subscribe', new URL(body.endpoint).host); } catch (_) {}
+      return jsonResponse(req, 200, { ok: true });
     }
 
     if (req.method === 'DELETE') {
-      const body = await req.json();
-      if (!body?.endpoint) {
-        return new Response(JSON.stringify({ error: 'endpoint required' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-        });
+      const auth = req.headers.get('authorization') || '';
+      const isAdmin = !!process.env.ADMIN_TOKEN && auth === `Bearer ${process.env.ADMIN_TOKEN}`;
+      if (!isAdmin && !pickOrigin(req)) return jsonResponse(req, 403, { error: 'origin not allowed' });
+      const body = await req.json().catch(() => null);
+      if (!body || !isValidEndpoint(body.endpoint)) {
+        return jsonResponse(req, 400, { error: 'endpoint required' });
       }
       await redis.del(makeKey(body.endpoint));
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-      });
+      try { console.log('[push-api] unsubscribe', new URL(body.endpoint).host, isAdmin ? '(admin)' : ''); } catch (_) {}
+      return jsonResponse(req, 200, { ok: true });
     }
 
     if (req.method === 'GET') {
-      const url = new URL(req.url);
-      const token = url.searchParams.get('token');
-      if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
-        return new Response('Unauthorized', { status: 401, headers: corsHeaders() });
+      const auth = req.headers.get('authorization') || '';
+      if (!process.env.ADMIN_TOKEN || auth !== `Bearer ${process.env.ADMIN_TOKEN}`) {
+        return new Response('Unauthorized', { status: 401, headers: corsHeaders(req) });
       }
-      // SCAN으로 sub:* 키 전수 수집 (cursor 0 → 0)
       let cursor = '0';
       const keys = [];
       do {
@@ -92,21 +117,14 @@ export default async function handler(req) {
       } while (cursor !== '0' && cursor !== 0);
 
       const values = keys.length ? await redis.mget(...keys) : [];
-      // Upstash Redis는 mget에서 저장 시 사용한 형식 그대로 반환 (object → object)
-      return new Response(JSON.stringify({ subscriptions: values.filter(Boolean) }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-      });
+      const subs = values.filter(Boolean);
+      console.log('[push-api] list', subs.length, 'subscriptions');
+      return jsonResponse(req, 200, { subscriptions: subs });
     }
 
-    return new Response(JSON.stringify({ error: 'method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-    });
+    return jsonResponse(req, 405, { error: 'method not allowed' });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-    });
+    console.error('[push-api] error:', e?.message || e);
+    return jsonResponse(req, 500, { error: String(e?.message || e) });
   }
 }
