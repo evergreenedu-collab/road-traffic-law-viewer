@@ -85,15 +85,39 @@ jobs:
         run: |
           python -c "
           import json, glob, re, pathlib
-          dates = sorted(set(
-              m.group(1) for f in glob.glob('tutor/data/daily_*.json')
-              for m in [re.search(r'daily_(\d{4}-\d{2}-\d{2})\.json$', f)] if m
-          ))
+          # 달력 UI용 — 카드 있는 날 목록(dates) + 날짜별 실제 주제(meta).
+          # meta[date] = SUBJECTS 키(road_article/road_case/tlspc/tkga/car_mgmt/...).
+          # cards[0]가 그 날의 메인 카드. 정보 없으면 meta 생략 → 프런트가 요일 규칙으로 예측.
+          def subject_key(card):
+              if not card:
+                  return None
+              if card.get('card_type') == 'case':
+                  return 'road_case'
+              g = card.get('group')
+              if not g:
+                  return None
+              return 'road_article' if g == 'road' else g
+          dates, meta = [], {}
+          for f in sorted(glob.glob('tutor/data/daily_*.json')):
+              m = re.search(r'daily_(\d{4}-\d{2}-\d{2})\.json$', f)
+              if not m:
+                  continue
+              d = m.group(1)
+              dates.append(d)
+              try:
+                  data = json.loads(pathlib.Path(f).read_text(encoding='utf-8'))
+                  cards = data.get('cards') or []
+                  sk = subject_key(cards[0]) if cards else None
+                  if sk:
+                      meta[d] = sk
+              except Exception:
+                  pass
+          dates = sorted(set(dates))
           pathlib.Path('tutor/data/daily_index.json').write_text(
-              json.dumps({'dates': dates, 'count': len(dates)}, ensure_ascii=False),
+              json.dumps({'dates': dates, 'count': len(dates), 'meta': meta}, ensure_ascii=False),
               encoding='utf-8'
           )
-          print(f'daily_index.json: {len(dates)} entries')
+          print(f'daily_index.json: {len(dates)} entries, {len(meta)} meta')
           "
 
       - name: 카드 자료 commit·push (master)

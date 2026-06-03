@@ -57,13 +57,18 @@ header a { color: #ffe; text-decoration: underline; }
 /* 2026-05-29: 커스텀 달력 팝오버 */
 .date-btn{padding:6px 12px;background:#fff;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;color:var(--law);font-family:inherit}
 .date-btn:hover{background:#f9fafb}
+/* 2026-06-03: 날짜 좌우 월 이동 화살표 — 칸 양끝이 아니라 날짜 버튼에 바짝 붙임 */
+.date-stepper{display:inline-flex;align-items:center;gap:6px}
+.step-arrow{padding:6px 9px;background:#fff;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:14px;font-weight:700;color:var(--law);font-family:inherit;line-height:1}
+.step-arrow:hover{background:#eef2f7;border-color:#93c5fd}
+.step-arrow:active{transform:scale(.92)}
 .date-popover{position:absolute;z-index:100;top:100%;left:50px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);width:280px;margin-top:6px}
 .dp-head{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:8px;color:var(--law);font-size:14px}
 .dp-head button{background:none;border:none;font-size:18px;cursor:pointer;padding:2px 10px;color:var(--law);border-radius:4px;font-family:inherit}
 .dp-head button:hover{background:#f3f4f6}
 .dp-grid,.dp-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:12px}
 .dp-dow{text-align:center;padding:4px 0;color:var(--sub);font-weight:600;font-size:11px}
-.dp-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;color:#374151;font-weight:500}
+.dp-day{position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;color:#374151;font-weight:500}
 .dp-day:hover{background:#f3f4f6}
 .dp-day.other{color:#d1d5db;cursor:default}
 .dp-day.has{background:#dbeafe;color:#1e40af;font-weight:600}
@@ -72,8 +77,18 @@ header a { color: #ffe; text-decoration: underline; }
 .dp-day.weekend:not(.has):not(.today){color:#9ca3af}
 .dp-day.selected{background:var(--law);color:#fff}
 .dp-day.selected.today{border-color:#1d4ed8}
-.dp-legend{display:flex;justify-content:center;gap:14px;font-size:11px;color:var(--sub);margin-top:10px;border-top:1px solid #f3f4f6;padding-top:8px}
-.dp-legend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:3px}
+/* 2026-06-03: 칸 안 주제 글자(도/판/교/특/자/여/화/형). 색은 JS SUBJECTS 인라인 적용 */
+.dp-subj{position:absolute;top:1px;right:2px;font-size:8px;font-weight:800;line-height:1.1;padding:0 2px;border-radius:3px;letter-spacing:-.5px}
+.dp-day.predicted .dp-subj{opacity:.4;background:transparent!important;font-weight:700} /* 카드 없는 평일 = 예정(옅게) */
+.dp-day.selected .dp-subj{background:rgba(255,255,255,.92)!important;opacity:1}
+.dp-legend{margin-top:10px;border-top:1px solid #f3f4f6;padding-top:9px;font-size:10.5px;color:#4b5563}
+.dp-legend-subj{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 10px}
+.dp-legend-subj span{display:flex;align-items:center;gap:5px;min-width:0}
+.dp-legend-subj span b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dp-legend i.subj{flex:none;width:16px;height:16px;line-height:16px;text-align:center;font-weight:800;font-size:10px;border-radius:4px}
+.dp-legend-meta{display:flex;justify-content:center;gap:18px;margin-top:9px;padding-top:8px;border-top:1px dashed #edeff2}
+.dp-legend-meta span{display:flex;align-items:center}
+.dp-legend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
 .dp-legend .dot.has{background:#dbeafe;border:1px solid #93c5fd}
 .dp-legend .dot.today{background:#fff;border:2px solid #3b82f6}
 @media (max-width:600px){.date-popover{left:10px;right:10px;width:auto}}
@@ -399,7 +414,11 @@ footer a { color: var(--sub); text-decoration: underline; }
 
 <nav class="date-nav" style="position:relative">
   <label>날짜:</label>
-  <button type="button" id="dateBtn" class="date-btn">📅 <span id="dateBtnLabel">오늘</span> ▾</button>
+  <span class="date-stepper">
+    <button type="button" id="dpStepPrev" class="step-arrow" aria-label="이전 달로" title="이전 달">«</button>
+    <button type="button" id="dateBtn" class="date-btn">📅 <span id="dateBtnLabel">오늘</span> ▾</button>
+    <button type="button" id="dpStepNext" class="step-arrow" aria-label="다음 달로" title="다음 달">»</button>
+  </span>
   <div id="datePopover" class="date-popover" hidden>
     <div class="dp-head">
       <button type="button" id="dpPrev" aria-label="이전 달">‹</button>
@@ -411,10 +430,7 @@ footer a { color: var(--sub); text-decoration: underline; }
       <div class="dp-dow">수</div><div class="dp-dow">목</div><div class="dp-dow">금</div><div class="dp-dow">토</div>
     </div>
     <div id="dpDays" class="dp-days"></div>
-    <div class="dp-legend">
-      <span><i class="dot has"></i> 카드 있음</span>
-      <span><i class="dot today"></i> 오늘</span>
-    </div>
+    <div class="dp-legend" id="dpLegend"></div>
   </div>
   <a href="./" class="today-link">📅 오늘 카드로 이동</a>
 </nav>
@@ -956,8 +972,58 @@ async function render(date) {
 
 // 2026-05-29: 커스텀 달력 — input type=date 대신 팝오버
 let _cardDates = new Set();
+let _cardMeta = {};        // 2026-06-03: 날짜 → 실제 주제키 (daily_index.json meta)
 let _dpMonth = null;
 let _selectedDate = null;
+let _navMode = 'day';      // 'day'=날짜 선택, 'month'=화살표로 월만 탐색 (라벨에 연월만)
+
+// 2026-06-03: 요일별 주제 (정본 build_tutor_content.py WEEKDAY_SLOTS 기준).
+// 색·글자·법령명을 달력 칸과 범례가 공유하는 단일 출처.
+const SUBJECTS = {
+  road_article:        {ch:'도', name:'도로교통법',          lg:'도로교통법',         color:'#1d4ed8', bg:'#dbeafe'},
+  road_case:           {ch:'판', name:'도로교통법 판례',      lg:'판례',              color:'#7c3aed', bg:'#ede9fe'},
+  tlspc:               {ch:'교', name:'교통사고처리 특례법',  lg:'교통사고처리특례법', color:'#0e7490', bg:'#cffafe'},
+  tkga:                {ch:'특', name:'특정범죄가중처벌법',   lg:'특정범죄가중처벌법', color:'#b91c1c', bg:'#fee2e2'},
+  car_mgmt:            {ch:'자', name:'자동차관리법',          lg:'자동차관리법',       color:'#b45309', bg:'#fef3c7'},
+  passenger_transport: {ch:'여', name:'여객자동차 운수사업법', lg:'여객자동차법',      color:'#be185d', bg:'#fce7f3'},
+  cargo_transport:     {ch:'화', name:'화물자동차 운수사업법', lg:'화물자동차법',      color:'#c2410c', bg:'#ffedd5'},
+  crim_proc:           {ch:'형', name:'형사소송법',            lg:'형사소송법',         color:'#4338ca', bg:'#e0e7ff'}
+};
+// 금요일 회전 그룹 — build의 ROTATION_GROUPS와 1:1 (EPOCH=2026-01-01, week_index%5).
+const SUBJ_ROTATION = ['tkga','car_mgmt','passenger_transport','cargo_transport','crim_proc'];
+const SUBJ_EPOCH_UTC = Date.UTC(2026, 0, 1);
+
+// 'YYYY-MM-DD' → UTC 자정 timestamp (브라우저 타임존 무관하게 '달력 날짜'로 해석)
+function ymdToUtc(s){
+  const p = String(s).split('-');
+  return Date.UTC(+p[0], +p[1] - 1, +p[2]);
+}
+// 요일 규칙으로 그 날의 주제키 예측. 주말은 null. (카드 있는 날은 _cardMeta 우선)
+function predictSubjectKey(dateStr){
+  const wd = new Date(ymdToUtc(dateStr)).getUTCDay();   // 0=일 .. 6=토
+  if (wd === 0 || wd === 6) return null;
+  if (wd === 2) return 'road_case';                      // 화 = 판례
+  if (wd === 4) return 'tlspc';                           // 목 = 교통사고처리 특례법
+  if (wd === 5) {                                         // 금 = 회전
+    const week = Math.floor((ymdToUtc(dateStr) - SUBJ_EPOCH_UTC) / 604800000);
+    return SUBJ_ROTATION[((week % 5) + 5) % 5];
+  }
+  return 'road_article';                                  // 월·수 = 도로교통법
+}
+// 달력 칸에 표시할 주제 — 카드 있으면 실제 메타, 없으면 요일 예측. {subj, predicted}
+// 메타 값이 SUBJECTS에 없으면(미래 새 그룹 등) 예측으로 폴백해 배지가 사라지지 않게.
+function subjectForCell(dateStr){
+  const hasCard = _cardDates.has(dateStr);
+  let key = hasCard ? _cardMeta[dateStr] : null;
+  if (!key || !SUBJECTS[key]) key = predictSubjectKey(dateStr);
+  if (!key || !SUBJECTS[key]) return null;
+  return {subj: SUBJECTS[key], predicted: !hasCard};
+}
+// 'YYYY-MM-DD' → 'YYYY년 MM월 DD일'
+function fmtKoreanDate(s){
+  const p = String(s).split('-');
+  return p.length === 3 ? `${p[0]}년 ${p[1]}월 ${p[2]}일` : s;
+}
 
 async function loadCardIndex(){
   try {
@@ -965,6 +1031,7 @@ async function loadCardIndex(){
     if (!r.ok) return;
     const d = await r.json();
     _cardDates = new Set(d.dates || []);
+    _cardMeta = d.meta || {};
   } catch(e) { console.warn('카드 인덱스 로드 실패', e); }
 }
 
@@ -986,8 +1053,17 @@ function renderDatePopover(){
     if (dateStr === todayS) cls.push('today');
     if (dateStr === _selectedDate) cls.push('selected');
     if (dayDow === 0 || dayDow === 6) cls.push('weekend');
+    // 2026-06-03: 주제 글자 배지 (도/판/교/특/...). 카드 없는 평일은 예정(predicted, 옅게)
+    const sc = subjectForCell(dateStr);
+    let subjBadge = '', aria = `${dateStr} 카드`;
+    if (sc) {
+      if (sc.predicted) cls.push('predicted');
+      const tip = sc.predicted ? `${sc.subj.name} (예정)` : sc.subj.name;
+      subjBadge = `<span class="dp-subj" style="color:${sc.subj.color};background:${sc.subj.bg}" title="${tip}">${sc.subj.ch}</span>`;
+      aria = `${dateStr} ${tip}`;
+    }
     // 2026-06-03 UI: 활성 날짜 셀에 role=button + tabindex로 키보드 접근성 (.other는 비활성이라 제외)
-    html += `<div class="${cls.join(' ')}" data-date="${dateStr}" role="button" tabindex="0" aria-label="${dateStr} 카드">${d}</div>`;
+    html += `<div class="${cls.join(' ')}" data-date="${dateStr}" role="button" tabindex="0" aria-label="${aria}">${d}${subjBadge}</div>`;
   }
   document.getElementById('dpDays').innerHTML = html;
   document.querySelectorAll('#dpDays .dp-day:not(.other)').forEach(el => {
@@ -1005,46 +1081,97 @@ function renderDatePopover(){
   });
 }
 
-function openDatePopover(){
+function ensureDpMonth(){
   if (!_dpMonth) {
-    const d = _selectedDate ? new Date(_selectedDate+'T00:00:00') : new Date();
-    _dpMonth = {year: d.getFullYear(), month: d.getMonth()};
+    if (_selectedDate) {
+      const d = new Date(ymdToUtc(_selectedDate));
+      _dpMonth = {year: d.getUTCFullYear(), month: d.getUTCMonth()};
+    } else {
+      const d = new Date();
+      _dpMonth = {year: d.getFullYear(), month: d.getMonth()};
+    }
   }
+}
+
+// 버튼 라벨 — 날짜 선택 모드: 'YYYY년 MM월 DD일' / 월 탐색 모드: 'YYYY년 MM월'
+function updateDateLabel(){
+  const el = document.getElementById('dateBtnLabel');
+  const btn = document.getElementById('dateBtn');
+  if (_navMode === 'month' && _dpMonth) {
+    const ym = `${_dpMonth.year}년 ${String(_dpMonth.month+1).padStart(2,'0')}월`;
+    el.textContent = ym;
+    if (btn) btn.title = `보는 달: ${ym} · 선택일: ${fmtKoreanDate(_selectedDate)}`;
+  } else {
+    el.textContent = fmtKoreanDate(_selectedDate);
+    if (btn) btn.title = '날짜 선택';
+  }
+}
+
+// 팝오버 내부 ‹›용 — 보는 달만 ±1 이동(라벨/선택일은 그대로). 열려있을 때만 재렌더.
+function navGrid(delta){
+  ensureDpMonth();
+  _dpMonth.month += delta;
+  if (_dpMonth.month < 0) { _dpMonth.month = 11; _dpMonth.year--; }
+  if (_dpMonth.month > 11) { _dpMonth.month = 0; _dpMonth.year++; }
+  if (!document.getElementById('datePopover').hidden) renderDatePopover();
+}
+
+// 외부 «»용 — 달력 안 열고 월 점프. 보는 달 이동 + 라벨을 '연월만'으로.
+function stepMonth(delta){
+  navGrid(delta);
+  _navMode = 'month';
+  updateDateLabel();
+}
+
+function openDatePopover(){
+  ensureDpMonth();
   renderDatePopover();
   document.getElementById('datePopover').hidden = false;
 }
 
 function closeDatePopover(){ document.getElementById('datePopover').hidden = true; }
 
+// 범례 — SUBJECTS 단일 출처에서 생성 (정적 HTML 중복 제거)
+function renderLegend(){
+  const el = document.getElementById('dpLegend');
+  if (!el) return;
+  const keys = ['road_article','road_case','tlspc','tkga','car_mgmt','passenger_transport','cargo_transport','crim_proc'];
+  const subj = keys.map(k => {
+    const s = SUBJECTS[k];
+    return `<span title="${s.name}"><i class="subj" style="color:${s.color};background:${s.bg}">${s.ch}</i><b>${s.lg}</b></span>`;
+  }).join('');
+  el.innerHTML = '<div class="dp-legend-subj">' + subj + '</div>'
+    + '<div class="dp-legend-meta"><span><i class="dot has"></i>카드 있음</span><span><i class="dot today"></i>오늘</span></div>';
+}
+
 function initCalendar(){
+  renderLegend();
   document.getElementById('dateBtn').addEventListener('click', (ev) => {
     ev.stopPropagation();
     const pop = document.getElementById('datePopover');
     if (pop.hidden) openDatePopover(); else closeDatePopover();
   });
-  document.getElementById('dpPrev').addEventListener('click', () => {
-    _dpMonth.month--;
-    if (_dpMonth.month < 0) { _dpMonth.month = 11; _dpMonth.year--; }
-    renderDatePopover();
-  });
-  document.getElementById('dpNext').addEventListener('click', () => {
-    _dpMonth.month++;
-    if (_dpMonth.month > 11) { _dpMonth.month = 0; _dpMonth.year++; }
-    renderDatePopover();
-  });
+  document.getElementById('dpStepPrev').addEventListener('click', () => stepMonth(-1));  // 외부 « — 라벨도 연월로
+  document.getElementById('dpStepNext').addEventListener('click', () => stepMonth(1));   // 외부 »
+  document.getElementById('dpPrev').addEventListener('click', () => navGrid(-1));         // 내부 ‹ — 달력만 이동
+  document.getElementById('dpNext').addEventListener('click', () => navGrid(1));          // 내부 ›
   document.addEventListener('click', (ev) => {
     const pop = document.getElementById('datePopover');
-    if (!pop.hidden && !pop.contains(ev.target) && ev.target.id !== 'dateBtn') closeDatePopover();
+    // 바깥 클릭 시 닫되, 날짜 버튼·외부 월 이동 화살표 클릭은 예외 (각자 핸들러가 처리)
+    if (!pop.hidden && !pop.contains(ev.target) && !ev.target.closest('#dateBtn') && !ev.target.closest('#dpStepPrev, #dpStepNext')) closeDatePopover();
   });
 }
 
 async function init() {
   const date = new URLSearchParams(location.search).get('date') || todayStr();
   _selectedDate = date;
-  document.getElementById('dateBtnLabel').textContent = date;
+  _navMode = 'day';
+  ensureDpMonth();
+  updateDateLabel();
+  // 인덱스(dates·meta)를 먼저 받고 달력을 연결 — 초기에 전부 '예정'으로 보이는 race 방지
+  await loadCardIndex();
   initCalendar();
   initGptsStarters();
-  await loadCardIndex();
   render(date);
 }
 init();
