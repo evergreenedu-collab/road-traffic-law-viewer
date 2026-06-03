@@ -30,9 +30,10 @@ import json
 import math
 import os
 import re
+import subprocess
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from pathlib import Path
 
 import requests
@@ -73,6 +74,38 @@ WEEKDAY_ARTICLE = (0, 2, 4)      # 옛 호환 (월·수·금 도교법 article)
 
 SCRIPT_DIR = Path(__file__).parent
 OUTPUT_DIR = SCRIPT_DIR / 'data'
+
+# Phase 6: 학습 원칙 카드 (금요일 노출)
+PRINCIPLES_PATH = OUTPUT_DIR / 'principles.json'
+VALIDATE_SCRIPT = SCRIPT_DIR / 'validate_principles.py'
+# 원칙 순환 기준일 — (target_date - EPOCH).days // 7 로 주차 누적 인덱스 계산.
+# ISO 주차 % N 방식은 연도 경계에서 중복/역행 가능 (Codex 권장).
+PRINCIPLE_EPOCH = date(2026, 1, 5)  # 2026년 첫 월요일 (주차 인덱스 기준)
+
+
+def _load_principles():
+    """principles.json 로드. 실패 시 빈 리스트 — 호출자가 빈 처리."""
+    if not PRINCIPLES_PATH.exists():
+        return []
+    try:
+        data = json.loads(PRINCIPLES_PATH.read_text(encoding='utf-8'))
+        return data.get('principles', []) or []
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def _pick_principle_for_friday(target_date):
+    """금요일에 노출할 학습 원칙 카드 선택.
+
+    EPOCH(2026-01-05) 기준 (target_date - EPOCH).days // 7 로 주차 누적 인덱스
+    계산. 연도 경계 무관, 같은 날짜 빌드 반복해도 결과 동일 (상태 저장 없음).
+    """
+    principles = _load_principles()
+    if not principles:
+        return None
+    week_idx = (target_date.date() - PRINCIPLE_EPOCH).days // 7
+    idx = week_idx % len(principles)
+    return principles[idx]
 
 INDEX_LAW = OUTPUT_DIR / 'index_law_comment.json'
 INDEX_CASES = OUTPUT_DIR / 'index_cases.json'
@@ -1970,6 +2003,11 @@ def build_daily(target_date, indexes, schedule, use_llm=True):
 
     base['status'] = 'ok'
     base['cards'] = [card]
+    # Phase 6: 금요일에 학습 원칙 카드 1장 추가 (cards는 1개 유지 — 호환성)
+    if target_date.weekday() == 4:
+        principle = _pick_principle_for_friday(target_date)
+        if principle:
+            base['daily_principle'] = principle
     return base
 
 
@@ -1994,6 +2032,19 @@ def main():
     print("=" * 60)
     print(f"  📚 일일 학습 카드 생성 (M2.6 R3) — {start_date.strftime('%Y-%m-%d')} 부터 {args.days}일치")
     print("=" * 60)
+
+    # Phase 6 가드: principles.json 정적 검증 — 환각 콘텐츠 운영 차단
+    if VALIDATE_SCRIPT.exists():
+        print("🔐 principles.json 검증 중...")
+        _r = subprocess.run([sys.executable, str(VALIDATE_SCRIPT)],
+                            capture_output=True, text=True, encoding='utf-8')
+        if _r.stdout:
+            print(_r.stdout.strip())
+        if _r.returncode != 0:
+            if _r.stderr:
+                print(_r.stderr.strip())
+            print("❌ principles.json 검증 실패 — 빌드 중단")
+            sys.exit(1)
     if args.no_llm:
         print("⏭️ --no-llm")
     elif GEMINI_API_KEY:

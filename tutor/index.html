@@ -868,6 +868,40 @@ function renderCard(card) {
   ].join('');
 }
 
+// Phase 6 (2026-06-03): 금요일 학습 원칙 카드 — daily_YYYY-MM-DD.json의 daily_principle 필드
+// 정부 사이트(법제처·대법원·헌재·casenote) 인용 + Codex 2라운드 검증된 콘텐츠 한정
+function renderPrincipleCard(p) {
+  if (!p) return '';
+  const cases = (p.leading_cases || []).map(c =>
+    '<li style="margin-bottom:8px"><a href="' + esc(c.url || '#') + '" target="_blank" rel="noopener" style="color:#1e3a5f;font-weight:600">'
+    + esc(c.label || '') + ' ↗</a>'
+    + (c.summary ? '<div style="color:#4b5563;font-size:12px;margin-top:3px">' + esc(c.summary) + '</div>' : '')
+    + '</li>'
+  ).join('');
+  const examples = (p.examples_for_class || []).map(ex => '<li style="margin-bottom:6px">' + esc(ex) + '</li>').join('');
+  const questions = (p.discussion_questions || []).map(q => '<li style="margin-bottom:6px">' + esc(q) + '</li>').join('');
+  const sources = (p.sources_official || []).map(s =>
+    '<a href="' + esc(s.url || '#') + '" target="_blank" rel="noopener" style="color:#6b7280">' + esc(s.name || s.url || '') + '</a>'
+  ).join(' · ');
+
+  return ''
+    + '<article class="card" style="margin-top:24px;border-left:4px solid #1e3a5f">'
+    +   '<div style="background:linear-gradient(135deg,#1e3a5f,#2c4f7a);color:#fff;padding:18px 22px;border-radius:8px 8px 0 0">'
+    +     '<div style="font-size:12px;opacity:0.85;font-weight:500">🎓 이번 주 학습 원칙 · ' + esc(p.category || '') + '</div>'
+    +     '<h2 style="margin:6px 0 0;font-size:22px;font-weight:700;color:#fff">' + esc(p.title || '') + '</h2>'
+    +   '</div>'
+    +   '<div style="padding:20px 22px">'
+    +     '<p style="font-size:15px;line-height:1.7;margin:0 0 18px;color:#1f2937">' + esc(p.summary || '') + '</p>'
+    +     (p.key_quote ? '<blockquote style="margin:0 0 18px;padding:14px 18px;border-left:4px solid #f59e0b;background:#fffbeb;font-size:13px;line-height:1.7;color:#374151;font-style:italic;border-radius:0 6px 6px 0">' + esc(p.key_quote) + '</blockquote>' : '')
+    +     (cases ? '<section style="margin-bottom:18px"><h3 style="font-size:14px;color:#1e3a5f;margin:0 0 10px">📚 대표 판례</h3><ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.7">' + cases + '</ul></section>' : '')
+    +     (examples ? '<section style="margin-bottom:18px"><h3 style="font-size:14px;color:#1e3a5f;margin:0 0 10px">🎯 강의 활용 사례</h3><ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;list-style:none;padding-left:0">' + examples + '</ul></section>' : '')
+    +     (questions ? '<details style="margin-bottom:18px;padding:12px 14px;background:#f3f4f6;border-radius:6px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:#1e3a5f">💭 수강생에게 던질 질문</summary><ol style="margin:8px 0 0;padding-left:22px;font-size:13px;line-height:1.7">' + questions + '</ol></details>' : '')
+    +     (p.warning ? '<div style="margin-bottom:14px;padding:10px 14px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:0 6px 6px 0;font-size:12px;line-height:1.6;color:#92400e">⚠️ ' + esc(p.warning) + '</div>' : '')
+    +     (sources ? '<footer style="padding-top:12px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280">출처: ' + sources + '</footer>' : '')
+    +   '</div>'
+    + '</article>';
+}
+
 // 2026-05-29: enhanced 카드에서 study_points 없는데 teaching_application만 있을 때 단독 렌더
 function renderApplyOnly(lc) {
   // Codex 권장 — 타입 가드 (renderStudy와 일관성)
@@ -912,7 +946,9 @@ async function render(date) {
       el.innerHTML = renderEmpty(date, data.reason);
       return;
     }
-    el.innerHTML = data.cards.map(renderCard).join('');
+    // Phase 6: 카드 + 금요일이면 학습 원칙 카드 추가 (옛 daily JSON엔 daily_principle 없음 → 조건부 렌더)
+    el.innerHTML = data.cards.map(renderCard).join('')
+      + (data.daily_principle ? renderPrincipleCard(data.daily_principle) : '');
   } catch (e) {
     el.innerHTML = renderError(date, e.message);
   }
