@@ -2064,6 +2064,20 @@ def main():
     last_was_card = False
     for d in range(args.days):
         target = start_date + timedelta(days=d)
+        # 수동 지정 카드 보호 — daily_<date>.json에 manual:true가 있으면 재생성하지 않는다.
+        # 생성 규칙(회전·요일 슬롯)을 깨고 손수 작성한 특별 카드(예: 헌재 결정 카드)를
+        # 매일 cron이 덮어쓰지 않도록 보호. cron이 다시 돌아도 그 날짜는 건너뛴다.
+        out_existing = OUTPUT_DIR / f"daily_{target.strftime('%Y-%m-%d')}.json"
+        if out_existing.exists():
+            try:
+                _existing = json.loads(out_existing.read_text(encoding='utf-8'))
+            except (json.JSONDecodeError, OSError):
+                _existing = None
+            if isinstance(_existing, dict) and _existing.get('manual'):
+                print(f"  🔒 {out_existing.name} 수동 카드 — 재생성 건너뜀 (manual=true)")
+                results.append((target, _existing))
+                last_was_card = False
+                continue
         if last_was_card and gap:
             print(f"  ⏳ 분당 한도 회피 — {gap}초 대기")
             time.sleep(gap)
