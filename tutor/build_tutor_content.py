@@ -1548,7 +1548,7 @@ GROUP_TEACHING_CONTEXT = {
 }
 
 
-def generate_other_group_article_content(group, jo, jo_title, article_text, label):
+def generate_other_group_article_content(group, jo, jo_title, article_text, label, cases=None):
     """Phase 3 PR-C — 다른 그룹 article 카드용 LLM 콘텐츠 (5필드).
     2026-05-29 보강: 사용자(공단 교수) 요구 — 조문 요약 + 참고할 내용·교육 시사점·공부 포인트.
     PR-G — 그룹별 강의 맥락(GROUP_TEACHING_CONTEXT) 추가. 교수 강의용 콘텐츠로 유도.
@@ -1567,6 +1567,20 @@ def generate_other_group_article_content(group, jo, jo_title, article_text, labe
     )
     teaching_ctx = GROUP_TEACHING_CONTEXT.get(group, '')
     teaching_block = f"\n[강의 맥락 — 이 조문이 학습 카드로 의미 있도록 풀어 설명]\n{teaching_ctx}\n" if teaching_ctx else ""
+
+    # 2026-06-05: 관련 판례 발췌 — 있으면 case_analysis 작성용으로 프롬프트에 제공(이 발췌만 근거)
+    cases_block = ""
+    if cases:
+        _lines = []
+        for i, c in enumerate(cases, 1):
+            _lines.append(
+                f"■ 판례{i} [{c.get('case_no','')}] ({c.get('court','')} {c.get('date','')}) "
+                f"죄명: {c.get('case_name','')}\n판결문 발췌: {(c.get('ruling') or '')[:1500]}"
+            )
+        cases_block = (
+            "\n[관련 판례 — 아래 판결문 발췌만 근거로 사용. 여기 없는 사건번호·사실관계·결론·법리는 절대 추가 금지]\n"
+            + "\n\n".join(_lines) + "\n"
+        )
 
     prompt = f"""당신은 한국도로교통공단 교통안전교육 교수의 학습 콘텐츠 작성자입니다. 교수들이 매일 아침 읽고 강의에 활용하므로 정확성·강의 적용성이 최우선입니다.
 {teaching_block}
@@ -1604,11 +1618,13 @@ B. 시사점 2필드 (teaching_application·study_points) — 본문 범위 내 
     "교수·수강생이 이 조문에서 반드시 짚을 학습 포인트 1 (40~120자, '왜 이 부분을 공부해야 하는가' 관점)",
     "학습 포인트 2 (40~120자)",
     "학습 포인트 3 (40~120자, 가능하면)"
-  ]
+  ],
+  "case_analysis": "위 [관련 판례] 섹션이 제공된 경우에만 작성. 제공된 판결문 발췌만 근거로, 각 판례의 사실관계·결론과 이 조문(제{jo}조)과의 연결을 사건별로 요약(사건당 200~400자, 사건 사이 빈 줄). 제공된 사건번호 외의 판례번호·사실·법리는 절대 인용·창작하지 말 것. 관련 판례 섹션이 없으면 빈 문자열 \"\"."
 }}
 {trunc_note}
 [조문 본문]
 {body}
+{cases_block}
 """
     raw = call_gemini_api(prompt, temperature=0.2)
     if not raw:
@@ -1650,20 +1666,104 @@ B. 시사점 2필드 (teaching_application·study_points) — 본문 범위 내 
     # 품질 판정 — key_issues·study_points 각 ≥3건이면 enhanced (프롬프트 가이드 충실). 미달 시 partial.
     # Codex 권장 — 임계 상향: 보강 배지의 신뢰성 확보 (2건은 가이드 미달)
     enhanced = len(key_issues) >= 3 and len(study_points) >= 3
+    _ca = parsed.get('case_analysis', '')
     result = {
         'oneliner': oneliner,
         'explanation': explanation,
         'key_issues': key_issues,
         'study_points': study_points,
         'teaching_application': teaching,
+        'case_analysis': _ca.strip() if isinstance(_ca, str) else '',
         '_quality': 'enhanced' if enhanced else 'partial',
     }
     return result
 
 
-def build_other_group_article_card(selection, use_llm=True):
+# 2026-06-05: 다른 그룹 카드에 사고 판례 결합 (사용자 요구 — 교특법 등이 조문 해설만 하던 문제)
+# court_cases_data.json의 case_name에서 그 법령 판례를 식별하는 키워드.
+# (car_mgmt·passenger_transport·cargo_transport는 court_cases_data에 사실상 없어 빈 결과→폴백)
+OTHER_GROUP_CASE_KEYWORD = {
+    'tlspc': '교통사고처리',
+    'tkga': '특정범죄가중',
+    'crim_proc': '형사소송',
+}
+# 조문 주제 키워드 — jo_title 토큰에 더해 관련성 점수를 보강 (조문↔판례 정합).
+# 키워드 적은 조문(예: 벌칙)은 점수 미달 → 폴백(주제 불일치 판례 억지 결합 방지, Codex 권장).
+OTHER_GROUP_JO_KEYWORDS = {
+    'tlspc': {
+        '3': ['처벌', '특례', '치상', '치사', '중과실', '신호', '중앙선', '횡단보도',
+              '보행자', '제한속도', '앞지르기', '철길', '무면허', '음주', '보도', '인도', '어린이'],
+        '4': ['종합보험', '공제', '공소', '보험', '가입'],
+    },
+}
+
+
+def _case_analysis_cites_only(text, allowed):
+    """case_analysis가 제공된 사건번호 외의 판례번호를 인용하지 않는지 검사 (환각 가드).
+    사건번호는 'YYYY+사건부호+번호'(예: 2022노434, 2024헌마569) 형태 — 연도 접두(19/20xx)를
+    요구해 '제27조제1항'·'제13조의2' 같은 조문 참조를 오탐하지 않는다. 'YYYY년'(날짜)은 제외.
+    제공 집합 밖 사건번호가 하나라도 보이면 False → 호출자가 폴백."""
+    for t in re.findall(r'(?:19|20)\d{2}[가-힣]{1,3}\d{1,6}', text or ''):
+        m = re.match(r'(?:19|20)\d{2}([가-힣]{1,3})', t)
+        if m and m.group(1) in ('년', '월', '일'):
+            continue  # 날짜(예: 2026년6월) 오탐 제외
+        if t not in allowed:
+            return False
+    return True
+
+
+def find_other_group_cases(group, jo, jo_title, indexes, max_cases=3, min_score=2):
+    """다른 그룹(교특법 등) article 카드용 — court_cases_data.json에서 그 법령 + 조문 주제
+    관련 판례를 선별한다. 환각 방지를 위해 '판례 목록은 코드가 소유'하고 LLM에는 해설만 맡긴다.
+    관련 판례가 없으면 [](호출자가 기존 enhanced 폴백). 결정론적 정렬."""
+    kw = OTHER_GROUP_CASE_KEYWORD.get(group)
+    if not kw:
+        return []
+    court_data = (indexes or {}).get('court_data') or {}
+    if not court_data:
+        return []
+    topic = list(OTHER_GROUP_JO_KEYWORDS.get(group, {}).get(jo, []))
+    topic += [t for t in re.split(r'[^가-힣]+', jo_title or '') if len(t) >= 2]
+    if not topic:
+        return []
+    # 교통사고 도메인 게이트 — '사고 판례'만 결합(형사소송법 등의 절차 일반 판례 배제, Codex 권장)
+    DOMAIN = ('교통', '도로', '운전', '차량', '자동차', '사고', '보행자', '음주', '횡단보도', '신호')
+    scored = []
+    for cid, c in court_data.items():
+        name = c.get('case_name') or ''
+        if kw not in name:
+            continue
+        ruling = c.get('ruling') or ''
+        if len(ruling) < 100:
+            continue
+        hay = name + ' ' + ruling
+        if not any(d in hay for d in DOMAIN):
+            continue
+        score = sum(1 for t in topic if t in hay)
+        if score < min_score:
+            continue
+        scored.append((score, min(len(ruling), 4000), c))
+    # 점수 높고 판결문 충실한 순. case_no로 tie-break해 결정론 보장.
+    scored.sort(key=lambda x: (-x[0], -x[1], (x[2].get('case_no') or '')))
+    out = []
+    for _, _, c in scored[:max_cases]:
+        cno = (c.get('case_no') or '').strip().rstrip(',. ')  # 후행 쉼표·공백 정제 (인용 가드 정합)
+        if not cno:
+            continue
+        out.append({
+            'case_no': cno,
+            'case_name': c.get('case_name', ''),
+            'date': c.get('date', ''),
+            'court': c.get('court', ''),
+            'ruling': c.get('ruling', ''),
+        })
+    return out
+
+
+def build_other_group_article_card(selection, indexes=None, use_llm=True):
     """Phase 3 S5 PR-A: 다른 그룹 article 카드. 조문 본문 + 화이트리스트 메타.
-    Phase 3 PR-C: use_llm=True면 간단 LLM 콘텐츠(oneliner + explanation) 추가."""
+    Phase 3 PR-C: use_llm=True면 간단 LLM 콘텐츠(oneliner + explanation) 추가.
+    2026-06-05: 조문 주제 관련 판례가 있으면 case_analysis + related_cases 결합(full 카드)."""
     group = selection['group']
     jo = selection['jo']
     art = _load_other_group_article(group, jo) or {}
@@ -1715,21 +1815,53 @@ def build_other_group_article_card(selection, use_llm=True):
     if history:
         card['history_evolution'] = history
 
-    # 2026-05-29 보강: 5필드 LLM 콘텐츠 — enhanced(전체) / partial(시사점 약함) / 실패(simple_other_group 폴백)
+    # 2026-06-05: 조문 주제 관련 판례 선별 (코드가 목록 소유 — 환각 방지)
+    cases = []
+    if use_llm and GEMINI_API_KEY and article_text and indexes is not None:
+        cases = find_other_group_cases(group, jo, jo_title, indexes)
+
+    # 5필드 LLM 콘텐츠 + (판례 있으면) case_analysis. 판례 결합 성공 시 full 카드.
     if use_llm and GEMINI_API_KEY and article_text:
-        print(f"  🤖 {label} 제{jo}조 LLM 호출 (5필드: oneliner·explanation·key_issues·teaching·study_points)", flush=True)
-        lc = generate_other_group_article_content(group, jo, jo_title, article_text, label)
+        print(f"  🤖 {label} 제{jo}조 LLM 호출"
+              + (f" — 관련 판례 {len(cases)}건 결합" if cases else " — 5필드"), flush=True)
+        lc = generate_other_group_article_content(group, jo, jo_title, article_text, label, cases=cases)
         if lc:
             quality = lc.pop('_quality', 'partial')  # 메타는 카드에 저장 X
-            card['learning_content'] = lc
-            if quality == 'enhanced':
-                card['content_tier'] = 'other_group_enhanced'
+            ca = (lc.get('case_analysis') or '').strip()
+            allowed = {c['case_no'] for c in cases}
+            # 판례 경로: case_analysis가 충실하고 제공된 사건번호만 인용 → full 카드(뷰어가 판례 섹션 렌더)
+            if cases and len(ca) >= 80 and _case_analysis_cites_only(ca, allowed):
+                lc['source_article'] = f'{label} 제{jo}조'
+                lc['analysis_type'] = 'case'
+                # related_cases·related_cases_full은 LLM이 아니라 코드가 구성 (환각 방지, Codex 권장)
+                lc['related_cases'] = [{
+                    'case_no': c['case_no'], 'type': 'court',
+                    'title': c.get('case_name', ''), 'result': '', 'lesson': '',
+                } for c in cases]
+                card['related_cases_full'] = [{
+                    'type': 'court', 'case_no': c['case_no'],
+                    'title': c.get('case_name', ''), 'date': c.get('date', ''),
+                    'court': c.get('court', ''), 'result': '',
+                    'full_text': c.get('ruling', ''),
+                } for c in cases]
+                card['learning_content'] = lc
+                card['content_tier'] = 'full'
                 card['llm_status'] = 'ok'
-                print(f"    ✅ enhanced (oneliner {len(lc['oneliner'])}자 / key_issues {len(lc['key_issues'])}건 / study_points {len(lc['study_points'])}건)", flush=True)
+                card['law_info']['resources_found']['court_cases_count'] = len(cases)
+                print(f"    ✅ 판례 결합 full ({len(cases)}건 · case_analysis {len(ca)}자)", flush=True)
             else:
-                # partial — content_tier='simple' 유지, llm_status='ok_partial'로 구분
-                card['llm_status'] = 'ok_partial'
-                print(f"    ⚠️ partial (key_issues {len(lc['key_issues'])}건·study_points {len(lc['study_points'])}건 — 시사점 부족)", flush=True)
+                # 판례 없음/부적합 → 기존 5필드 enhanced/partial 경로 (조문 해설만)
+                lc.pop('case_analysis', None)
+                card['learning_content'] = lc
+                if cases and ca:
+                    print(f"    ⚠️ 판례 case_analysis 검증 실패 — 조문 해설로 폴백", flush=True)
+                if quality == 'enhanced':
+                    card['content_tier'] = 'other_group_enhanced'
+                    card['llm_status'] = 'ok'
+                    print(f"    ✅ enhanced (key_issues {len(lc['key_issues'])}·study_points {len(lc['study_points'])})", flush=True)
+                else:
+                    card['llm_status'] = 'ok_partial'
+                    print(f"    ⚠️ partial (시사점 부족)", flush=True)
         else:
             print(f"    ⚠️ LLM 실패 — simple_other_group 폴백 유지", flush=True)
 
@@ -1742,7 +1874,7 @@ def build_card(selection, indexes, target_date=None, use_llm=True):
         return build_case_card(selection, indexes, target_date, use_llm)
     # Phase 3 S5 PR-A: 다른 그룹 article은 단순 카드 + PR-C LLM 콘텐츠
     if selection.get('group') and selection['group'] != 'road':
-        return build_other_group_article_card(selection, use_llm=use_llm)
+        return build_other_group_article_card(selection, indexes, use_llm=use_llm)
 
     jo = selection['jo']
     jo_entry = indexes['law'].get(jo)
