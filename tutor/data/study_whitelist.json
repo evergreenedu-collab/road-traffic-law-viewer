@@ -15,8 +15,12 @@
     "name": "교통사고처리 특례법",
     "has_subordinate": true,
     "_주석_보정": "2026-05-21 Codex 발견 — 시행령 존재(법령ID 002616, MST 227259). 시행규칙은 없음. has_subordinate true로 보정.",
-    "study_mode": "all",
-    "_주석": "조문 12개 내외로 짧아 전체 학습. 공소권 유무 판정·12개 중대법규 위반이 핵심."
+    "study_mode": "whitelist",
+    "articles": [
+      {"article": "3", "title": "처벌의 특례", "topic": "12대 중과실·반의사불벌"},
+      {"article": "4", "title": "보험 등에 가입된 경우의 특례", "topic": "종합보험 공소제기 제한"}
+    ],
+    "_주석": "2026-06-09: all→whitelist(제3·4조 집중)로 변경. 제1·2·5·6조(목적·정의·벌칙·양벌)는 사고 판례가 없어 카드 빈약 → 알짜 제3·4조만 회전하고 find_other_group_cases cursor로 매 회전 다른 판례 결합(longevity). 옛 정책: 6조문 전체(6주 반복·맹탕 4개)."
   },
 
   "tkga": {
@@ -91,8 +95,8 @@
 
   "_총계": {
     "law_count": 7,
-    "all_mode": ["road", "tlspc"],
-    "whitelist_mode": ["tkga", "car_mgmt", "passenger_transport", "cargo_transport", "crim_proc"],
-    "whitelist_article_count": 27
+    "all_mode": ["road"],
+    "whitelist_mode": ["tlspc", "tkga", "car_mgmt", "passenger_transport", "cargo_transport", "crim_proc"],
+    "whitelist_article_count": 29
   }
 }

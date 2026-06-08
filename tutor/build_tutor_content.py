@@ -26,6 +26,7 @@
 """
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -1712,10 +1713,17 @@ def _case_analysis_cites_only(text, allowed):
     return True
 
 
-def find_other_group_cases(group, jo, jo_title, indexes, max_cases=3, min_score=2):
+# 2026-06-09: 판례 회전 적용 그룹 (MVP: 교특법만 — 조문 적어 longevity 확보용). 금요일 회전 그룹은 추후.
+ROTATE_CASE_GROUPS = {'tlspc'}
+
+
+def find_other_group_cases(group, jo, jo_title, indexes, max_cases=3, min_score=2, cursor=None):
     """다른 그룹(교특법 등) article 카드용 — court_cases_data.json에서 그 법령 + 조문 주제
     관련 판례를 선별한다. 환각 방지를 위해 '판례 목록은 코드가 소유'하고 LLM에는 해설만 맡긴다.
-    관련 판례가 없으면 [](호출자가 기존 enhanced 폴백). 결정론적 정렬."""
+    관련 판례가 없으면 [](호출자가 기존 enhanced 폴백).
+    cursor=None: 관련성(점수·길이) 상위 max_cases 고정 — 기존 동작(다른 그룹 호출 호환).
+    cursor=int: 품질필터 통과 풀을 조문별 고정 시드로 셔플 후 cursor 윈도우 → 회전마다 다른 판례
+                (교특법처럼 조문 적은 그룹 콘텐츠 longevity). 결정론적(시드·정렬 고정)."""
     kw = OTHER_GROUP_CASE_KEYWORD.get(group)
     if not kw:
         return []
@@ -1743,27 +1751,58 @@ def find_other_group_cases(group, jo, jo_title, indexes, max_cases=3, min_score=
         if score < min_score:
             continue
         scored.append((score, min(len(ruling), 4000), c))
-    # 점수 높고 판결문 충실한 순. case_no로 tie-break해 결정론 보장.
-    scored.sort(key=lambda x: (-x[0], -x[1], (x[2].get('case_no') or '')))
-    out = []
-    for _, _, c in scored[:max_cases]:
+    if not scored:
+        return []
+
+    def _pack(c):
         cno = (c.get('case_no') or '').strip().rstrip(',. ')  # 후행 쉼표·공백 정제 (인용 가드 정합)
         if not cno:
-            continue
-        out.append({
+            return None
+        return {
             'case_no': cno,
             'case_name': c.get('case_name', ''),
             'date': c.get('date', ''),
             'court': c.get('court', ''),
             'ruling': c.get('ruling', ''),
-        })
+        }
+
+    if cursor is None:
+        # 기존 동작 — 관련성(점수·길이) 상위 고정. case_no tie-break로 결정론.
+        scored.sort(key=lambda x: (-x[0], -x[1], (x[2].get('case_no') or '')))
+        picks = [c for _, _, c in scored[:max_cases]]
+    else:
+        # 회전 — 품질 통과 풀을 case_no 기준 중복 제거 후, 조문별 해시값으로 결정론 정렬(셔플 효과,
+        # Python 버전·dict 순회 순서 무관 영구 고정) → cursor 윈도우. 풀이 deduped라 윈도우가 항상 채워짐.
+        def _cno(c):
+            return (c.get('case_no') or '').strip().rstrip(',. ')
+        uniq = {}
+        for _, _, c in scored:
+            k = _cno(c)
+            if k and k not in uniq:
+                uniq[k] = c
+        pool = sorted(uniq.values(),
+                      key=lambda c: hashlib.sha256(f'{group}:{jo}:{_cno(c)}'.encode()).hexdigest())
+        n = len(pool)
+        if n <= max_cases:
+            picks = pool                       # 풀이 작으면 그대로
+        else:
+            start = (int(cursor) * max_cases) % n
+            picks = [pool[(start + i) % n] for i in range(max_cases)]  # n>max·deduped — 서로 다른 사건
+
+    out, seen = [], set()
+    for c in picks:
+        p = _pack(c)
+        if p and p['case_no'] not in seen:
+            seen.add(p['case_no'])
+            out.append(p)
     return out
 
 
-def build_other_group_article_card(selection, indexes=None, use_llm=True):
+def build_other_group_article_card(selection, indexes=None, use_llm=True, target_date=None):
     """Phase 3 S5 PR-A: 다른 그룹 article 카드. 조문 본문 + 화이트리스트 메타.
     Phase 3 PR-C: use_llm=True면 간단 LLM 콘텐츠(oneliner + explanation) 추가.
-    2026-06-05: 조문 주제 관련 판례가 있으면 case_analysis + related_cases 결합(full 카드)."""
+    2026-06-05: 조문 주제 관련 판례가 있으면 case_analysis + related_cases 결합(full 카드).
+    2026-06-09: 회전 그룹(교특법)은 target_date 주차 기반 cursor로 매 회전 다른 판례 (longevity)."""
     group = selection['group']
     jo = selection['jo']
     art = _load_other_group_article(group, jo) or {}
@@ -1816,9 +1855,18 @@ def build_other_group_article_card(selection, indexes=None, use_llm=True):
         card['history_evolution'] = history
 
     # 2026-06-05: 조문 주제 관련 판례 선별 (코드가 목록 소유 — 환각 방지)
+    # 2026-06-09: 회전 그룹(교특법)은 발송 주차 기반 cursor로 매 회전 다른 판례 (longevity)
     cases = []
     if use_llm and GEMINI_API_KEY and article_text and indexes is not None:
-        cases = find_other_group_cases(group, jo, jo_title, indexes)
+        cursor = None
+        if group in ROTATE_CASE_GROUPS and target_date:
+            try:
+                td = datetime.strptime(target_date, '%Y%m%d') if isinstance(target_date, str) else target_date
+                cursor = (td - EPOCH).days // 7
+            except (ValueError, TypeError):
+                print(f"  ⚠️ target_date 파싱 실패({target_date!r}) — 판례 회전 미적용(상위 고정)", flush=True)
+                cursor = None
+        cases = find_other_group_cases(group, jo, jo_title, indexes, cursor=cursor)
 
     # 5필드 LLM 콘텐츠 + (판례 있으면) case_analysis. 판례 결합 성공 시 full 카드.
     if use_llm and GEMINI_API_KEY and article_text:
@@ -1874,7 +1922,7 @@ def build_card(selection, indexes, target_date=None, use_llm=True):
         return build_case_card(selection, indexes, target_date, use_llm)
     # Phase 3 S5 PR-A: 다른 그룹 article은 단순 카드 + PR-C LLM 콘텐츠
     if selection.get('group') and selection['group'] != 'road':
-        return build_other_group_article_card(selection, indexes, use_llm=use_llm)
+        return build_other_group_article_card(selection, indexes, use_llm=use_llm, target_date=target_date)
 
     jo = selection['jo']
     jo_entry = indexes['law'].get(jo)
