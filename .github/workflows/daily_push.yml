@@ -218,6 +218,24 @@ jobs:
               console.log('PUSH_API_URL 또는 ADMIN_TOKEN 미설정 — 발송 건너뜀.');
               process.exit(0);
             }
+            // 0. 멱등성 — 오늘(KST) 이미 발송했으면 스킵 (Vercel cron→dispatch + GitHub schedule 이중 트리거 중복 방지).
+            //    명시적 {send:false}일 때만 스킵. 그 외 오류·5xx·네트워크 실패는 발송 진행(누락 < 중복, "무조건 발송" 우선).
+            const claimUrl = apiUrl.replace(/\/subscribe(\?.*)?$/, '/claim');
+            try {
+              const cr = await fetch(`${claimUrl}?token=${encodeURIComponent(process.env.ADMIN_TOKEN)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` },
+                body: JSON.stringify({ date: today, phase: 'acquire' }),
+              });
+              const cj = await cr.json().catch(() => ({}));
+              if (cj && cj.send === false) {
+                console.log(`멱등성: 오늘(${today}) 이미 발송/진행 중 (${cj.reason}) — 발송 스킵`);
+                process.exit(0);
+              }
+              console.log(`멱등성 claim 획득 (${today}) — 발송 진행`);
+            } catch (e) {
+              console.warn('claim 호출 실패 — 발송 계속 (누락 < 중복):', e.message);
+            }
             let subscriptions = [];
             try {
               const res = await fetch(apiUrl, {
@@ -296,6 +314,18 @@ jobs:
             if (stalePromises.length) await Promise.allSettled(stalePromises);
 
             console.log(`==SUMMARY== 성공 ${ok} / 실패 ${fail} / 총 ${allResults.length}`);
+            // 발송 1건이라도 성공하면 '오늘 발송 완료' 기록 → 다른 트리거(Vercel cron / schedule)가 중복 발송 안 함.
+            // 0건이면 sent 기록 안 함 (lock은 2h 후 자동 만료되어 재시도 가능).
+            if (ok > 0) {
+              try {
+                await fetch(`${claimUrl}?token=${encodeURIComponent(process.env.ADMIN_TOKEN)}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ADMIN_TOKEN}` },
+                  body: JSON.stringify({ date: today, phase: 'done' }),
+                });
+                console.log(`멱등성: ${today} 발송 완료 기록 (push:sent)`);
+              } catch (e) { console.warn('claim done 기록 실패:', e.message); }
+            }
             if (ok === 0 && fail > 0) process.exit(1);
           })().catch(e => { console.error('치명 에러:', e); process.exit(1); });
           EOF
