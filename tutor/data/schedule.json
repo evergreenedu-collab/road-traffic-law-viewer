@@ -63,5 +63,10 @@
     "article": "9",
     "group": "cargo_transport",
     "type": "article"
+  },
+  "2026-06-15": {
+    "article": "44",
+    "group": "road",
+    "type": "article"
   }
 }
