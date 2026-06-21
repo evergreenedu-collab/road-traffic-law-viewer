@@ -96,5 +96,10 @@
     "article": "200의4",
     "group": "crim_proc",
     "type": "article"
+  },
+  "2026-06-22": {
+    "article": "10",
+    "group": "road",
+    "type": "article"
   }
 }
