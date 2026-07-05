@@ -146,5 +146,10 @@
     "article": "80",
     "group": "car_mgmt",
     "type": "article"
+  },
+  "2026-07-06": {
+    "article": "63",
+    "group": "road",
+    "type": "article"
   }
 }
