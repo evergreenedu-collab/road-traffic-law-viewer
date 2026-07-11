@@ -10,7 +10,7 @@
       "rank": 1,
       "card_type": "article",
       "group": "road",
-      "content_tier": "full",
+      "content_tier": "source_only",
       "selection_basis": {
         "weight_score": 0.567,
         "category": "면허일반",
@@ -86,7 +86,13 @@
           }
         ]
       },
-      "llm_status": "skip_call_failed"
+      "llm_status": "skip_call_failed",
+      "fallback_from": "skip_call_failed",
+      "learning_content": {
+        "oneliner": "도로교통법 제80조 운전면허",
+        "explanation": "AI 해설이 일시적으로 생성되지 않았습니다. 아래 조문 원문과 법령 보기를 확인하세요.",
+        "analysis_type": "source_only"
+      }
     }
   ]
 }

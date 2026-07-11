@@ -573,7 +573,9 @@ function renderMainCard(card) {
   // Phase 3 S5 — simple_other_group은 LLM 미수행이 정상. 조문 본문이 풍부하므로 톤 다르게.
   // PR-H5-ζ — skip_external_keywords_leaked 전용 안전 모드 메시지 (할루시네이션 차단됨)
   let banner;
-  if (card.llm_status === 'simple_other_group') {
+  if (card.content_tier === 'source_only') {
+    banner = '<div class="llm-skip-banner" style="background:#fff7ed;color:#9a3412;border-color:#fed7aa">🔎 AI 해설은 잠시 후 제공됩니다. 오늘은 아래 <b>조문 원문</b>과 <b>법령 보기</b>로 확인하세요.</div>';
+  } else if (card.llm_status === 'simple_other_group') {
     banner = '<div class="llm-skip-banner" style="background:#f3f4f6;color:#374151;border-color:#d1d5db">📘 ' + esc(lawName) + ' 조문 — LLM 학습 콘텐츠는 향후 확장 예정. 조문 본문 위주로 확인하세요.</div>';
   } else if (card.llm_status === 'skip_external_keywords_leaked') {
     const leakedThemes = (card.verification && card.verification.external_keywords_leaked) || [];
@@ -706,7 +708,9 @@ function renderArticleText(card) {
   if (!txt) return '';
   const jo = li.매핑법률조문 || '';
   const lawName = li.법령명 || '도로교통법';
-  return '<details class="section article-raw">'
+  // source_only 폴백 카드는 조문 원문이 핵심 콘텐츠이므로 펼친 상태로 표시
+  const open = card.content_tier === 'source_only' ? ' open' : '';
+  return '<details class="section article-raw"' + open + '>'
     + '<summary>📜 ' + esc(lawName) + ' 제' + esc(jo) + '조 — 현행 조문 원문</summary>'
     + '<pre>' + esc(txt) + '</pre>'
     + '</details>';

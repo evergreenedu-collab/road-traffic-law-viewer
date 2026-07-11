@@ -874,7 +874,13 @@ def call_gemini_api(prompt, temperature=0.2, timeout=GEMINI_TIMEOUT,
             print(f"    ⚠️ Gemini 실패 (status={status})")
             return None
         except requests.RequestException as e:
-            print(f"    ⚠️ 네트워크 오류: {type(e).__name__}")
+            # 타임아웃·연결오류 등 네트워크 예외도 재시도 (HTTP 429/5xx와 동일 취급)
+            if attempt < max_retries:
+                wait = backoff[min(attempt, len(backoff) - 1)]
+                print(f"    ⏳ 네트워크 오류 {type(e).__name__} — {wait}초 후 재시도 ({attempt+1}/{max_retries+1})")
+                time.sleep(wait)
+                continue
+            print(f"    ⚠️ 네트워크 오류 (재시도 소진): {type(e).__name__}")
             return None
         except (KeyError, IndexError, ValueError) as e:
             print(f"    ⚠️ 응답 파싱 실패: {type(e).__name__}")
@@ -2143,6 +2149,52 @@ def _build_case_card_with_fallback(selection, indexes, target_date, use_llm,
     return retry_card
 
 
+# LLM 호출 자체가 실패해 learning_content가 아예 없는 상태 — 뷰어에서 '학습 콘텐츠
+# 미생성' 회색 배너(빈 카드)로 뜬다. 이 상태만 조문원문 폴백 대상.
+# 제외: ok/ok_re_paired/ok_partial(정상), simple_other_group·simple(전용 배너+조문 풍부),
+#       skip_external_keywords_leaked(안전모드 전용 배너), skipped_by_flag(--no-llm),
+#       case 카드 정상(explanation 대신 fact_summary·conclusion 스키마) → 절대 안 건드림.
+_FALLBACK_STATUSES = {'skip_call_failed', 'skip_no_api_key', 'skip_verification_failed'}
+
+
+def _ensure_renderable_card(card):
+    """LLM 호출 실패로 뷰어에 '빈 카드'로 뜨는 실패 상태에만 조문 원문 기반
+    source_only 폴백을 주입한다.
+
+    → '알림은 갔는데 뷰어에 빈 카드가 뜨는' 문제 방지. LLM이 실패해도
+      최소한 조문 원문·제목·법령보기 링크는 항상 표시되게 만든다.
+    → 판정은 llm_status 기반(필드 스키마 추정 X) — case·simple 등 정상 카드 오탐 방지.
+    → 원래 실패 원인은 fallback_from에 보존(로그·디버깅용).
+    """
+    if card.get('llm_status') not in _FALLBACK_STATUSES:
+        return card  # 정상·별도처리 카드는 그대로 둔다 (case 6필드·simple·안전모드 보존)
+
+    # 방어: 실패 상태 표지여도 learning_content가 이미 렌더 가능하면 유지
+    lc = card.get('learning_content')
+    if isinstance(lc, dict):
+        one, exp = lc.get('oneliner'), lc.get('explanation')
+        if isinstance(one, str) and one.strip() and isinstance(exp, str) and exp.strip():
+            return card
+
+    li = card.get('law_info') or {}
+    법령명 = str(li.get('법령명') or '도로교통법')
+    jo = str(li.get('매핑법률조문') or '').strip()
+    jo_title = str(li.get('매핑법률조문제목') or '').strip()
+    title = (f"{법령명} 제{jo}조" if jo else 법령명)
+    if jo_title:
+        title += f" {jo_title}"
+
+    card['fallback_from'] = card.get('llm_status')
+    card['content_tier'] = 'source_only'
+    card['learning_content'] = {
+        'oneliner': title.strip() or '오늘의 조문',
+        'explanation': 'AI 해설이 일시적으로 생성되지 않았습니다. 아래 조문 원문과 법령 보기를 확인하세요.',
+        'analysis_type': 'source_only',
+    }
+    print(f"    🔎 source_only 폴백 카드 주입 (원인={card['fallback_from']})")
+    return card
+
+
 def build_daily(target_date, indexes, schedule, use_llm=True):
     base = {
         'date': target_date.strftime('%Y-%m-%d'),
@@ -2182,6 +2234,7 @@ def build_daily(target_date, indexes, schedule, use_llm=True):
                           use_llm=use_llm)
 
     base['status'] = 'ok'
+    card = _ensure_renderable_card(card)   # 품질 게이트: LLM 실패 카드에 조문원문 폴백 주입
     base['cards'] = [card]
     # Phase 6: 금요일에 학습 원칙 카드 1장 추가 (cards는 1개 유지 — 호환성)
     if target_date.weekday() == 4:

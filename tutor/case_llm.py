@@ -93,7 +93,13 @@ def call_gemini_api(prompt, temperature=0.2, timeout=GEMINI_TIMEOUT,
             print(f"    ⚠️ Gemini 실패 (status={status})")
             return None
         except requests.RequestException as e:
-            print(f"    ⚠️ 네트워크 오류: {type(e).__name__}")
+            # 타임아웃·연결오류 등 네트워크 예외도 재시도 (HTTP 429/5xx와 동일 취급)
+            if attempt < max_retries:
+                wait = backoff[min(attempt, len(backoff) - 1)]
+                print(f"    ⏳ 네트워크 오류 {type(e).__name__} — {wait}초 후 재시도 ({attempt+1}/{max_retries+1})")
+                time.sleep(wait)
+                continue
+            print(f"    ⚠️ 네트워크 오류 (재시도 소진): {type(e).__name__}")
             return None
         except (KeyError, IndexError, ValueError) as e:
             print(f"    ⚠️ 응답 파싱 실패: {type(e).__name__}")
