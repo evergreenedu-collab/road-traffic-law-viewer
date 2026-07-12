@@ -305,11 +305,13 @@ function lawTypeBadge(lt) {
 }
 
 // 연혁 보기 클릭 — iframe 안이면 부모창에 메시지(모달 닫고 viewer 이동), 직접 페이지면 직접 이동
-// jumpJo: 실제 viewer.html에 점프할 조문 (법률은 자기 자신, 시행령·시행규칙은 매핑된 법률 조문)
+// jumpJo: viewer.html에 점프할 조문 — 각 법령의 자기 조문 (시행령·시행규칙은 law 파라미터로 해당 유형 조문에 직접 진입)
 // PR-H13 Fix 4-α: postMessage 실패 (PWA 환경 등) 시 폴백 — 1.5초 뒤 부모 URL 안 바뀌었으면 강제 location.href
 // 부모는 message 수신 즉시 history.replaceState로 URL 먼저 갱신 → 정상 처리 중에는 폴백 발화 안 함
-function goToHistory(jumpJo) {
-  const targetUrl = `../viewer.html?jo=${encodeURIComponent(jumpJo)}&tab=history`;
+function goToHistory(jumpJo, lawType) {
+  // 시행령·시행규칙은 law 파라미터로 해당 법령유형 조문 연혁에 직접 진입 (법률은 생략)
+  let targetUrl = `../viewer.html?jo=${encodeURIComponent(jumpJo)}&tab=history`;
+  if (lawType && lawType !== '법률') targetUrl += `&law=${encodeURIComponent(lawType)}`;
   if (IS_EMBEDDED) {
     // PR-H13 Fix 4-δ UX: 클릭 즉시 부모창 풀스크린 로딩 오버레이 강제 표시 — 300ms 폴백 동안 알람 모달 그대로 보이는 어색함 제거
     try {
@@ -321,7 +323,7 @@ function goToHistory(jumpJo) {
     } catch (e) {}
     // 1차: SPA postMessage 시도 (성공 시 부모창이 history 탭으로 즉시 이동)
     try {
-      window.parent.postMessage({ type: 'goToHistory', jo: jumpJo }, window.location.origin);
+      window.parent.postMessage({ type: 'goToHistory', jo: jumpJo, law: lawType }, window.location.origin);
     } catch (err) {
       console.warn('[goToHistory] postMessage 실패:', err);
     }
@@ -331,7 +333,9 @@ function goToHistory(jumpJo) {
         const p = window.parent;
         if (!p || p === window) return;
         const u = new URL(p.location.href);
-        if (u.searchParams.get('jo') !== String(jumpJo) || u.searchParams.get('tab') !== 'history') {
+        const wantLaw = (lawType && lawType !== '법률') ? lawType : '';
+        const curLaw = u.searchParams.get('law') || '';
+        if (u.searchParams.get('jo') !== String(jumpJo) || u.searchParams.get('tab') !== 'history' || curLaw !== wantLaw) {
           console.warn('[goToHistory] postMessage 무효 — 강제 location.href 폴백');
           p.location.href = targetUrl;
         }
@@ -345,36 +349,29 @@ function goToHistory(jumpJo) {
 }
 
 function articleLinkHtml(art, lawType) {
-  // 점프 대상 조문 결정 — 법률은 자기 자신, 시행령·시행규칙은 매핑된 법률 조문
-  const mappedLawJo = art.매핑법률조문;
-  const canJump = lawType === '법률' || mappedLawJo;
-  const jumpJo = lawType === '법률' ? art.조문번호 : mappedLawJo;
+  // 개정된 그 법령(법률·시행령·시행규칙)의 '자기 조문'으로 이동한다.
+  // viewer가 ?jo=..&law=시행령 으로 시행령·시행규칙 조문 연혁에 직접 진입 지원.
+  const jo = art.조문번호;
 
-  // 시행령·시행규칙은 매핑 안내 표시 (법률 조문 제목 포함)
-  // 솔직한 안내: viewer 연혁 탭은 법률 조문 기준이라 시행규칙 자체 변경 내용은 누락 가능
-  // → 사용자가 알림 카드의 변경 조문 목록을 메인 정보로 인지하도록
+  // 매핑된 법률 조문이 있으면 '관련 법률' 부가 안내 (없어도 자기 조문 이동은 항상 가능).
+  // 민감정보 처리 등 개인정보보호법 근거 조문은 법률 매핑이 없는 게 정상이므로
+  // '법률 매핑 없음'이라는 오해 소지 문구는 표시하지 않는다.
   let mappingHint = '';
-  if (lawType !== '법률' && mappedLawJo) {
+  if (lawType !== '법률' && art.매핑법률조문) {
     const mappedTitle = art.매핑법률조문제목 || '';
     const titlePart = mappedTitle ? ` (${escapeHtml(mappedTitle)})` : '';
-    mappingHint = `<span class="mapping-hint">→ 법률 제${escapeHtml(mappedLawJo)}조${titlePart} 연혁으로 이동</span>`;
-  } else if (lawType !== '법률' && !mappedLawJo) {
-    mappingHint = `<span class="mapping-hint mapping-none">법률 매핑 없음</span>`;
+    mappingHint = `<span class="mapping-hint">관련 법률: 제${escapeHtml(art.매핑법률조문)}조${titlePart}</span>`;
   }
-
-  const buttonHtml = canJump
-    ? `<button type="button" class="article-link" onclick="goToHistory('${escapeHtml(jumpJo)}')">→ 연혁 보기</button>`
-    : `<button type="button" class="article-link" disabled style="background:#94a3b8;cursor:not-allowed">매핑 없음</button>`;
 
   return `
     <li class="article-item">
       <div class="article-info">
-        <span class="article-num">제${escapeHtml(art.조문번호)}조</span>
+        <span class="article-num">제${escapeHtml(jo)}조</span>
         <span class="article-title">${escapeHtml(art.조문제목)}</span>
         ${art.조문제개정유형 ? `<span class="badge badge-type">${escapeHtml(art.조문제개정유형)}</span>` : ''}
         ${mappingHint}
       </div>
-      ${buttonHtml}
+      <button type="button" class="article-link" onclick="goToHistory('${escapeHtml(jo)}','${escapeHtml(lawType)}')">→ 이 조문 연혁 보기</button>
     </li>
   `;
 }
