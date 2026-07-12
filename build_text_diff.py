@@ -145,7 +145,17 @@ def main():
                 prev_norm = curr_norm
 
             if changes:
-                diffs[jo_key] = changes
+                # 완전 동일 변경 항목 중복 제거 — 같은 공포일에 여러 버전이 있어
+                # 동일 조문에 동일 diff가 반복 생성되는 경우 방어(시행령·시행규칙 직접연혁 중복 노출 차단)
+                seen = set()
+                unique = []
+                for c in changes:
+                    k = json.dumps(c, sort_keys=True, ensure_ascii=False)
+                    if k in seen:
+                        continue
+                    seen.add(k)
+                    unique.append(c)
+                diffs[jo_key] = unique
 
         result[law_type] = diffs
         print(f"  ✅ {len(diffs)}개 조문, {total_diffs}건 실제 변경")
