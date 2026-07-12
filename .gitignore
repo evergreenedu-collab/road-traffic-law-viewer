@@ -57,6 +57,11 @@ desktop.ini
 *.bak.*.json
 _backup_*/
 
+# 로컬 자동 갱신 (scripts/local_auto_update.ps1)
+.local_update.lock
+local_update.log.old
+
 node_modules/
 package-lock.json
 package.json
+.vercel
