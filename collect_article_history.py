@@ -260,6 +260,7 @@ def collect_all(suffix: str = ""):
             mst = ver["MST"]
             if mst in existing_msts:
                 continue
+            existing_msts.add(mst)  # 같은 실행 내 동일 MST 재수집·중복 저장 방지 (연혁 목록에 동일 MST가 시행일자만 달리 여러 번 등장해도 1회만 저장)
 
             pub = ver["공포일자"]
             rev = ver["제개정구분"]

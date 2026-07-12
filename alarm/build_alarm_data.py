@@ -136,6 +136,22 @@ def main():
                 '변경조문': changed,
             })
 
+    # 완전 동일 중복 제거 — 원본(article_history.json) 수집 단계에서 같은 버전이
+    # 여러 번 저장된 경우 방어(공포번호 빈 완전동일 65그룹 확인됨). 내용이 다른
+    # 같은 날 개정(별개 공포)은 그대로 유지된다.
+    seen = set()
+    unique = []
+    for v in versions:
+        key = json.dumps(v, sort_keys=True, ensure_ascii=False)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(v)
+    dup_removed = len(versions) - len(unique)
+    if dup_removed:
+        print(f"  🧹 완전 동일 중복 {dup_removed}건 제거 ({len(versions)}→{len(unique)})")
+    versions = unique
+
     # 공포일자 내림차순 정렬 (최신이 먼저)
     versions.sort(key=lambda v: v['공포일자'], reverse=True)
 
