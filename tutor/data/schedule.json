@@ -171,5 +171,10 @@
     "article": "24",
     "group": "passenger_transport",
     "type": "article"
+  },
+  "2026-07-13": {
+    "article": "4",
+    "group": "road",
+    "type": "article"
   }
 }
