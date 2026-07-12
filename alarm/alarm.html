@@ -163,9 +163,11 @@
 </header>
 
 <div class="info-banner">
-  <span>ℹ️ <strong>최근 90일 이내</strong> 개정만 표시됩니다.
+  <span>ℹ️ <strong>최근 90일 이내</strong> 개정을 우선 표시합니다 (없으면 가장 최근 개정).
   그 이전 개정 사항은 메인 페이지의 <strong>"연혁" 탭</strong>에서 확인하세요.</span>
 </div>
+
+<div id="dataFreshness" style="max-width:720px;margin:0 auto 4px;padding:0 4px"></div>
 
 <div class="filter-bar">
   <select id="lawTypeFilter">
@@ -187,7 +189,9 @@
 // ─────────────────────────────────────────────────────
 
 let allVersions = [];
-const FILTER_DAYS = 90;  // 90일 고정
+const FILTER_DAYS = 90;  // 90일 이내 신규 공포 개정 우선 표시
+const FALLBACK_COUNT = 5;  // 90일 이내가 없으면 최신 N건 폴백 (빈 화면 방지)
+let lastFilterFallback = false;
 let currentLawType = 'all';
 
 // iframe 안에 띄워졌는지 감지 (viewer.html의 모달에서 호출 시 true)
@@ -198,10 +202,27 @@ async function init() {
     const r = await fetch('data/recent_revisions.json');
     const data = await r.json();
     allVersions = data.버전들 || [];
+    renderDataFreshness(data.생성일시);
     render();
   } catch (e) {
     document.getElementById('alarmList').innerHTML =
       `<div class="empty"><div class="icon">⚠️</div>데이터 로드 실패: ${e.message}</div>`;
+  }
+}
+
+// 데이터 신선도 표시 — Codex 권장: 생성일시 노출 + 오래되면(stale) 경고.
+// 자동 갱신(주간)이 실패해 데이터가 멈춰도 사용자가 즉시 알아챌 수 있게 한다.
+function renderDataFreshness(genTime) {
+  const el = document.getElementById('dataFreshness');
+  if (!el) return;
+  if (!genTime) { el.innerHTML = ''; return; }
+  const days = Math.floor((new Date() - new Date(genTime)) / (1000 * 60 * 60 * 24));
+  const dateStr = String(genTime).slice(0, 10);
+  const STALE_DAYS = 10;  // 주간 자동 갱신 기준 — 10일 이상 미갱신이면 경고
+  if (days >= STALE_DAYS) {
+    el.innerHTML = `<div style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.5">⚠️ 개정 데이터가 <b>${days}일째 갱신되지 않았습니다</b> (기준일 ${dateStr}). 자동 갱신 점검이 필요할 수 있습니다.</div>`;
+  } else {
+    el.innerHTML = `<div style="color:#9ca3af;font-size:11px;text-align:right">데이터 기준 ${dateStr} (${days}일 전)</div>`;
   }
 }
 
@@ -211,20 +232,28 @@ async function init() {
 
 function getFilteredVersions() {
   const today = new Date();
-  return allVersions.filter(v => {
-    // 법령 유형 필터
-    if (currentLawType !== 'all' && v.법령유형 !== currentLawType) return false;
-
-    // 90일 고정 필터
-    if (!v.공포일자 || v.공포일자.length !== 8) return false;
-    const pub = new Date(
-      parseInt(v.공포일자.slice(0, 4)),
-      parseInt(v.공포일자.slice(4, 6)) - 1,
-      parseInt(v.공포일자.slice(6, 8))
-    );
-    const daysAgo = (today - pub) / (1000 * 60 * 60 * 24);
-    return daysAgo <= FILTER_DAYS;
-  });
+  const pubDate = v => new Date(
+    parseInt(v.공포일자.slice(0, 4)),
+    parseInt(v.공포일자.slice(4, 6)) - 1,
+    parseInt(v.공포일자.slice(6, 8))
+  );
+  // 법령 유형 필터 + 공포일자 유효성 (8자리)
+  const byType = allVersions.filter(v =>
+    (currentLawType === 'all' || v.법령유형 === currentLawType)
+    && v.공포일자 && v.공포일자.length === 8
+  );
+  // 90일 이내 신규 공포 개정
+  const within = byType.filter(v => (today - pubDate(v)) / (1000 * 60 * 60 * 24) <= FILTER_DAYS);
+  if (within.length > 0) {
+    lastFilterFallback = false;
+    return within;
+  }
+  // 90일 이내 개정이 없으면 → 가장 최근 개정 N건 폴백 (개정 공백기에도 빈 화면 방지)
+  lastFilterFallback = true;
+  return byType
+    .slice()
+    .sort((a, b) => (b.공포일자 || '').localeCompare(a.공포일자 || ''))
+    .slice(0, FALLBACK_COUNT);
 }
 
 // ─────────────────────────────────────────────────────
@@ -395,14 +424,19 @@ function render() {
     list.innerHTML = `
       <div class="empty">
         <div class="icon">📭</div>
-        <p>해당 기간에 개정 사항이 없습니다.</p>
+        <p>표시할 개정 사항이 없습니다.</p>
         <p style="font-size:13px">필터를 "전체"로 바꿔보세요.</p>
       </div>
     `;
     return;
   }
 
-  list.innerHTML = filtered.map(cardHtml).join('');
+  const fallbackBanner = lastFilterFallback ? `
+    <div style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;line-height:1.5">
+      ℹ️ 최근 ${FILTER_DAYS}일 이내 신규 공포된 개정이 없어, <b>가장 최근 개정 ${filtered.length}건</b>을 표시합니다.
+    </div>
+  ` : '';
+  list.innerHTML = fallbackBanner + filtered.map(cardHtml).join('');
 }
 
 // ─────────────────────────────────────────────────────

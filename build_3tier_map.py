@@ -26,7 +26,7 @@ from api_utils import request_xml_with_retry
 
 # === 설정 ===
 API_KEY = "evergreen_edu"
-DETAIL_URL = "http://www.law.go.kr/DRF/lawService.do"
+DETAIL_URL = "https://www.law.go.kr/DRF/lawService.do"
 REQUEST_DELAY = 0.6
 
 # Phase 3 S1-A: 법령 그룹 dict-of-dict로 래핑. 향후 신규 그룹("tlspc" 등) 추가 시 키만 추가.

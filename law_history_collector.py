@@ -26,8 +26,8 @@ from typing import Optional
 
 # === 설정 ===
 API_KEY = "evergreen_edu"  # 국가법령정보 오픈API 키
-SEARCH_URL = "http://www.law.go.kr/DRF/lawSearch.do"
-DETAIL_URL = "http://www.law.go.kr/DRF/lawService.do"
+SEARCH_URL = "https://www.law.go.kr/DRF/lawSearch.do"
+DETAIL_URL = "https://www.law.go.kr/DRF/lawService.do"
 REQUEST_DELAY = 0.6  # API 요청 간격 (초)
 
 # 도로교통법 관련 법령 그룹
