@@ -24,7 +24,7 @@ from api_utils import request_xml_with_retry
 
 # === 설정 ===
 API_KEY = "evergreen_edu"
-DETAIL_URL = "http://www.law.go.kr/DRF/lawService.do"
+DETAIL_URL = "https://www.law.go.kr/DRF/lawService.do"
 HISTORY_LIST_URL = "https://www.law.go.kr/LSW/lsHstListR.do"
 REQUEST_DELAY = 0.6  # API 요청 간격 (초)
 SAVE_INTERVAL = 10   # 중간 저장 간격 (건)
