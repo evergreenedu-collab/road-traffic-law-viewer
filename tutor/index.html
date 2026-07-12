@@ -3,12 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📚 출근길 법령 튜터 — 도로교통법 한눈에</title>
+<title>도로교통법 한눈에 (출근길 법령 AI 튜터)</title>
 <!-- PWA PR-H1 — manifest + theme color -->
 <link rel="manifest" href="../manifest.json">
 <meta name="theme-color" content="#1e3a5f">
-<link rel="icon" type="image/svg+xml" href="../icons/icon-192.svg">
-<link rel="apple-touch-icon" href="../icons/icon-192.svg">
+<link rel="icon" type="image/png" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="법령 AI튜터">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -281,8 +283,39 @@ footer a { color: var(--sub); text-decoration: underline; }
   .date-nav { align-items: center; }
 }
 </style>
+<style>
+.splash-ov{position:fixed;inset:0;z-index:99999;background:radial-gradient(120% 60% at 50% -10%,#fdfbf6 0%,#f7f4ed 60%),#f7f4ed;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 26px;transition:opacity .4s ease}
+.splash-ov.hide{opacity:0;pointer-events:none}
+.splash-ov .sci{width:230px;max-width:74%;height:auto}
+.splash-ov .stitle{font-size:23px;font-weight:800;color:#1e3a5f;margin:26px 0 6px;letter-spacing:-.02em;text-wrap:balance}
+.splash-ov .ssub{font-size:14px;font-weight:600;color:#5b6b7f}
+.splash-ov .sload{position:absolute;left:0;right:0;bottom:76px;display:flex;justify-content:center}
+.splash-ov .sload span{display:block;width:140px;height:5px;border-radius:99px;overflow:hidden;background:#e8e2d5;position:relative}
+.splash-ov .sload span::after{content:"";position:absolute;left:-40%;top:0;bottom:0;width:40%;border-radius:99px;background:linear-gradient(90deg,#003FA2,#00923F);animation:splashLoad 1.3s ease-in-out infinite}
+@keyframes splashLoad{0%{left:-40%}100%{left:100%}}
+.splash-ov .sfoot{position:absolute;left:0;right:0;bottom:34px;font-size:11px;color:#9a9484;font-weight:600}
+@media (prefers-reduced-motion:reduce){.splash-ov{transition:none}.splash-ov .sload span::after{animation:none;left:0;width:100%}}
+</style>
+<noscript><style>.splash-ov{display:none!important}</style></noscript>
 </head>
 <body>
+<div id="splash" class="splash-ov" role="status" aria-label="도로교통법 한눈에 로딩 중">
+<img class="sci" src="../images/koroad-ci.png" alt="한국도로교통공단 KOROAD">
+<div class="stitle">도로교통법 한눈에</div>
+<div class="ssub">출근길 법령 AI 튜터</div>
+<div class="sload"><span></span></div>
+<div class="sfoot">한국도로교통공단 교통안전교육본부</div>
+</div>
+<script>
+(function(){var s=document.getElementById('splash');if(!s)return;
+var t,closed=false;
+function close(){if(closed)return;closed=true;clearTimeout(t);s.classList.add('hide');setTimeout(function(){s.style.display='none';},450);}
+try{if(sessionStorage.getItem('rtl_splash_seen')){s.style.display='none';return;}sessionStorage.setItem('rtl_splash_seen','1');}catch(e){}
+s.addEventListener('click',close);
+document.addEventListener('keydown',function(e){if(e.key==='Escape'||e.key==='Enter'||e.key===' '){close();}});
+t=setTimeout(close,1800);
+})();
+</script>
 
 <header style="text-align:center">
   <!-- 2026-05-29: 헤더 액션 2개로 감축 (알림 받기는 부제목 우측 보조 위치) -->
@@ -300,7 +333,7 @@ footer a { color: var(--sub); text-decoration: underline; }
       <a class="gpts-starter-item" href="https://chatgpt.com/g/g-6a1857209ba881918c827baea12f79f7-koroad-dorogyotongbeob-panrye-jaegyeolrye-johoe" target="_blank" rel="noopener noreferrer" data-q="녹색신호 직진 차량이 항상 무과실인가요? 신뢰원칙이 적용 안 되는 예외 사례가 있나요?">녹색직진 차량 무과실 — 신뢰원칙 예외 사례는? <span class="copy-ico">📋</span></a>
     </div>
   </details>
-  <h1 style="margin:0 0 4px;font-size:22px">📚 출근길 법령 튜터</h1>
+  <h1 style="margin:0 0 4px;font-size:22px">📚 도로교통법 한눈에</h1>
   <!-- 2026-05-29: 부제목 우측에 알림 받기 보조 버튼 (메인 액션과 위계 구분) -->
   <div class="subtitle-row" style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:4px">
     <p style="margin:0;font-size:13px;line-height:1.5;opacity:0.92">매일 한 건 — 도로교통법 현행 + 해설 + 판례 통합 학습</p>
