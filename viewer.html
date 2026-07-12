@@ -2809,6 +2809,7 @@ window.addEventListener('message',e=>{
     return;
   }
   const targetJo = e.data.jo;
+  const targetLaw = (e.data.law && e.data.law !== '법률') ? e.data.law : '법률';
 
   // PR-H13 Fix 4-α (Codex 권장): URL replaceState를 최우선으로 — alarm.html 폴백 setTimeout이 부모 URL로 처리 완료 여부 판정.
   // 이 줄이 없으면 정상 처리 중에도 alarm.html이 1.5초 뒤 폴백 발화해서 이중 navigation 위험.
@@ -2816,7 +2817,7 @@ window.addEventListener('message',e=>{
     const url = new URL(window.location.href);
     url.searchParams.set('jo', targetJo);
     url.searchParams.set('tab', 'history');
-    url.searchParams.delete('law');
+    if (targetLaw !== '법률') url.searchParams.set('law', targetLaw); else url.searchParams.delete('law');
     history.replaceState(null, '', url.toString());
   } catch(_) {}
 
@@ -2841,8 +2842,13 @@ window.addEventListener('message',e=>{
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'history'));
 
     // 법률 토글 (필요 시) — switchLawType이 buildOpts + popGrouped + renderHistory 호출
-    if (typeof switchLawType === 'function' && currentLawType !== '법률') {
-      switchLawType('법률');
+    if (typeof switchLawType === 'function' && currentLawType !== targetLaw) {
+      switchLawType(targetLaw);
+      if (currentLawType !== targetLaw) {  // 해당 법령유형 자료 없음 → 엉뚱한 조문 방지, 안전 중단
+        if (navOverlay) navOverlay.style.display = 'none';
+        alert('제' + targetJo + '조(' + targetLaw + ') 자료를 찾을 수 없습니다.');
+        return;
+      }
     }
 
     // sel.value 설정 + renderHistory 1회
@@ -2859,7 +2865,7 @@ window.addEventListener('message',e=>{
       const url = new URL(window.location.href);
       url.searchParams.set('jo', targetJo);
       url.searchParams.set('tab', 'history');
-      url.searchParams.delete('law');
+      if (targetLaw !== '법률') url.searchParams.set('law', targetLaw); else url.searchParams.delete('law');
       history.replaceState(null, '', url.toString());
     } catch(_) {}
 
