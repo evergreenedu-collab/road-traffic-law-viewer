@@ -186,5 +186,10 @@
     "article": "14",
     "group": "road",
     "type": "article"
+  },
+  "2026-07-16": {
+    "article": "3",
+    "group": "tlspc",
+    "type": "article"
   }
 }
