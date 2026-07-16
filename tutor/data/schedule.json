@@ -191,5 +191,10 @@
     "article": "3",
     "group": "tlspc",
     "type": "article"
+  },
+  "2026-07-17": {
+    "article": "70",
+    "group": "cargo_transport",
+    "type": "article"
   }
 }
