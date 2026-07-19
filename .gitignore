@@ -59,7 +59,10 @@ _backup_*/
 
 # 로컬 자동 갱신 (scripts/local_auto_update.ps1)
 .local_update.lock
+local_update.log
 local_update.log.old
+.last_update_date
+.last_attempt
 
 node_modules/
 package-lock.json
