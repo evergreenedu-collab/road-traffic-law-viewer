@@ -13,8 +13,11 @@ name: 매주 자동 갱신
 # ─────────────────────────────────────────────────────
 
 on:
-  schedule:
-    - cron: '0 20 * * 0'  # 매주 일요일 20:00 UTC = 월요일 05:00 KST
+  # 2026-07-19: law.go.kr이 GitHub Actions 대역의 본문 API(lawService.do)를 차단하여
+  # 매주 자동 실행이 계속 실패(검색 API는 되나 본문 API가 막혀 전체 수집 불가).
+  # → schedule 비활성. 정기 갱신은 로컬 PC 작업 스케줄러가 담당(로컬/기타 해외서버 IP는 정상).
+  # schedule:
+  #   - cron: '0 20 * * 0'  # 매주 일요일 20:00 UTC = 월요일 05:00 KST
   workflow_dispatch:
     inputs:
       force_issue:
