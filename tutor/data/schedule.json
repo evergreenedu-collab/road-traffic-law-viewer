@@ -196,5 +196,10 @@
     "article": "70",
     "group": "cargo_transport",
     "type": "article"
+  },
+  "2026-07-20": {
+    "article": "60",
+    "group": "road",
+    "type": "article"
   }
 }
