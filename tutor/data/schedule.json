@@ -211,5 +211,10 @@
     "article": "11",
     "group": "road",
     "type": "article"
+  },
+  "2026-07-23": {
+    "article": "4",
+    "group": "tlspc",
+    "type": "article"
   }
 }
