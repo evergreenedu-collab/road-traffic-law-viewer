@@ -221,5 +221,10 @@
     "article": "212",
     "group": "crim_proc",
     "type": "article"
+  },
+  "2026-07-27": {
+    "article": "30",
+    "group": "road",
+    "type": "article"
   }
 }
