@@ -271,5 +271,10 @@
     "article": "26",
     "group": "car_mgmt",
     "type": "article"
+  },
+  "2026-08-10": {
+    "article": "8",
+    "group": "road",
+    "type": "article"
   }
 }
