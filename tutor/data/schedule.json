@@ -321,5 +321,10 @@
     "article": "8",
     "group": "cargo_transport",
     "type": "article"
+  },
+  "2026-08-24": {
+    "article": "87의2",
+    "group": "road",
+    "type": "article"
   }
 }
