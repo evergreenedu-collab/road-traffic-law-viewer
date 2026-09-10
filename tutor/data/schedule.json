@@ -391,5 +391,10 @@
     "article": "3",
     "group": "tlspc",
     "type": "article"
+  },
+  "2026-09-11": {
+    "article": "34",
+    "group": "car_mgmt",
+    "type": "article"
   }
 }
