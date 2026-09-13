@@ -396,5 +396,10 @@
     "article": "34",
     "group": "car_mgmt",
     "type": "article"
+  },
+  "2026-09-14": {
+    "article": "53의3",
+    "group": "road",
+    "type": "article"
   }
 }
