@@ -411,5 +411,10 @@
     "article": "76",
     "group": "road",
     "type": "article"
+  },
+  "2026-09-17": {
+    "article": "4",
+    "group": "tlspc",
+    "type": "article"
   }
 }
