@@ -416,5 +416,10 @@
     "article": "4",
     "group": "tlspc",
     "type": "article"
+  },
+  "2026-09-18": {
+    "article": "87",
+    "group": "passenger_transport",
+    "type": "article"
   }
 }
