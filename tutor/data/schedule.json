@@ -426,5 +426,18 @@
     "article": "148",
     "group": "road",
     "type": "article"
+  },
+  "2026-09-22": {
+    "article": "148",
+    "fallback_from_case": {
+      "first_case": {
+        "case_no": "2013도15885",
+        "source": "court"
+      },
+      "leaked_themes": "leaked: ['사고미조치']",
+      "reason": "external_keywords_leaked",
+      "retry_case": null
+    },
+    "type": "article"
   }
 }
