@@ -444,5 +444,10 @@
     "article": "85",
     "group": "road",
     "type": "article"
+  },
+  "2026-09-24": {
+    "article": "3",
+    "group": "tlspc",
+    "type": "article"
   }
 }
