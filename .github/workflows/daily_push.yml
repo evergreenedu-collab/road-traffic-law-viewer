@@ -18,6 +18,7 @@ on:
 permissions:
   contents: write              # 카드 자료 commit·push 위해 필요
   actions: write               # deploy_pages workflow_dispatch 트리거 위해 필요 (github-actions[bot] push가 자동 재trigger 안 되는 정책 우회)
+  issues: write                # 카드 발행 보류 알림 Issue (2026-10-10 — 조용한 실패 방지)
 
 # 이중 트리거(GitHub schedule + Vercel cron→dispatch) 동시 실행 직렬화 —
 # 두 실행이 같은 날 카드를 각자 생성해 서로 덮어쓰는 race 차단 (2026-10-10 교차검증:
@@ -176,6 +177,64 @@ jobs:
         run: |
           gh workflow run deploy_pages.yml --ref master
           echo "✅ deploy_pages workflow_dispatch 트리거 완료"
+
+      # 2026-10-10 사용자 지시 "이런 일이 반복되지 않도록" — 발행 보류가 조용히 지나가지 않게.
+      # 그날 카드가 발행 허용 상태가 아니면 날짜별 Issue 생성(이미 있으면 댓글), 이후
+      # 재시도가 성공하면 그 Issue를 자동 닫음. (8/25·9/23처럼 반복 차단되는 날 즉시 인지)
+      # 과거 날짜 재생성(dispatch date 입력)도 포함 — 복구 실패 역시 알려야 할 실패다.
+      # always(): 앞 단계가 터져도 감시는 실행 (조용한 실패 방지의 핵심 — Codex 검증 반영)
+      - name: 발행 보류 감시 (Issue 알림)
+        if: always() && steps.date.outputs.dow != '6' && steps.date.outputs.dow != '7' && steps.date.outputs.today != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TODAY: ${{ steps.date.outputs.today }}
+        run: |
+          STATUS=$(python - <<'EOF'
+          import json, os
+          try:
+              d = json.load(open(f"tutor/data/daily_{os.environ['TODAY']}.json", encoding="utf-8"))
+              c = (d.get("cards") or [{}])[0]
+              st = c.get("llm_status")
+              print("ok" if st in ("ok", "ok_re_paired", "ok_partial") else f"hold:{st}")
+          except Exception:
+              print("hold:no_card")
+          EOF
+          )
+          TITLE="[카드 발행 보류] $TODAY"
+          # 닫힌 Issue 재보류 대비 — state all에서 찾고, 닫혀 있으면 reopen (중복 생성 방지)
+          read -r NUM STATE <<< "$(gh issue list --state all --search "in:title $TODAY" --json number,title,state \
+                --jq "[.[] | select(.title == \"$TITLE\")][0] | \"\(.number) \(.state)\"" 2>/dev/null || echo '')"
+          [ "$NUM" = "null" ] && NUM=""
+          if [ "$STATUS" = "ok" ]; then
+            if [ -n "$NUM" ] && [ "$STATE" = "OPEN" ]; then
+              if gh issue close "$NUM" --comment "✅ 재시도에서 카드 정상 발행 — 자동 종료"; then
+                echo "보류 Issue #$NUM 자동 닫음"
+              else
+                echo "⚠️ Issue 닫기 실패 (#$NUM) — 수동 확인"
+              fi
+            else
+              echo "카드 정상 — 알림 불필요"
+            fi
+          else
+            BODY="$TODAY 카드가 발행 보류 상태입니다 (사유: ${STATUS#hold:}).
+          - AI 해설 생성 실패 시 발행하지 않는 정책(2026-10-10)에 따라 저장·알림이 생략됐습니다.
+          - 같은 날 다음 트리거가 자동 재시도합니다. 이 Issue가 닫히지 않고 남아 있으면 그날 재시도도 실패한 것입니다.
+          - 수동 재시도: Actions → '매일 카드 + 푸시 알림' → Run workflow (date=$TODAY)"
+            if [ -n "$NUM" ]; then
+              [ "$STATE" != "OPEN" ] && gh issue reopen "$NUM" 2>/dev/null
+              if gh issue comment "$NUM" --body "재시도 실패 (사유: ${STATUS#hold:}, $(TZ=Asia/Seoul date '+%H:%M'))"; then
+                echo "기존 Issue #$NUM 에 실패 댓글"
+              else
+                echo "⚠️ Issue 댓글 실패 (#$NUM)"
+              fi
+            else
+              if gh issue create --title "$TITLE" --body "$BODY"; then
+                echo "보류 Issue 생성: $TITLE"
+              else
+                echo "⚠️ Issue 생성 실패 — gh 권한·네트워크 확인"
+              fi
+            fi
+          fi
 
       - name: 푸시 알림 발송 (Phase 5 — 다중 사용자)
         # 과거 날짜 재생성(inputs.date)은 알림 발송 안 함 — 당일 자동 실행만 발송
