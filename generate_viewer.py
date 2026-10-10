@@ -423,6 +423,21 @@ def main():
     law_title = map_data.get("기준법령", {}).get("법률", {}).get("법령명", "도로교통법")
     html = HTML_TEMPLATE.replace("{{LAW_TITLE}}", law_title)
 
+    # 2026-10-10 사용자 요청: 현재 표시 법령의 공포·시행일 헤더 표시용 메타
+    law_meta = {}
+    for _lt in ("법률", "시행령", "시행규칙"):
+        _entry = art_data.get(_lt) or {}
+        _bi = _entry.get("기본정보") or {}
+        if _bi.get("공포일자") or _bi.get("시행일자"):
+            law_meta[_lt] = {
+                "법령명": _entry.get("법령명", "") or _bi.get("법령명", ""),
+                "공포일자": _bi.get("공포일자", ""),
+                "시행일자": _bi.get("시행일자", ""),
+            }
+    # '<' 이스케이프 — 값에 '</script>'류가 섞여도 스크립트 조기 종료 불가 (Codex 권장)
+    law_meta_json = json.dumps(law_meta, ensure_ascii=False).replace("<", "\\u003c")
+    html = html.replace("{{LAW_META_JSON}}", law_meta_json)
+
     # PR-H4-β: 헤더 좌측 액션 그룹 — flex 래퍼 안에 알람(road 전용) + 튜터 복귀(전 그룹)
     # 튜터 복귀 버튼은 모든 그룹 viewer에 표시 — 어느 viewer에서도 튜터로 돌아갈 수 있도록 (Codex 권장 위치=왼쪽)
     tutor_button = (
@@ -560,6 +575,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 .header-action-btn.push-sub:hover{background:#e5e7eb;color:#374151}
 .subtitle-row{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
 .subtitle-row p{margin:0}
+/* 2026-10-10 사용자 요청: 지금 보는 법령이 언제 공포·시행된 현행인지 헤더에 명시 */
+.header .law-meta{margin:7px 0 0;font-size:12.5px;opacity:.95;background:rgba(255,255,255,.14);display:inline-block;padding:3px 12px;border-radius:12px}
 @media (max-width:600px){
   .subtitle-row{flex-direction:column;gap:6px}
 }
@@ -836,6 +853,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
     <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
     {{PUSH_BUTTON}}
   </div>
+  <p id="lawMeta" class="law-meta" aria-live="polite"></p>
   <!-- 2026-05-29: <a target=_blank>로 popup blocker 우회 + 클릭 시 클립보드 복사 -->
   <details class="gpts-starter">
     <summary>💡 궁금한 사례는 GPTs에서 질문해보세요 <span class="caret" aria-hidden="true"></span></summary>
@@ -1261,6 +1279,29 @@ function syncLawTypeToggle(){
 }
 
 // 라디오 클릭 시: lawType 전환 → opts 재빌드 → 첫 조문 선택 → render
+// 2026-10-10: 현재 표시 중인 법령의 공포·시행일 헤더 표시 (법률/시행령/시행규칙 토글 연동)
+const LAW_META={{LAW_META_JSON}};
+function fmtLawDate(s){
+  if(!s||String(s).length!==8) return '';
+  s=String(s);
+  return s.slice(0,4)+'. '+(+s.slice(4,6))+'. '+(+s.slice(6,8))+'.';
+}
+function updateLawMeta(){
+  const el=document.getElementById('lawMeta');
+  if(!el) return;
+  const m=LAW_META&&LAW_META[currentLawType];
+  if(!m){el.textContent='';el.style.display='none';return;}
+  const pub=fmtLawDate(m['공포일자']), eff=fmtLawDate(m['시행일자']);
+  let t='지금 보는 법령: '+(m['법령명']||currentLawType);
+  if(pub) t+=' — '+pub+' 공포';
+  if(eff) t+=' · '+eff+' 시행';
+  // 시행일자는 eflaw(시행중 버전) 기준이라 보통 과거·당일. 미래면 중립 라벨 (Codex 권장)
+  const effRaw=String(m['시행일자']||'');
+  const now=new Date();
+  const todayStr=''+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+  el.textContent=t+(effRaw&&effRaw>todayStr?' (시행 예정)':' (현행)');
+  el.style.display='inline-block';
+}
 function switchLawType(newType){
   if(newType===currentLawType) return;
   if(newType!=='법률' && !hasLawTypeData(newType)){
@@ -1268,6 +1309,7 @@ function switchLawType(newType){
     return;
   }
   currentLawType=newType;
+  updateLawMeta();
   opts=buildOpts(currentLawType);
   popGrouped(opts);
   syncLawTypeToggle();
@@ -1334,6 +1376,7 @@ function goToSubArticle(lawType, joKey){
   if(headerStats){
     headerStats.innerHTML = `<b>${totalArt}</b><span>법률 조문</span><br><b>${linkedArt}</b><span>하위법령 매핑</span>`;
   }
+  updateLawMeta();   // 조문 자료가 비어도(opts=0) 헤더 메타는 표시 (Codex 권장)
   if(opts.length){
     // URL 쿼리에서 조문 + 탭 파싱 (딥링크)
     const url = new URL(window.location.href);
