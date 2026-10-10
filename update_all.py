@@ -149,6 +149,23 @@ def main():
                 print(f"⚠️ {group} 그룹은 건너뛰고 다음 그룹 진행")
                 break
 
+    # 전역 후처리 — 보조법령 참고자료 재생성 (2026-10-10 Codex 설계·코드리뷰: 그룹 루프에
+    # 넣으면 중복 실행 위험, 그리고 앞 단계 실패가 있으면 구/신 데이터 혼합 스냅샷을
+    # 덮어쓸 수 있어 → 전부 성공했을 때만 전체 순회 뒤 1회. 실패 시 기존 파일 유지)
+    print()
+    print("━" * 60)
+    print("[후처리] 보조법령 참고자료 생성 (tutor/build_ref_laws.py)")
+    print("━" * 60)
+    if failed:
+        print(f"⏭️ 앞 단계 실패({', '.join(failed)}) — 혼합 스냅샷 방지를 위해 건너뜀 (기존 ref_laws.json 유지)")
+    else:
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        r = subprocess.run([sys.executable, os.path.join(SCRIPT_DIR, "tutor", "build_ref_laws.py")],
+                           cwd=SCRIPT_DIR, env=env)
+        if r.returncode != 0:
+            failed.append("tutor/build_ref_laws.py")
+
     total_elapsed = time.time() - overall_start
     print()
     print("=" * 60)

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>보조법령 참고자료 — 법령 AI튜터</title>
+<style>
+:root { --law:#1e3a5f; --law-bg:#e8eef5; --sub:#6b7280; --line:#e5e7eb; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:'Pretendard','Noto Sans KR','Malgun Gothic',sans-serif; background:#f5f7fa; color:#1f2937; }
+.header { background:linear-gradient(135deg,#1e3a5f,#2d5a87); color:#fff; padding:22px 16px; text-align:center; }
+.header h1 { margin:0 0 6px; font-size:21px; }
+.header p { margin:0; font-size:12.5px; opacity:.92; }
+.header a.back { color:#fff; font-size:12.5px; opacity:.9; text-decoration:underline; }
+.wrap { max-width:860px; margin:0 auto; padding:16px; }
+.notice { background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:8px; padding:10px 14px; font-size:12.5px; line-height:1.6; margin-bottom:14px; }
+.chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.chip { border:1px solid var(--line); background:#fff; border-radius:16px; padding:6px 14px; font-size:13px; cursor:pointer; }
+.chip.active { background:var(--law); color:#fff; border-color:var(--law); font-weight:600; }
+.group { background:#fff; border:1px solid var(--line); border-radius:10px; margin-bottom:14px; overflow:hidden; }
+.group h2 { margin:0; padding:12px 16px; font-size:15.5px; background:var(--law-bg); color:var(--law); }
+.art { display:flex; align-items:center; gap:10px; padding:11px 16px; border-top:1px solid var(--line); flex-wrap:wrap; }
+.art .ico { font-size:16px; }
+.art .ttl { flex:1 1 240px; font-size:13.5px; line-height:1.5; }
+.art .ttl b { font-size:14px; }
+.art .topic { color:var(--sub); font-size:12px; }
+.art .acts { display:flex; gap:6px; flex-wrap:wrap; }
+.btn { font-size:12px; padding:5px 10px; border-radius:6px; border:1px solid var(--law); color:var(--law); background:#fff; text-decoration:none; white-space:nowrap; }
+.btn.primary { background:var(--law); color:#fff; }
+.btn.card { border-color:#d97706; color:#92400e; background:#fffbeb; }
+.hidden { display:none; }
+.gen { text-align:center; color:var(--sub); font-size:11.5px; margin:18px 0 26px; }
+@media (max-width:600px){ .art .acts{width:100%; justify-content:flex-end;} }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📚 보조법령 참고자료</h1>
+  <p>도로교통법·교특법 외 보조법령 — 교수 강의 관련 조문만 추렸습니다 · <a class="back" href="./">← 출근길 튜터로</a></p>
+</div>
+<div class="wrap">
+  <div class="notice">
+    보조법령(자동차관리법·여객자동차법·화물자동차법·형사소송법)은 2026-10-13부터 매일 카드에서 빠지고 이 참고자료로 제공됩니다.
+    <b>현행 조문·연혁은 "전문·연혁" 버튼</b>으로 확인하세요. "과거 학습 카드"는 생성 당시 조문 기준의 AI 해설이라 참고용입니다.
+  </div>
+  <div class="chips" id="chips"></div>
+  <div id="content">불러오는 중…</div>
+  <div class="gen" id="gen"></div>
+</div>
+<script>
+const ICONS = { license:'🪪', duty:'📋', vehicle:'🚗', procedure:'⚖️' };
+let DATA = null, FILTER = 'all';
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function render(){
+  if(!DATA) return;
+  const chips = [['all','전체']].concat(Object.entries(DATA.situations||{}));
+  document.getElementById('chips').innerHTML = chips.map(([k,label]) =>
+    '<button type="button" class="chip'+(FILTER===k?' active':'')+'" data-f="'+esc(k)+'">'
+    + (k==='all'?'전체':(ICONS[k]||'')+' '+esc(label)) + '</button>').join('');
+  document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{FILTER=b.dataset.f; render();});
+  let html='';
+  for(const g of (DATA.groups||[])){
+    const arts=(g.articles||[]).filter(a=>FILTER==='all'||a.situation===FILTER);
+    if(!arts.length) continue;
+    html += '<div class="group"><h2>'+esc(g.label)+'</h2>';
+    for(const a of arts){
+      const cardBtns=(a.card_dates||[]).slice(0,1).map(d=>
+        '<a class="btn card" href="./?date='+esc(d)+'" title="생성 당시 조문 기준 AI 해설 — 현행 확인은 전문·연혁 버튼">🗂️ 과거 학습 카드</a>').join('');
+      html += '<div class="art">'
+        + '<span class="ico">'+(ICONS[a.situation]||'📄')+'</span>'
+        + '<span class="ttl"><b>제'+esc(a.article)+'조 '+esc(a.title)+'</b><br><span class="topic">'+esc(a.topic)+'</span></span>'
+        + '<span class="acts"><a class="btn primary" href="'+esc(a.viewer_link)+'">📖 전문·연혁</a>'+cardBtns+'</span>'
+        + '</div>';
+    }
+    html += '</div>';
+  }
+  document.getElementById('content').innerHTML = html || '해당 분류의 조문이 없습니다.';
+}
+fetch('./data/ref_laws.json', {cache:'no-store'}).then(r=>r.json()).then(d=>{
+  DATA=d; render();
+  const g=document.getElementById('gen');
+  g.textContent='자료 생성: '+String(d.생성일시||'').slice(0,16).replace('T',' ')+' · 법령 갱신 시 자동 재생성';
+}).catch(e=>{ document.getElementById('content').textContent='자료를 불러오지 못했습니다: '+e; });
+</script>
+</body>
+</html>
