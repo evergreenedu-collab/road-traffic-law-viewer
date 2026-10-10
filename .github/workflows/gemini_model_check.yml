@@ -1,0 +1,30 @@
+name: Gemini 모델 진단
+
+# 프로젝트 API 키로 사용 가능한 Gemini 모델 목록·현행 세대를 확인하는 진단용 (수동 실행)
+# 2026-10-11: 카드 생성 모델(gemini-2.5-flash)이 구세대가 되어 무료 최상위로 업그레이드 검토
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 사용 가능 모델 목록
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$GEMINI_API_KEY&pageSize=200" \
+            | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          models = d.get('models', [])
+          print(f'총 {len(models)}개 모델')
+          for m in models:
+              name = m.get('name', '').replace('models/', '')
+              methods = m.get('supportedGenerationMethods', [])
+              if 'generateContent' not in methods:
+                  continue
+              print(f\"  {name}  | {m.get('displayName','')}\")
+          "
