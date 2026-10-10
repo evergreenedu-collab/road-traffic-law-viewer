@@ -57,6 +57,11 @@ desktop.ini
 *.bak.*.json
 _backup_*/
 
+# 체크포인트 손상 격리·원자 저장 임시 파일 (collect_article_history.py, 2026-10-10)
+# — 'git add data/'가 커밋해버리지 않게 (corrupt/tmp는 .json으로 안 끝나 data/*.json에 안 걸림)
+data/*.json.corrupt.*
+data/*.json.tmp
+
 # 로컬 자동 갱신 (scripts/local_auto_update.ps1)
 .local_update.lock
 local_update.log

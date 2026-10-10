@@ -40,7 +40,7 @@ from pathlib import Path
 import requests
 
 # Phase 2 2b-γ: 판례 페어링 + LLM 정리 (case 카드용)
-from case_pairing import select_paired_case
+from case_pairing import select_paired_case, ARTICLE_CATEGORY_MAP
 from case_llm import (
     CRITICAL_KEYS,
     REQUIRED_KEYS,
@@ -54,9 +54,22 @@ WEEKDAY_SLOTS = {
     0: ('article', 'road'),     # 월 — 도교법 article A
     1: ('case',    'road'),     # 화 — 도교법 case (전날 article A 페어링)
     2: ('article', 'road'),     # 수 — 도교법 article B
-    3: ('article', 'tlspc'),    # 목 — 교통사고처리 특례법
+    3: ('article', 'tlspc'),    # 목 — 격주: 교특법(홀수 주차) / 도교법 case(짝수 주차) — _resolve_thursday_slot
     4: ('article', None),       # 금 — 회전 (ROTATION_GROUPS에서 주차 cursor 결정)
 }
+
+# 2026-10-10 사용자 결정 — 목요일 교특법을 격주로 줄이고 판례 중심으로.
+# (운영 3개월간 교특법 목요일이 제3·4조 2개 조문 반복 — 학습 가치 저하.)
+# EPOCH 기준 주차 홀수 = 교특법(판례결합 카드), 짝수 = 도교법 판례 카드.
+# 2026-10-15(주차 41, 홀수)가 교특법 주로 시작.
+TLSPC_BIWEEKLY_PARITY = 1
+
+
+def _resolve_thursday_slot(target_date):
+    week_index = (target_date - EPOCH).days // 7
+    if week_index % 2 == TLSPC_BIWEEKLY_PARITY:
+        return ('article', 'tlspc')
+    return ('case', 'road')
 
 # Phase 3 S8 — 금요일 회전 그룹 5개 (주차 cursor % ROTATION_PERIOD 로 순환)
 ROTATION_GROUPS = ('tkga', 'car_mgmt', 'passenger_transport', 'cargo_transport', 'crim_proc')
@@ -160,13 +173,18 @@ SUSPECT_KEYWORDS_BY_THEME = {
 }
 
 
-def detect_external_keywords(generated, article_text):
-    """카드 LLM 출력의 의심 키워드가 조문 본문에 없으면 '외부 누출' 감지.
+def detect_external_keywords(generated, article_text, extra_allowed_texts=()):
+    """카드 LLM 출력의 의심 키워드가 허용 근거 텍스트에 없으면 '외부 누출' 감지.
+
+    extra_allowed_texts: 조문 본문 외 추가 허용 근거 (예: 카드에 제공된 판례 원문).
+    판례 사실관계에는 조문에 없는 '음주운전' 등이 합법적으로 등장하므로,
+    제공된 판례 원문에 있는 표현은 누출로 보지 않는다 (2026-10-10 Codex 설계검증).
 
     Returns: 누출 주제 리스트 (예: ['음주측정거부']). 누출 없으면 [].
     """
     if not generated or not article_text:
         return []
+    allowed_texts = [article_text] + [t for t in extra_allowed_texts if t]
     # 카드 출력 텍스트 모두 모음 (article 카드 6필드 + case 카드 6필드 모두 커버)
     out = []
     for k in ('oneliner', 'explanation', 'case_analysis', 'teaching_application',
@@ -191,9 +209,9 @@ def detect_external_keywords(generated, article_text):
         out_hit = any(v in output_text for v in variants)
         if not out_hit:
             continue
-        # 출력에 있는데 본문에 같은 주제 변형 단 하나라도 없으면 누출
-        article_hit = any(v in article_text for v in variants)
-        if not article_hit:
+        # 출력에 있는데 허용 근거(조문 본문·제공 판례 원문) 어디에도 없으면 누출
+        allowed_hit = any(v in t for t in allowed_texts for v in variants)
+        if not allowed_hit:
             leaked.append(theme)
     return leaked
 
@@ -350,32 +368,52 @@ def _try_case_selection(target_date, articles, schedule, indexes, pool_size,
                       14일 recent_history(장기 중복 방지)와 합쳐 select_paired_case에 전달.
     """
     prev_jo = _extract_prev_jo(target_date, articles, schedule, pool_size)
-    if not prev_jo:
+    # 2026-10-10 교차검증 확정 버그: 판례 페어링이 '전날 조문' 1개에 묶이는데
+    # ARTICLE_CATEGORY_MAP은 19개 조문만 커버 + 매핑돼도 조문별 판례 풀이 빌 수 있음
+    # → 20주 연속 판례 카드 0장. 전날 조문(매핑 시)을 1순위로 하되, 날짜 기반
+    # 회전 시작점부터 판례 가능 조문 전체를 성공할 때까지 순회한다
+    # ('하루 주제 통일'보다 판례 카드 존속 우선).
+    capable = [j for j in sorted(ARTICLE_CATEGORY_MAP, key=_jokey_order)
+               if j in articles]
+    jo_candidates = []
+    if prev_jo and str(prev_jo) in ARTICLE_CATEGORY_MAP:
+        jo_candidates.append(prev_jo)
+    if capable:
+        start = (target_date - EPOCH).days % len(capable)
+        jo_candidates += [j for j in capable[start:] + capable[:start]
+                          if j not in jo_candidates]
+    if not jo_candidates:
+        return None
+
+    excerpts = indexes['excerpts']
+    court_data = indexes['court_data']
+    recent_history = _extract_recent_case_history(schedule, target_date)
+    exclude = list(exclude_case_keys or [])
+
+    case_result = None
+    for jo_try in jo_candidates:
+        admin_cases = []
+        for cn in (indexes['cases'].get(jo_try, []) or []):
+            ex = excerpts.get(cn)
+            if not ex:
+                continue
+            admin_cases.append({**ex, 'case_no': cn})
+        court_cases_dict = {cid: court_data[cid]
+                            for cid in (indexes['court_index'].get(jo_try, []) or [])
+                            if cid in court_data}
+        case_result = select_paired_case(jo_try, target_date.strftime('%Y-%m-%d'),
+                                         admin_cases, court_cases_dict,
+                                         recent_history + exclude)
+        if case_result:
+            if jo_try != prev_jo:
+                print(f"  ℹ️ 판례 조문 독립 선정 — 제{jo_try}조 (전날 제{prev_jo}조는 판례 매핑/풀 없음)")
+            prev_jo = jo_try
+            break
+    if not case_result:
         return None
     jo_entry = articles.get(prev_jo, {})
     jo_title_entry = indexes['law'].get(prev_jo, {})
     jo_title = jo_title_entry.get('title', '') if isinstance(jo_title_entry, dict) else ''
-
-    # case_pairing이 받는 자료 형식 준비
-    excerpts = indexes['excerpts']
-    court_data = indexes['court_data']
-    admin_cases = []
-    for cn in (indexes['cases'].get(prev_jo, []) or []):
-        ex = excerpts.get(cn)
-        if not ex:
-            continue
-        admin_cases.append({**ex, 'case_no': cn})
-    court_cases_dict = {cid: court_data[cid]
-                        for cid in (indexes['court_index'].get(prev_jo, []) or [])
-                        if cid in court_data}
-
-    recent_history = _extract_recent_case_history(schedule, target_date)
-    exclude = list(exclude_case_keys or [])
-    case_result = select_paired_case(prev_jo, target_date.strftime('%Y-%m-%d'),
-                                     admin_cases, court_cases_dict,
-                                     recent_history + exclude)
-    if not case_result:
-        return None
     return {
         'card_type': 'case',
         'group': 'road',
@@ -532,13 +570,16 @@ def _resolve_rotation_group(target_date):
 
 def _group_occurrence_index(group, target_date):
     """EPOCH 이후 이 그룹이 평일 슬롯에서 몇 번째로 등장하는지(0-based).
-    - tlspc (목 고정): 매주 1번 → week_index
+    - tlspc (목 격주, 2026-10-10~): 2주마다 1번 → week_index // 2
+      (week_index 그대로 쓰면 격주 주차가 전부 홀수라 조문 2개 중 하나만 반복됨)
     - 회전 그룹 (금): ROTATION_PERIOD주마다 1번 → week_index // ROTATION_PERIOD
     - 그 외: week_index 기본"""
     delta_days = (target_date - EPOCH).days
     week_index = delta_days // 7
     if group in ROTATION_GROUPS:
         return week_index // ROTATION_PERIOD
+    if group == 'tlspc':
+        return week_index // 2
     return week_index
 
 
@@ -625,9 +666,33 @@ def select_card_for_date(articles, target_date, schedule, indexes=None, pool_siz
     if isinstance(existing, dict):
         ex_group = existing.get('group', 'road')
         ex_type = existing.get('type')
+        # 실패 폴백으로 article이 박힌 날(원래 슬롯은 case) — 재생성 시 판례 재시도.
+        # (기존엔 실패가 schedule에 article로 영구 고정돼 재실행해도 판례를 다시 안 봄 —
+        #  2026-10-10 교차검증. 성공 article 배정은 fallback_from_case가 없어 그대로 유지.)
+        if (ex_type == 'article' and existing.get('fallback_from_case')
+                and ex_group == 'road' and indexes is not None):
+            sel = _try_case_selection(target_date, articles, schedule, indexes, pool_size)
+            if sel:
+                schedule[key] = {
+                    'type': 'case',
+                    'group': 'road',
+                    'article': sel['jo'],
+                    'source': sel['case']['source'],
+                    'case_no': sel['case']['case_no'],
+                }
+                return sel
         if ex_type == 'case' and ex_group == 'road' and indexes is not None:
             sel = _try_case_selection(target_date, articles, schedule, indexes, pool_size)
             if sel:
+                # 재선정 결과를 schedule에 반영 — 순회 선정이 저장된 조문·사건과 다른 것을
+                # 고를 수 있어, 기록과 실제 노출 카드가 어긋나면 중복회피 이력도 어긋남 (Codex 권장)
+                schedule[key] = {
+                    'type': 'case',
+                    'group': 'road',
+                    'article': sel['jo'],
+                    'source': sel['case']['source'],
+                    'case_no': sel['case']['case_no'],
+                }
                 return sel
             # case 페어링 실패 → article 폴백
             jo = existing.get('article')
@@ -645,6 +710,8 @@ def select_card_for_date(articles, target_date, schedule, indexes=None, pool_siz
     slot = WEEKDAY_SLOTS.get(weekday)
     if slot is None:
         return None
+    if weekday == 3:
+        slot = _resolve_thursday_slot(target_date)   # 격주: 교특법 / 도교법 case
     card_type, slot_group = slot
 
     if slot_group == 'road':
@@ -662,7 +729,11 @@ def select_card_for_date(articles, target_date, schedule, indexes=None, pool_siz
             # case 페어링 실패 → article 폴백
         # 도교법 article (월·수 또는 case 페어링 실패)
         jo = _select_article_stride(articles, target_date, schedule, pool_size)
-        schedule[key] = {'type': 'article', 'group': 'road', 'article': jo}
+        entry = {'type': 'article', 'group': 'road', 'article': jo}
+        if card_type == 'case':
+            # 원래 슬롯은 case였다는 표식 — 재생성 시 판례 재시도 트리거
+            entry['fallback_from_case'] = {'reason': 'selection_failed'}
+        schedule[key] = entry
         return _make_article_selection(jo, articles)
 
     # 다른 그룹 article (목·금) — slot_group=None이면 회전(금요일)에서 동적 결정
@@ -835,6 +906,25 @@ def find_recent_revision(jo, revisions, target_date=None):
     candidates.sort(key=lambda x: x[0], reverse=True)
     _, v, art = candidates[0]
     return v, art
+
+
+# '최근 개정' 뱃지 기준 — 카드 기준일 이전 180일 이내 시행된 개정만 최근으로 표시.
+# (기존엔 개정 '존재' 여부만 봐서 2011년 개정도 true — 운영 99일 road 카드 58/59 오표시.
+#  2026-10-10 Codex 교차검증 확정 버그. 조회와 판정을 분리: 오래된 개정 정보 자체는 유지.)
+RECENT_REVISION_DAYS = 180
+
+
+def _is_recent_revision(version, art, target_date, days=RECENT_REVISION_DAYS):
+    eff = _normalize_date((art or {}).get('조문시행일자') or (version or {}).get('시행일자'))
+    if not eff:
+        return False
+    t = _normalize_date(target_date) or datetime.now().strftime('%Y%m%d')
+    try:
+        eff_d = datetime.strptime(eff, '%Y%m%d')
+        t_d = datetime.strptime(t, '%Y%m%d')
+    except ValueError:
+        return False
+    return 0 <= (t_d - eff_d).days <= days
 
 
 # ─── Gemini API ──────────────────────────────────────────────
@@ -1284,7 +1374,10 @@ def enrich_card(card, jo, jo_title, version, resources):
     # PR-H5-δ → ε: 사후 검증 — 외부 키워드 누출 감지 + 자동 폴백 승격
     # 누출 감지 시 LLM 콘텐츠 신뢰도 X — 카드에 적용하지 않고 article 폴백 (조문 본문만 노출).
     # 잘못된 카드가 사용자에게 그대로 노출되는 위험 차단.
-    leaked = detect_external_keywords(generated, resources.get('article_text') or '')
+    _case_texts = [c.get('full_text', '') for c in
+                   (resources.get('admin_cases') or []) + (resources.get('court_cases') or [])]
+    leaked = detect_external_keywords(generated, resources.get('article_text') or '',
+                                      extra_allowed_texts=_case_texts)
     card['verification'] = {
         'external_keywords_leaked': leaked,
         'status': 'clean' if not leaked else 'external_keywords_detected',
@@ -1485,7 +1578,8 @@ def build_case_card(selection, indexes, target_date=None, use_llm=True):
         if lc and not lc.get('_error'):
             # PR-H5-η: case 카드도 외부 키워드 누출 검증 — paired_jo의 조문 본문 기준
             # (LLM이 규칙 0번 위반해 응답한 경우의 사후 안전망)
-            leaked = detect_external_keywords(lc, article_text)
+            leaked = detect_external_keywords(lc, article_text,
+                                              extra_allowed_texts=(card['case_full_text'],))
             card['verification'] = {
                 'external_keywords_leaked': leaked,
                 'status': 'clean' if not leaked else 'external_keywords_detected',
@@ -1955,7 +2049,7 @@ def build_card(selection, indexes, target_date=None, use_llm=True):
         'law_info': {
             '매핑법률조문': jo,
             '매핑법률조문제목': jo_title,
-            'is_recent_revision': version is not None,
+            'is_recent_revision': _is_recent_revision(version, changed, target_date),
             'categories': selection['info'].get('categories', []),
             'viewer_link': f'../viewer.html?jo={jo}',
             'article_text': indexes['law_articles'].get(jo, ''),  # 현행 조문 원문 (R8 D1)
@@ -2149,12 +2243,18 @@ def _build_case_card_with_fallback(selection, indexes, target_date, use_llm,
     return retry_card
 
 
-# LLM 호출 자체가 실패해 learning_content가 아예 없는 상태 — 뷰어에서 '학습 콘텐츠
-# 미생성' 회색 배너(빈 카드)로 뜬다. 이 상태만 조문원문 폴백 대상.
+# LLM 콘텐츠가 없어 뷰어에서 '빈 카드'(배너+조문만)로 뜨는 실패 상태 — 조문원문 폴백 대상.
+# 2026-10-10: skip_external_keywords_leaked·skip_llm_returned_skip 추가 (운영 99일 중
+# 5일이 learning_content=None 그대로 노출된 결손 — Codex 교차검증 합의).
 # 제외: ok/ok_re_paired/ok_partial(정상), simple_other_group·simple(전용 배너+조문 풍부),
-#       skip_external_keywords_leaked(안전모드 전용 배너), skipped_by_flag(--no-llm),
-#       case 카드 정상(explanation 대신 fact_summary·conclusion 스키마) → 절대 안 건드림.
-_FALLBACK_STATUSES = {'skip_call_failed', 'skip_no_api_key', 'skip_verification_failed'}
+#       skipped_by_flag(--no-llm 개발용), case 카드 정상(6필드 스키마) → 절대 안 건드림.
+_FALLBACK_STATUSES = {
+    'skip_call_failed',
+    'skip_no_api_key',
+    'skip_verification_failed',
+    'skip_external_keywords_leaked',
+    'skip_llm_returned_skip',
+}
 
 
 def _ensure_renderable_card(card):
@@ -2193,6 +2293,37 @@ def _ensure_renderable_card(card):
     }
     print(f"    🔎 source_only 폴백 카드 주입 (원인={card['fallback_from']})")
     return card
+
+
+# 재생성 불필요한 '확정' 카드 상태 — 이중 트리거(GitHub cron + Vercel cron)의 두 번째
+# 실행이 성공 카드를 덮어쓰지 않게 (운영 98일 중 61일 이중 생성 — 2026-10-10 교차검증).
+# source_only·skip_*는 여기 없음 → 다음 실행에서 자동 재시도 (실패 날 복구 경로).
+FINAL_CARD_STATUSES = ('ok', 'ok_re_paired', 'ok_partial', 'simple_other_group')
+
+
+def _schedule_needs_case_retry(schedule, target_date):
+    """그 날짜 schedule이 '판례 실패 → article 폴백' 표식을 갖는지.
+    True면 daily가 성공 article 카드여도 재생성해 판례를 재시도한다
+    (멱등 스킵이 판례 복구를 영구히 막는 것 방지 — 2026-10-10 Codex 코드리뷰 치명 지적)."""
+    entry = schedule.get(target_date.strftime('%Y-%m-%d'))
+    return isinstance(entry, dict) and bool(entry.get('fallback_from_case'))
+
+
+def _is_final_daily(doc):
+    """저장된 daily JSON이 재생성 불필요한 성공본인지. 손상·실패·폴백이면 False(재생성)."""
+    if not isinstance(doc, dict):
+        return False
+    if doc.get('status') == 'weekend':
+        return True
+    if doc.get('status') != 'ok':
+        return False
+    cards = doc.get('cards') or []
+    if len(cards) != 1 or not isinstance(cards[0], dict):
+        return False
+    card = cards[0]
+    if card.get('content_tier') == 'source_only':
+        return False
+    return card.get('llm_status') in FINAL_CARD_STATUSES
 
 
 def build_daily(target_date, indexes, schedule, use_llm=True):
@@ -2251,6 +2382,8 @@ def main():
     parser.add_argument('--days', type=int, default=1, help='며칠치 생성 (기본 1)')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--no-llm', action='store_true')
+    parser.add_argument('--force', action='store_true',
+                        help='이미 성공한 카드도 재생성 (manual:true 카드는 여전히 보호)')
     args = parser.parse_args()
 
     if args.date:
@@ -2307,7 +2440,16 @@ def main():
             except (json.JSONDecodeError, OSError):
                 _existing = None
             if isinstance(_existing, dict) and _existing.get('manual'):
-                print(f"  🔒 {out_existing.name} 수동 카드 — 재생성 건너뜀 (manual=true)")
+                print(f"  🔒 {out_existing.name} 수동 카드 — 재생성 건너뜀 (manual=true, --force도 보호)")
+                results.append((target, _existing))
+                last_was_card = False
+                continue
+            # 멱등화 — 성공 카드는 재생성 안 함 (이중 트리거의 두 번째 실행이 덮어쓰기 방지).
+            # 실패·source_only 카드, 그리고 '판례 실패→article 폴백' 날은 통과 → 재생성(자동 재시도).
+            if (not args.force and _is_final_daily(_existing)
+                    and not _schedule_needs_case_retry(schedule, target)):
+                _st = (_existing.get('cards') or [{}])[0].get('llm_status', _existing.get('status'))
+                print(f"  ⏭️ {out_existing.name} 이미 성공 카드({_st}) — 재생성 건너뜀 (--force로 강제 가능)")
                 results.append((target, _existing))
                 last_was_card = False
                 continue
@@ -2324,8 +2466,10 @@ def main():
         last_was_card = True
         if not args.dry_run:
             out = OUTPUT_DIR / f"daily_{target.strftime('%Y-%m-%d')}.json"
-            with open(out, 'w', encoding='utf-8') as f:
+            tmp = out.with_suffix('.json.tmp')
+            with open(tmp, 'w', encoding='utf-8') as f:
                 json.dump(content, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, out)
             size_kb = out.stat().st_size / 1024
             print(f"  💾 {out.name} ({size_kb:.0f}KB)")
     if not args.dry_run:

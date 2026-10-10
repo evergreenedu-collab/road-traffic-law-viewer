@@ -58,6 +58,9 @@ STAGES = [
     ("alarm/build_alarm_data.py",             "최근 개정 알림 데이터 빌드",   "build",  "5초",    False, True),
     ("download_table_pdfs.py",                "별표 PDF 다운로드 (증분)",     "pdfs",   "수초~25분", True, False),
     ("generate_viewer.py",                    "최종 뷰어 생성",              "build",  "5초",    False, False),
+    # 2026-10-10 교차검증: 튜터 인덱스가 파이프라인에 없어 2026-05-27 이후 136일 방치 —
+    # 원천 갱신 성공 시 튜터 카드가 읽는 인덱스도 함께 갱신 (alarm 빌드 뒤 = recent_revisions 최신 반영).
+    ("tutor/build_indexes.py",                "튜터 인덱스 빌드",            "build",  "수초",   False, True),
 ]
 
 

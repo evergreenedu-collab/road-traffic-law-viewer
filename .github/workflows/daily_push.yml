@@ -13,6 +13,13 @@ permissions:
   contents: write              # 카드 자료 commit·push 위해 필요
   actions: write               # deploy_pages workflow_dispatch 트리거 위해 필요 (github-actions[bot] push가 자동 재trigger 안 되는 정책 우회)
 
+# 이중 트리거(GitHub schedule + Vercel cron→dispatch) 동시 실행 직렬화 —
+# 두 실행이 같은 날 카드를 각자 생성해 서로 덮어쓰는 race 차단 (2026-10-10 교차검증:
+# 운영 98일 중 61일 이중 생성). 뒤 실행은 앞 실행 커밋을 pull한 뒤 멱등 스킵.
+concurrency:
+  group: daily-push
+  cancel-in-progress: false
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -76,6 +83,9 @@ jobs:
           exit 0
 
       - name: 그날 카드 1장 빌드
+        # 주말 가드 — 위 '평일만 진행' 단계의 exit 0은 그 단계만 끝낼 뿐이라(교차검증 #9),
+        # 주말 수동 dispatch 시 카드 없이 기본 문구 알림이 나가는 것을 단계 조건으로 차단
+        if: steps.date.outputs.dow != '6' && steps.date.outputs.dow != '7'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PYTHONIOENCODING: utf-8
@@ -132,9 +142,11 @@ jobs:
           if git diff --cached --quiet; then
             echo "변경 없음 — commit 스킵"
             echo "pushed=false" >> $GITHUB_OUTPUT
+            echo "committed=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           git commit -m "data: ${{ steps.date.outputs.today }} 카드 자동 빌드"
+          echo "committed=true" >> $GITHUB_OUTPUT
           # PR 머지·재trigger와 race 회피 — rebase 후 push, 그래도 실패하면 무시
           git pull --rebase origin master || true
           if git push origin master; then
@@ -153,6 +165,7 @@ jobs:
           echo "✅ deploy_pages workflow_dispatch 트리거 완료"
 
       - name: 푸시 알림 발송 (Phase 5 — 다중 사용자)
+        if: steps.date.outputs.dow != '6' && steps.date.outputs.dow != '7'
         env:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
@@ -161,6 +174,8 @@ jobs:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           TODAY: ${{ steps.date.outputs.today }}
           DOW: ${{ steps.date.outputs.dow }}
+          COMMITTED: ${{ steps.card_commit.outputs.committed }}
+          PUSHED: ${{ steps.card_commit.outputs.pushed }}
         run: |
           node << 'EOF'
           const fs = require('fs');
@@ -201,6 +216,12 @@ jobs:
             }
           } catch (e) {
             console.error('카드 읽기 실패:', e.message);
+          }
+
+          // fail-open 정책 유지(사용자 결정 2026-10-10: 누락 < 중복) — 단, 새 카드를
+          // 커밋했는데 push가 실패한 경우만 '저장 지연 가능' 안내를 덧붙인다.
+          if (process.env.COMMITTED === 'true' && process.env.PUSHED !== 'true') {
+            body += '\n(카드 반영이 지연될 수 있어요 — 어제 카드가 보이면 잠시 후 다시 열어주세요)';
           }
 
           const payload = JSON.stringify({ title, body, url });
