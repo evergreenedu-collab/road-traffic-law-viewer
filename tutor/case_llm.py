@@ -9,7 +9,7 @@
 - teaching_application: 페어링 조문 학습에 주는 의미 (운전교육 일반론 금지)
 - reference_digest: 판례 본문에 실제 등장한 조문·법리·연결 조문만
 
-환경변수: GEMINI_API_KEY (필수), GEMINI_MODEL (기본 gemini-2.5-flash)
+환경변수: GEMINI_API_KEY (필수), GEMINI_MODEL (기본 gemini-3.8-flash)
 
 향후 2b-γ 통합 시 tutor/llm_client.py 같은 공용 모듈로 분리 권고
 (현재는 build_tutor_content.py의 call_gemini_api를 복사 — 순환 의존 회피).
@@ -24,7 +24,7 @@ import requests
 
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash').strip()
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.8-flash').strip()
 GEMINI_URL = ('https://generativelanguage.googleapis.com/v1beta/'
               'models/{model}:generateContent?key={key}')
 GEMINI_TIMEOUT = 60

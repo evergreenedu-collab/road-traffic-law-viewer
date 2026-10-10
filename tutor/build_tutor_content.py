@@ -16,7 +16,7 @@
 출력: tutor/data/daily_YYYY-MM-DD.json — 1건 카드
 
 환경변수:
-  GEMINI_API_KEY (필수), GEMINI_MODEL (기본 gemini-2.5-flash)
+  GEMINI_API_KEY (필수), GEMINI_MODEL (기본 gemini-3.8-flash)
 
 사용법:
   py tutor/build_tutor_content.py --date 2026-05-14            # 1일치
@@ -153,7 +153,7 @@ EPOCH = datetime(2026, 1, 1)
 EMPTY_FIELD_FALLBACK_THRESHOLD = 3
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash').strip()
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.8-flash').strip()
 GEMINI_URL = ('https://generativelanguage.googleapis.com/v1beta/'
               'models/{model}:generateContent?key={key}')
 GEMINI_TIMEOUT = 60
