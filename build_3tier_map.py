@@ -27,10 +27,51 @@ from api_utils import request_xml_with_retry
 # === 설정 ===
 API_KEY = "evergreen_edu"
 DETAIL_URL = "https://www.law.go.kr/DRF/lawService.do"
+SEARCH_URL = "https://www.law.go.kr/DRF/lawSearch.do"
 REQUEST_DELAY = 0.6
+
+
+def resolve_current_mst(law_name, law_id, config_mst):
+    """'시행일 기준 현재 시행 중'(target=eflaw, nw=3) 법령의 MST를 동적 조회.
+
+    2026-10-10 확정 버그 2겹 (Codex 교차검증):
+    ① LAW_GROUPS의 MST 하드코딩이 설정 당시 버전에 고정 → 12개 법령이 개정 미반영.
+    ② target=law 검색은 '공포일 기준'이라 시행 전 공포본을 현행으로 집음
+       (실측: 여객법 법률이 2026-11-30 시행 예정본으로 수집됨) → eflaw+nw=3이 정답.
+    조회 실패 시 옛 MST로 조용히 폴백하면 ①이 재발하므로 빌드를 실패시킨다
+    (update_all이 그룹 실패로 집계 → 로컬 갱신 스크립트가 GitHub Issue 알림).
+
+    Returns: (MST, 공포일자, 시행일자) — 공포·시행일자는 '시행중 버전' 기준
+    (lawService 기본정보의 시행일자는 부칙 최종 시행일이라 헤더 표시용으로 부정확)."""
+    params = {"OC": API_KEY, "target": "eflaw", "type": "XML",
+              "LID": law_id, "nw": 3, "display": 20}
+    resp = request_xml_with_retry(SEARCH_URL, params, timeout=60)
+    if resp is None:
+        raise RuntimeError(f"시행중 법령 조회 실패: {law_name} (LID={law_id}) — 수집 중단")
+    try:
+        root = ET.fromstring(resp.text)
+    except ET.ParseError as e:
+        raise RuntimeError(f"시행중 법령 응답 파싱 실패: {law_name} ({e}) — 수집 중단")
+    for law in root.iter("law"):
+        if (safe_text(law, "법령ID") or "").strip() != str(law_id):
+            continue
+        if (safe_text(law, "법령명한글") or "").strip() != law_name:
+            continue
+        cur = safe_text(law, "법령일련번호")
+        if not cur:
+            continue
+        pub = (safe_text(law, "공포일자") or "").strip()
+        eff = (safe_text(law, "시행일자") or "").strip()
+        if cur != str(config_mst):
+            print(f"  🔄 시행중 MST={cur} (설정값 {config_mst}와 다름 — 공포 {pub}·시행 {eff})")
+        return cur, pub, eff
+    raise RuntimeError(
+        f"시행중 검색 결과에 {law_name}(법령ID {law_id}) 없음 — 수집 중단 (법령ID·법령명 확인 필요)")
 
 # Phase 3 S1-A: 법령 그룹 dict-of-dict로 래핑. 향후 신규 그룹("tlspc" 등) 추가 시 키만 추가.
 # 기존 LAWS 변수는 alias로 유지해 호출부 호환성 보장 (S1 범위 minimal).
+# ⚠️ 2026-10-10: MST는 '검색 실패 시 폴백'으로만 쓰임 — 수집은 resolve_current_mst()가
+#   매번 현행 MST를 동적 조회. (하드코딩 MST에 고정돼 12개 법령이 옛 버전으로 수집되던 버그)
 LAW_GROUPS = {
     "road": {
         "법률":     {"법령명": "도로교통법",         "MST": "281875", "법령ID": "001638", "약칭": "법"},
@@ -138,7 +179,7 @@ def fetch_all_articles():
 
     for law_type, info in LAWS.items():
         law_name = info["법령명"]
-        mst = info["MST"]
+        mst, cur_pub, cur_eff = resolve_current_mst(law_name, info["법령ID"], info["MST"])
         print(f"\n📖 {law_type}: {law_name} (MST={mst})")
 
         params = {"OC": API_KEY, "target": "law", "type": "XML", "MST": mst}
@@ -151,10 +192,12 @@ def fetch_all_articles():
         basic = root.find(".//기본정보")
         if basic is None:
             basic = root
+        # 공포·시행일자는 eflaw 검색(시행중 버전 기준)을 우선 — lawService 기본정보의
+        # 시행일자는 부칙 최종 시행일(미래일 수 있음)이라 '지금 시행 중' 표시에 부정확
         basic_info = {
             "법령명": safe_text(basic, "법령명_한글") or safe_text(basic, "법령명한글"),
-            "공포일자": safe_text(basic, "공포일자"),
-            "시행일자": safe_text(basic, "시행일자"),
+            "공포일자": cur_pub or safe_text(basic, "공포일자"),
+            "시행일자": cur_eff or safe_text(basic, "시행일자"),
         }
 
         # 조문 파싱 (장/절 구분 포함)

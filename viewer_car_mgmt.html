@@ -49,6 +49,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 .header-action-btn.push-sub:hover{background:#e5e7eb;color:#374151}
 .subtitle-row{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
 .subtitle-row p{margin:0}
+/* 2026-10-10 사용자 요청: 지금 보는 법령이 언제 공포·시행된 현행인지 헤더에 명시 */
+.header .law-meta{margin:7px 0 0;font-size:12.5px;opacity:.95;background:rgba(255,255,255,.14);display:inline-block;padding:3px 12px;border-radius:12px}
 @media (max-width:600px){
   .subtitle-row{flex-direction:column;gap:6px}
 }
@@ -325,6 +327,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
     <p>법률 · 시행령 · 시행규칙 · 별표 통합 비교</p>
     <button id="pushBtn" type="button" class="header-action-btn push-sub" onclick="onPushBtnClick()">🔔 알림 받기</button><script>try{if(localStorage.getItem("pushSubscription")){document.getElementById("pushBtn").textContent="🔔 구독 중";}}catch(e){}</script>
   </div>
+  <p id="lawMeta" class="law-meta" aria-live="polite"></p>
   <!-- 2026-05-29: <a target=_blank>로 popup blocker 우회 + 클릭 시 클립보드 복사 -->
   <details class="gpts-starter">
     <summary>💡 궁금한 사례는 GPTs에서 질문해보세요 <span class="caret" aria-hidden="true"></span></summary>
@@ -528,7 +531,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 <!-- PR-H4-γ-1: data_timeline.js 제거 (미사용 22MB) -->
 <!-- PR-H4-γ-2: 별표 관련 4개 데이터는 lazy load (도교법 기준 ~85MB 첫 화면에서 빠짐) -->
 <!-- PR-H8-audit (Codex#1): data_core 로드 실패 시 복구 UI — onerror 핸들러로 빈 화면 회피 -->
-<script src="web_data/data_core_car_mgmt.js?v=20261010155414" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
+<script src="web_data/data_core_car_mgmt.js?v=20261010192624" onerror="(function(){var o=document.getElementById('loadingOverlay');if(o){o.innerHTML='<div style=\'text-align:center;padding:20px\'><div style=\'font-size:48px;margin-bottom:16px\'>⚠️</div><div style=\'font-size:16px;font-weight:600;margin-bottom:8px\'>법령 데이터 로드 실패</div><div style=\'font-size:13px;opacity:0.85\'>네트워크를 확인하고 새로고침해주세요</div><button onclick=\'location.reload()\' style=\'margin-top:18px;padding:10px 20px;background:#fff;color:var(--law);border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer\'>🔄 다시 시도</button></div>';}})();"></script>
 <!-- PR-H6 + PR-H8-audit: data_core 로드 완료 직후 loading overlay 숨김 + window._DATA_CORE 가드 -->
 <script>(function(){
   if (!window._DATA_CORE) {
@@ -552,7 +555,7 @@ let tblDiffData = {시행령:{}, 시행규칙:{}};
 let tblPdfData = {};
 let tblHistoryData = {시행령:{}, 시행규칙:{}};
 const _lazyTable = { status: 'idle', promise: null };
-const _LAZY_TS = '20261010155414';
+const _LAZY_TS = '20261010192624';
 const _LAZY_SFX = '_car_mgmt';
 function _loadScriptOnce(src){
   return new Promise(function(resolve, reject){
@@ -750,6 +753,29 @@ function syncLawTypeToggle(){
 }
 
 // 라디오 클릭 시: lawType 전환 → opts 재빌드 → 첫 조문 선택 → render
+// 2026-10-10: 현재 표시 중인 법령의 공포·시행일 헤더 표시 (법률/시행령/시행규칙 토글 연동)
+const LAW_META={"법률": {"법령명": "자동차관리법", "공포일자": "20260804", "시행일자": "20261002"}, "시행령": {"법령명": "자동차관리법 시행령", "공포일자": "20260602", "시행일자": "20260603"}, "시행규칙": {"법령명": "자동차관리법 시행규칙", "공포일자": "20261002", "시행일자": "20261002"}};
+function fmtLawDate(s){
+  if(!s||String(s).length!==8) return '';
+  s=String(s);
+  return s.slice(0,4)+'. '+(+s.slice(4,6))+'. '+(+s.slice(6,8))+'.';
+}
+function updateLawMeta(){
+  const el=document.getElementById('lawMeta');
+  if(!el) return;
+  const m=LAW_META&&LAW_META[currentLawType];
+  if(!m){el.textContent='';el.style.display='none';return;}
+  const pub=fmtLawDate(m['공포일자']), eff=fmtLawDate(m['시행일자']);
+  let t='지금 보는 법령: '+(m['법령명']||currentLawType);
+  if(pub) t+=' — '+pub+' 공포';
+  if(eff) t+=' · '+eff+' 시행';
+  // 시행일자는 eflaw(시행중 버전) 기준이라 보통 과거·당일. 미래면 중립 라벨 (Codex 권장)
+  const effRaw=String(m['시행일자']||'');
+  const now=new Date();
+  const todayStr=''+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+  el.textContent=t+(effRaw&&effRaw>todayStr?' (시행 예정)':' (현행)');
+  el.style.display='inline-block';
+}
 function switchLawType(newType){
   if(newType===currentLawType) return;
   if(newType!=='법률' && !hasLawTypeData(newType)){
@@ -757,6 +783,7 @@ function switchLawType(newType){
     return;
   }
   currentLawType=newType;
+  updateLawMeta();
   opts=buildOpts(currentLawType);
   popGrouped(opts);
   syncLawTypeToggle();
@@ -823,6 +850,7 @@ function goToSubArticle(lawType, joKey){
   if(headerStats){
     headerStats.innerHTML = `<b>${totalArt}</b><span>법률 조문</span><br><b>${linkedArt}</b><span>하위법령 매핑</span>`;
   }
+  updateLawMeta();   // 조문 자료가 비어도(opts=0) 헤더 메타는 표시 (Codex 권장)
   if(opts.length){
     // URL 쿼리에서 조문 + 탭 파싱 (딥링크)
     const url = new URL(window.location.href);
