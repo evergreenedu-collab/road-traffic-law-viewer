@@ -10,7 +10,7 @@
       "rank": 1,
       "card_type": "article",
       "group": "road",
-      "content_tier": "full",
+      "content_tier": "source_only",
       "selection_basis": {
         "weight_score": 0.442,
         "category": "면허종류",
@@ -119,6 +119,12 @@
           }
         ],
         "history_evolution": "2024년 3월 19일 개정으로 제6항이 신설되어 운전면허증을 부정하게 사용할 목적으로 다른 사람에게 빌려주거나 빌리는 행위, 또는 이를 알선하는 행위가 금지되었다."
+      },
+      "fallback_from": "skip_external_keywords_leaked",
+      "learning_content": {
+        "oneliner": "도로교통법 제85조 운전면허증의 발급 등",
+        "explanation": "AI 해설이 일시적으로 생성되지 않았습니다. 아래 조문 원문과 법령 보기를 확인하세요.",
+        "analysis_type": "source_only"
       }
     }
   ]

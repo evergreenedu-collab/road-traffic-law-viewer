@@ -10,7 +10,7 @@
       "rank": 1,
       "card_type": "article",
       "group": "road",
-      "content_tier": "full",
+      "content_tier": "source_only",
       "selection_basis": {
         "weight_score": 0.982,
         "category": "음주운전",
@@ -181,6 +181,12 @@
           }
         ],
         "history_evolution": "2018-12-24 혈중알코올농도 처벌기준이 0.05%에서 0.03%로 강화되었다. 2024-12-03에는 술에 취한 상태에 있다고 인정할 만한 상당한 이유가 있는 사람이 음주측정을 곤란하게 할 목적으로 추가 음주 등을 하는 '음주측정방해행위'를 금지하는 조항(제5항)이 신설되었다."
+      },
+      "fallback_from": "skip_external_keywords_leaked",
+      "learning_content": {
+        "oneliner": "도로교통법 제44조 술에 취한 상태에서의 운전 금지",
+        "explanation": "AI 해설이 일시적으로 생성되지 않았습니다. 아래 조문 원문과 법령 보기를 확인하세요.",
+        "analysis_type": "source_only"
       }
     }
   ]

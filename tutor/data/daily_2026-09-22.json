@@ -10,7 +10,7 @@
       "rank": 1,
       "card_type": "article",
       "group": "road",
-      "content_tier": "full",
+      "content_tier": "source_only",
       "selection_basis": {
         "weight_score": 0.487,
         "category": "미분류",
@@ -122,6 +122,12 @@
           }
         ],
         "history_evolution": "2016-12-02 주ㆍ정차된 차만 손괴한 것이 분명한 경우 피해자에게 인적 사항을 제공하지 아니한 사람은 제148조의 처벌 대상에서 제외되도록 개정되어, 해당 행위는 다른 조문으로 처벌되게 되었다."
+      },
+      "fallback_from": "skip_external_keywords_leaked",
+      "learning_content": {
+        "oneliner": "도로교통법 제148조",
+        "explanation": "AI 해설이 일시적으로 생성되지 않았습니다. 아래 조문 원문과 법령 보기를 확인하세요.",
+        "analysis_type": "source_only"
       }
     }
   ]

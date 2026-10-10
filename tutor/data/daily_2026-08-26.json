@@ -10,7 +10,7 @@
       "rank": 1,
       "card_type": "article",
       "group": "road",
-      "content_tier": "full",
+      "content_tier": "source_only",
       "selection_basis": {
         "weight_score": 0.623,
         "category": "미분류",
@@ -131,6 +131,12 @@
           }
         ],
         "history_evolution": "2021년 10월 19일, 자율주행시스템(제18조의2) 및 자율주행자동차(제18조의3)에 대한 정의 규정이 신설되어 자율주행 관련 법적 기반이 마련되었다."
+      },
+      "fallback_from": "skip_external_keywords_leaked",
+      "learning_content": {
+        "oneliner": "도로교통법 제2조 정의-도로",
+        "explanation": "AI 해설이 일시적으로 생성되지 않았습니다. 아래 조문 원문과 법령 보기를 확인하세요.",
+        "analysis_type": "source_only"
       }
     }
   ]
