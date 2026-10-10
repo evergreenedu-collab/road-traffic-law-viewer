@@ -71,16 +71,14 @@
   },
   "2026-06-16": {
     "article": "44",
-    "fallback_from_case": {
-      "first_case": {
-        "case_no": "2016도12407",
-        "source": "court"
-      },
-      "leaked_themes": "leaked: ['뺑소니_도주', '사고미조치']",
-      "reason": "external_keywords_leaked",
-      "retry_case": null
+    "case_no": "2019도4608",
+    "group": "road",
+    "re_paired_from": {
+      "case_no": "2016도12407",
+      "source": "court"
     },
-    "type": "article"
+    "source": "court",
+    "type": "case"
   },
   "2026-06-17": {
     "article": "80",
