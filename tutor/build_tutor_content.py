@@ -50,18 +50,21 @@ from case_llm import (
 
 # Phase 3 S5 — 평일 5장 multi-law 슬롯 (메모리 사용자 결정 2026-05-20: 도교법 3 + 교특법 1 + 회전 1)
 # WEEKDAY_SLOTS[weekday] = (card_type, group). group=None은 ROTATION_GROUPS에서 주차 cursor로 결정.
+# 2026-10-10 주간 편성 v2 (사용자 확정 — Codex 품질감사 편성안):
+#   월 = 도교법 핵심 법률 조문(주제 리더) / 화 = 전날 주제의 시행령·시행규칙 묶음(sub_laws)
+#   수 = 새 도교법 법률 조문 / 목 = 교특법·특가법 격주(사고 판례 결합) / 금 = 도교법 판례
+# 보조법령 4그룹(자관법·여객·화물·형소법)은 매일 카드 회전에서 제외 (추후 참고자료로 분리).
+# 기존 금요일 회전(ROTATION_GROUPS)·v1 편성은 과거 schedule 호환을 위해 코드만 유지.
 WEEKDAY_SLOTS = {
-    0: ('article', 'road'),     # 월 — 도교법 article A
-    1: ('case',    'road'),     # 화 — 도교법 case (전날 article A 페어링)
-    2: ('article', 'road'),     # 수 — 도교법 article B
-    3: ('article', 'tlspc'),    # 목 — 격주: 교특법(홀수 주차) / 도교법 case(짝수 주차) — _resolve_thursday_slot
-    4: ('article', None),       # 금 — 회전 (ROTATION_GROUPS에서 주차 cursor 결정)
+    0: ('article',  'road'),    # 월 — 도교법 법률 (주제 리더)
+    1: ('sub_laws', 'road'),    # 화 — 월요일 주제의 시행령·시행규칙 묶음
+    2: ('article',  'road'),    # 수 — 도교법 법률 (새 주제)
+    3: ('article',  None),      # 목 — 교특법/특가법 격주 (_resolve_thursday_slot)
+    4: ('case',     'road'),    # 금 — 도교법 판례 (+ 기존 학습원칙 카드 병행)
 }
 
-# 2026-10-10 사용자 결정 — 목요일 교특법을 격주로 줄이고 판례 중심으로.
-# (운영 3개월간 교특법 목요일이 제3·4조 2개 조문 반복 — 학습 가치 저하.)
-# EPOCH 기준 주차 홀수 = 교특법(판례결합 카드), 짝수 = 도교법 판례 카드.
-# 2026-10-15(주차 41, 홀수)가 교특법 주로 시작.
+# 목요일 격주 — EPOCH 기준 주차 홀수 = 교특법(tlspc), 짝수 = 특가법(tkga).
+# 둘 다 사고 판례 결합 카드(find_other_group_cases 회전). 2026-10-15(주차 41, 홀수)=교특법 시작.
 TLSPC_BIWEEKLY_PARITY = 1
 
 
@@ -69,7 +72,7 @@ def _resolve_thursday_slot(target_date):
     week_index = (target_date - EPOCH).days // 7
     if week_index % 2 == TLSPC_BIWEEKLY_PARITY:
         return ('article', 'tlspc')
-    return ('case', 'road')
+    return ('article', 'tkga')
 
 # Phase 3 S8 — 금요일 회전 그룹 5개 (주차 cursor % ROTATION_PERIOD 로 순환)
 ROTATION_GROUPS = ('tkga', 'car_mgmt', 'passenger_transport', 'cargo_transport', 'crim_proc')
@@ -297,9 +300,25 @@ def save_schedule(schedule):
 
 # ─── 선정 (하루 1건) ──────────────────────────────────────────────
 
+def _road_excluded_articles():
+    """교수 강의 무관 조문 제외 목록 (study_whitelist road.exclude_articles).
+    2026-10-10 교차검증: 학원(제99~119조)·삭제조문(120~130)·행정조직(141~147의3)이
+    가중치 풀에 올라와 출제됨 (운영 99일 중 학원 조문 5회) — 관련성 강제 필터."""
+    cache = globals().setdefault('_road_excl_cache', {})
+    if 'set' not in cache:
+        wl = _load_study_whitelist()
+        cache['set'] = {str(x) for x in ((wl.get('road') or {}).get('exclude_articles') or [])}
+    return cache['set']
+
+
 def _select_article_stride(articles, target_date, schedule, pool_size=WEIGHT_POOL_SIZE):
-    """가중치 상위 풀에서 보폭 순회로 결정론적 article 선정 (Phase 1 기존 로직)."""
-    pool = sorted(articles.items(), key=lambda kv: -kv[1].get('weight_score', 0))[:pool_size]
+    """가중치 상위 풀에서 보폭 순회로 결정론적 article 선정 (Phase 1 기존 로직).
+    2026-10-10: 교수 관련성 제외 목록(_road_excluded_articles) 필터 적용."""
+    excl = _road_excluded_articles()
+    pool = sorted(((k, v) for k, v in articles.items() if k not in excl),
+                  key=lambda kv: -kv[1].get('weight_score', 0))[:pool_size]
+    if not pool:   # 필터 후 빈 풀 가드 — 제외 목록 과확장 시 원본 풀로 폴백 (Codex 권장)
+        pool = sorted(articles.items(), key=lambda kv: -kv[1].get('weight_score', 0))[:pool_size]
     n = len(pool)
     days = (target_date - EPOCH).days
     stride = 7
@@ -576,10 +595,12 @@ def _group_occurrence_index(group, target_date):
     - 그 외: week_index 기본"""
     delta_days = (target_date - EPOCH).days
     week_index = delta_days // 7
+    if group in ('tlspc', 'tkga'):
+        # 목요일 격주 교대 (2026-10-10 편성 v2) — week//2로 occurrence가 1씩 증가해야
+        # 화이트리스트 조문이 교대로 나온다 (week 그대로면 같은 홀짝만 와서 한 조문 고정)
+        return week_index // 2
     if group in ROTATION_GROUPS:
         return week_index // ROTATION_PERIOD
-    if group == 'tlspc':
-        return week_index // 2
     return week_index
 
 
@@ -646,6 +667,199 @@ def _make_other_group_article_selection(group, jo):
     }
 
 
+# ─── 2026-10-10 편성 v2: 화요일 '하위법령 카드'(sub_laws) 선정 ───────────────
+TOPIC_BUNDLES_PATH = OUTPUT_DIR / 'topic_bundles.json'
+SUB_LAWS_MAX = 4   # 카드당 하위조문 최대 수 (프롬프트 길이·가독성)
+
+
+def _load_road_tier_map():
+    """data/three_tier_map.json(road) → {법률_조키: 매핑 entry} 캐시."""
+    cache = globals().setdefault('_road_tier_map_cache', {})
+    if 'map' not in cache:
+        path = SCRIPT_DIR.parent / 'data' / 'three_tier_map.json'
+        try:
+            data = json.loads(path.read_text(encoding='utf-8'))
+            cache['map'] = {e.get('법률_조키'): e for e in (data.get('매핑') or [])}
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"  ⚠️ three_tier_map.json 로드 실패: {e}")
+            cache['map'] = {}
+    return cache['map']
+
+
+def _load_road_law_file():
+    cache = globals().setdefault('_road_articles_file_cache', {})
+    if 'data' not in cache:
+        path = SCRIPT_DIR.parent / 'data' / 'three_tier_articles.json'
+        try:
+            cache['data'] = json.loads(path.read_text(encoding='utf-8'))
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"  ⚠️ three_tier_articles.json 로드 실패: {e}")
+            cache['data'] = {}
+    return cache['data']
+
+
+def _road_article_entry(law_type, jo):
+    d = _load_road_law_file()
+    return ((d.get(law_type) or {}).get('조문') or {}).get(str(jo))
+
+
+def _article_body_text(art):
+    """조문 entry → 항·호·목 포함 전문 텍스트."""
+    if not art:
+        return ''
+    parts = [art.get('조문내용', '')]
+    for h in (art.get('항') or []):
+        if h.get('항내용'):
+            parts.append(h['항내용'])
+        for ho in (h.get('호') or []):
+            if ho.get('호내용'):
+                parts.append('  ' + ho['호내용'])
+            for mo in (ho.get('목') or []):
+                if mo.get('목내용'):
+                    parts.append('    ' + mo['목내용'])
+    return '\n'.join(p for p in parts if p.strip())
+
+
+def _collect_sub_law_refs(leader_jo):
+    """법률 조문의 위임 하위조문 목록 — three_tier_map의 조문전체_매핑 + 항별_매핑."""
+    entry = _load_road_tier_map().get(str(leader_jo))
+    if not entry:
+        return []
+    refs, seen = [], set()
+
+    def _add(law_type, item):
+        jo = str(item.get('조키') or '').strip()
+        if not jo or (law_type, jo) in seen:
+            return
+        seen.add((law_type, jo))
+        refs.append({'법령유형': law_type, '조키': jo,
+                     '조문제목': item.get('조문제목', ''), 'role': ''})
+
+    # 항별 직접 매핑 우선 — 조문전체_매핑은 단순 인용도 포함돼 뒤에 배치
+    # (SUB_LAWS_MAX 절단 시 '위임 구체화' 조문이 먼저 살아남게 — Codex 코드리뷰)
+    for hang in (entry.get('항별_매핑') or []):
+        for item in (hang.get('시행령') or []):
+            _add('시행령', item)
+        for item in (hang.get('시행규칙_직접') or []):
+            _add('시행규칙', item)
+    for item in (entry.get('조문전체_매핑') or []):
+        if item.get('법령유형') in ('시행령', '시행규칙'):
+            _add(item['법령유형'], item)
+    return refs
+
+
+def _load_topic_bundles():
+    cache = globals().setdefault('_topic_bundles_cache', {})
+    if 'bundles' not in cache:
+        try:
+            data = json.loads(TOPIC_BUNDLES_PATH.read_text(encoding='utf-8'))
+            cache['bundles'] = data.get('bundles') or []
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"  ⚠️ topic_bundles.json 로드 실패: {e}")
+            cache['bundles'] = []
+    return cache['bundles']
+
+
+def _sub_laws_schedule_entry(sel):
+    entry = {
+        'type': 'sub_laws', 'group': 'road', 'article': sel['jo'],
+        'subs': [{'법령유형': s['법령유형'], '조키': s['조키']} for s in sel['subs']],
+    }
+    if sel.get('topic_id'):
+        entry['topic_id'] = sel['topic_id']
+    return entry
+
+
+def _validate_scheduled_whitelists():
+    """빌드 전 가드 — 출제 대상 그룹(tlspc·tkga)의 화이트리스트가 현행 조문과 일치하는지.
+    법 개정 후 미동기화로 의도와 다른 조문이 출제되던 문제 차단 (2026-10-10 Codex 감사:
+    보조법령 whitelist 제목 6건이 현행과 달랐음). 불일치 반환 → 호출자가 빌드 실패."""
+    wl = _load_study_whitelist()
+    errors = []
+    for g in ('tlspc', 'tkga'):
+        info = wl.get(g) or {}
+        if info.get('study_mode', 'whitelist') != 'whitelist':
+            continue
+        path = SCRIPT_DIR.parent / 'data' / f'three_tier_articles_{g}.json'
+        try:
+            data = json.loads(path.read_text(encoding='utf-8'))
+        except (json.JSONDecodeError, OSError):
+            continue   # 자료 없으면 선정 단계에서 자연 실패 — 여기선 통과
+        arts = (data.get('법률') or {}).get('조문') or {}
+        for item in (info.get('articles') or []):
+            if not isinstance(item, dict):
+                continue
+            jo = str(item.get('article') or '')
+            title = (item.get('title') or '').strip()
+            cur = ((arts.get(jo) or {}).get('조문제목') or '').strip()
+            if not cur:
+                errors.append(f"{g} 제{jo}조 — 현행 조문에 없음 (조문 이동·삭제 의심)")
+            elif title and title != cur:
+                errors.append(f"{g} 제{jo}조 — whitelist '{title}' ≠ 현행 '{cur}'")
+    return errors
+
+
+def _make_sub_laws_selection(target_date, articles, schedule, refs_override=None,
+                              leader_override=None, topic_id=None):
+    """화요일 하위법령 카드 선정 — 1순위: 전날(월) 조문의 위임 하위조문,
+    폴백: topic_bundles 주차 회전. 하위조문 본문 로드까지 성공해야 selection 반환."""
+    leader = leader_override
+    refs = [dict(r) for r in (refs_override or [])]
+    label = None
+    if not refs:
+        prev_key = (target_date - timedelta(days=1)).strftime('%Y-%m-%d')
+        prev = schedule.get(prev_key)
+        if isinstance(prev, dict):
+            leader = prev.get('article')
+        elif isinstance(prev, str):
+            leader = prev
+        if leader:
+            refs = _collect_sub_law_refs(leader)
+    if not refs:
+        bundles = _load_topic_bundles()
+        if bundles:
+            week_index = (target_date - EPOCH).days // 7
+            b = bundles[week_index % len(bundles)]
+            leader = b.get('primary_article')
+            refs = [dict(r) for r in (b.get('linked') or [])]
+            topic_id = b.get('topic_id')
+            label = b.get('label')
+            print(f"  ℹ️ 전날 조문 하위법령 없음 — 주제 묶음 '{label}' 선정 (법 제{leader}조)")
+    if not leader or not refs:
+        return None
+
+    subs = []
+    for r in refs[:SUB_LAWS_MAX]:
+        art = _road_article_entry(r.get('법령유형'), r.get('조키'))
+        body = _article_body_text(art)
+        if not body:
+            continue
+        subs.append({
+            '법령유형': r['법령유형'],
+            '조키': str(r['조키']),
+            '조문제목': (art or {}).get('조문제목', '') or r.get('조문제목', ''),
+            'role': r.get('role', ''),
+            '본문': body,
+        })
+    if not subs:
+        return None
+    leader_info = articles.get(str(leader)) if isinstance(articles, dict) else None
+    leader_info = leader_info if isinstance(leader_info, dict) else {}
+    return {
+        'card_type': 'sub_laws',
+        'group': 'road',
+        'jo': str(leader),
+        'subs': subs,
+        'topic_id': topic_id,
+        'basis': {
+            'weight_score': leader_info.get('weight_score', 0),
+            'category': label or '하위법령 학습',
+            'admin_case_count': 0,
+            'court_case_count': 0,
+        },
+    }
+
+
 def select_card_for_date(articles, target_date, schedule, indexes=None, pool_size=WEIGHT_POOL_SIZE):
     """Phase 3 S5: 평일 5장 multi-law 운영 모델 (WEEKDAY_SLOTS).
     - 월·수: 도교법 article — 가중치 풀에서 선정 (기존 stride)
@@ -666,6 +880,25 @@ def select_card_for_date(articles, target_date, schedule, indexes=None, pool_siz
     if isinstance(existing, dict):
         ex_group = existing.get('group', 'road')
         ex_type = existing.get('type')
+        # 하위법령 카드 재생성 — 저장된 subs로 결정론 재구성 (편성 v2)
+        if ex_type == 'sub_laws' and ex_group == 'road':
+            sel = _make_sub_laws_selection(
+                target_date, articles, schedule,
+                refs_override=existing.get('subs') or None,
+                leader_override=existing.get('article'),
+                topic_id=existing.get('topic_id'))
+            if sel:
+                return sel
+            jo = existing.get('article')
+            if jo and jo in articles:
+                return _make_article_selection(jo, articles)
+        # 실패 폴백으로 article이 박힌 날(원래 슬롯은 sub_laws) — 재생성 시 재시도
+        if (ex_type == 'article' and existing.get('fallback_from_sub_laws')
+                and ex_group == 'road'):
+            sel = _make_sub_laws_selection(target_date, articles, schedule)
+            if sel:
+                schedule[key] = _sub_laws_schedule_entry(sel)
+                return sel
         # 실패 폴백으로 article이 박힌 날(원래 슬롯은 case) — 재생성 시 판례 재시도.
         # (기존엔 실패가 schedule에 article로 영구 고정돼 재실행해도 판례를 다시 안 봄 —
         #  2026-10-10 교차검증. 성공 article 배정은 fallback_from_case가 없어 그대로 유지.)
@@ -711,8 +944,19 @@ def select_card_for_date(articles, target_date, schedule, indexes=None, pool_siz
     if slot is None:
         return None
     if weekday == 3:
-        slot = _resolve_thursday_slot(target_date)   # 격주: 교특법 / 도교법 case
+        slot = _resolve_thursday_slot(target_date)   # 격주: 교특법 / 특가법
     card_type, slot_group = slot
+
+    # 화 — 하위법령 묶음 카드 (편성 v2). 소재 없으면 article 폴백(재시도 마커)
+    if card_type == 'sub_laws' and slot_group == 'road':
+        sel = _make_sub_laws_selection(target_date, articles, schedule)
+        if sel:
+            schedule[key] = _sub_laws_schedule_entry(sel)
+            return sel
+        jo = _select_article_stride(articles, target_date, schedule, pool_size)
+        schedule[key] = {'type': 'article', 'group': 'road', 'article': jo,
+                         'fallback_from_sub_laws': {'reason': 'no_sub_refs'}}
+        return _make_article_selection(jo, articles)
 
     if slot_group == 'road':
         if card_type == 'case' and indexes is not None:
@@ -1814,7 +2058,7 @@ def _case_analysis_cites_only(text, allowed):
 
 
 # 2026-06-09: 판례 회전 적용 그룹 (MVP: 교특법만 — 조문 적어 longevity 확보용). 금요일 회전 그룹은 추후.
-ROTATE_CASE_GROUPS = {'tlspc'}
+ROTATE_CASE_GROUPS = {'tlspc', 'tkga'}   # 2026-10-10: 목요일 격주 편성으로 tkga도 판례 회전
 
 
 def find_other_group_cases(group, jo, jo_title, indexes, max_cases=3, min_score=2, cursor=None):
@@ -2016,10 +2260,139 @@ def build_other_group_article_card(selection, indexes=None, use_llm=True, target
     return card
 
 
+def generate_sub_laws_content(leader_jo, leader_title, leader_text, subs):
+    """화요일 하위법령 카드 LLM 콘텐츠 (full 카드와 같은 5필드 스키마 — 뷰어 호환).
+    법률(의무·금지) ↔ 시행령(요건) ↔ 시행규칙(절차·기준·수치) 역할 구분 해설."""
+    if not GEMINI_API_KEY:
+        return None
+    sub_blocks = []
+    for s in subs:
+        head = f"■ {s['법령유형']} 제{s['조키']}조 {s.get('조문제목', '')}"
+        if s.get('role'):
+            head += f" (역할: {s['role']})"
+        sub_blocks.append(head + '\n' + s['본문'][:2200])
+    prompt = f"""당신은 한국도로교통공단 교통안전교육 교수의 학습 콘텐츠 작성자입니다. 오늘 카드의 목적은 **법률 조문이 시행령·시행규칙에서 어떻게 구체화되는지**를 교수가 강의에 바로 쓸 수 있게 정리하는 것입니다.
+
+[작성 규칙 — 반드시 지킬 것]
+0. ★★★ 아래 제공된 조문 본문들에 명시된 내용만 사용한다. 본문에 없는 수치·기준·사례·다른 조문의 처벌 사유를 사전 지식으로 끌어오는 것 절대 금지.
+1. 법률=의무·금지의 뼈대 / 시행령=요건·예외의 구체화 / 시행규칙=절차·서식·수치·처분기준 — 이 역할 구분이 드러나게 설명한다.
+2. 법률 용어는 본문 표현 그대로. 불명확하면 유보적 표현 또는 빈 값.
+
+[출력 형식 — 순수 JSON 객체 1개. 마크다운 코드블럭 금지. 한국어]
+{{
+  "oneliner": "법률 제{leader_jo}조가 하위법령에서 어떻게 구체화되는지 한 줄(50~100자). 마침표로 끝.",
+  "explanation": "법률 조문의 뼈대 → 각 하위조문이 무엇을 구체화하는지 연결해 풀이 (4~6문장, 본문 기반).",
+  "key_issues": ["법률-하위법령 연결의 핵심 쟁점 1 (40~120자, 본문 명시 내용만)", "쟁점 2", "쟁점 3 (가능하면)"],
+  "teaching_application": "교수가 강의에서 '법에는 이렇게, 시행규칙에는 이렇게'를 어떻게 풀어 설명할지 (120~220자).",
+  "study_points": ["하위법령에서 반드시 짚을 학습 포인트 1 (40~120자, 절차·기준·수치 중심)", "포인트 2", "포인트 3 (가능하면)"]
+}}
+
+[법률 조문 — 도로교통법 제{leader_jo}조 {leader_title}]
+{leader_text[:2500]}
+
+[위임 하위법령 조문들]
+{chr(10).join(sub_blocks)}
+"""
+    raw = call_gemini_api(prompt, temperature=0.2)
+    if not raw:
+        return None
+    cleaned = re.sub(r'^```(?:json)?\s*|\s*```$', '', raw.strip(), flags=re.MULTILINE).strip()
+    try:
+        parsed = json.loads(cleaned)
+    except (json.JSONDecodeError, TypeError):
+        print(f"    ⚠️ 하위법령 카드 JSON 파싱 실패", flush=True)
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    oneliner = parsed.get('oneliner', '')
+    explanation = parsed.get('explanation', '')
+    if not (isinstance(oneliner, str) and oneliner.strip()
+            and isinstance(explanation, str) and explanation.strip()):
+        print(f"    ⚠️ 하위법령 카드 핵심 필드 빈 응답", flush=True)
+        return None
+
+    def _nlist(v, max_items=3):
+        return [s.strip() for s in v[:max_items]
+                if isinstance(s, str) and s.strip()] if isinstance(v, list) else []
+
+    teaching = parsed.get('teaching_application', '')
+    return {
+        'oneliner': oneliner.strip(),
+        'explanation': explanation.strip(),
+        'key_issues': _nlist(parsed.get('key_issues')),
+        'study_points': _nlist(parsed.get('study_points')),
+        'teaching_application': teaching.strip() if isinstance(teaching, str) else '',
+        'analysis_type': 'sub_laws',
+    }
+
+
+def build_sub_laws_card(selection, indexes, target_date=None, use_llm=True):
+    """2026-10-10 편성 v2 — 화요일 하위법령 카드: 법률 리더 조문 + 위임 시행령·규칙 묶음."""
+    leader_jo = selection['jo']
+    jo_entry = indexes['law'].get(leader_jo)
+    leader_title = jo_entry.get('title', '') if isinstance(jo_entry, dict) else ''
+    leader_text = (indexes['law_articles'].get(leader_jo, '')
+                   or _article_body_text(_road_article_entry('법률', leader_jo)))
+    subs = selection['subs']
+    card = {
+        'card_id': 'card-1',
+        'rank': 1,
+        'card_type': 'sub_laws',
+        'group': 'road',
+        'content_tier': 'full',
+        'selection_basis': selection['basis'],
+        'law_info': {
+            '법령유형': '하위법령',
+            '법령명': '도로교통법',
+            '매핑법률조문': leader_jo,
+            '매핑법률조문제목': leader_title,
+            'is_recent_revision': False,
+            'categories': [selection['basis'].get('category') or '하위법령 학습'],
+            'viewer_link': f'../viewer.html?jo={leader_jo}',
+            'article_text': leader_text,
+            'resources_found': {'has_law_comment': False, 'admin_cases_count': 0,
+                                'court_cases_count': 0, 'candidates_before_filter': 0},
+        },
+        'sub_articles': [{k: s.get(k, '') for k in ('법령유형', '조키', '조문제목', 'role', '본문')}
+                         for s in subs],
+    }
+    if selection.get('topic_id'):
+        card['topic_id'] = selection['topic_id']
+    if not use_llm:
+        card['llm_status'] = 'skipped_by_flag'
+        return card
+    if not GEMINI_API_KEY:
+        card['llm_status'] = 'skip_no_api_key'
+        return card
+    print(f"  🤖 하위법령 카드 LLM 호출 — 법 제{leader_jo}조 + 하위조문 {len(subs)}개", flush=True)
+    lc = generate_sub_laws_content(leader_jo, leader_title, leader_text, subs)
+    if not lc:
+        card['llm_status'] = 'skip_call_failed'
+        return card
+    allowed_texts = [s['본문'] for s in subs]
+    leaked = detect_external_keywords(lc, leader_text or ' ', extra_allowed_texts=allowed_texts)
+    card['verification'] = {'external_keywords_leaked': leaked,
+                            'status': 'clean' if not leaked else 'external_keywords_detected'}
+    if leaked:
+        card['llm_status'] = 'skip_external_keywords_leaked'
+        card['llm_note'] = f'leaked: {leaked}'
+        card['llm_draft'] = lc
+        print(f"    ⚠️ 외부 키워드 누출: {leaked} — 발행 보류", flush=True)
+        return card
+    lc['source_article'] = f'도로교통법 제{leader_jo}조의 하위법령 (시행령·시행규칙)'
+    card['learning_content'] = lc
+    card['llm_status'] = 'ok'
+    print(f"    ✅ 하위법령 카드 생성 완료", flush=True)
+    return card
+
+
 def build_card(selection, indexes, target_date=None, use_llm=True):
     # Phase 2 2b-γ: card_type 분기. case 카드는 별도 빌드.
     if selection.get('card_type') == 'case':
         return build_case_card(selection, indexes, target_date, use_llm)
+    # 2026-10-10 편성 v2 — 화요일 하위법령 묶음 카드
+    if selection.get('card_type') == 'sub_laws':
+        return build_sub_laws_card(selection, indexes, target_date, use_llm)
     # Phase 3 S5 PR-A: 다른 그룹 article은 단순 카드 + PR-C LLM 콘텐츠
     if selection.get('group') and selection['group'] != 'road':
         return build_other_group_article_card(selection, indexes, use_llm=use_llm, target_date=target_date)
@@ -2047,6 +2420,10 @@ def build_card(selection, indexes, target_date=None, use_llm=True):
         'content_tier': 'full',
         'selection_basis': selection['basis'],
         'law_info': {
+            # 출처 라벨 명시 — 뷰어가 recent_revision.법령유형(개정된 '하위법령'의 유형)을
+            # 카드 출처로 오표시하던 버그의 근본 차단 (2026-10-10 교차검증)
+            '법령유형': '법률',
+            '법령명': '도로교통법',
             '매핑법률조문': jo,
             '매핑법률조문제목': jo_title,
             'is_recent_revision': _is_recent_revision(version, changed, target_date),
@@ -2243,70 +2620,29 @@ def _build_case_card_with_fallback(selection, indexes, target_date, use_llm,
     return retry_card
 
 
-# LLM 콘텐츠가 없어 뷰어에서 '빈 카드'(배너+조문만)로 뜨는 실패 상태 — 조문원문 폴백 대상.
-# 2026-10-10: skip_external_keywords_leaked·skip_llm_returned_skip 추가 (운영 99일 중
-# 5일이 learning_content=None 그대로 노출된 결손 — Codex 교차검증 합의).
-# 제외: ok/ok_re_paired/ok_partial(정상), simple_other_group·simple(전용 배너+조문 풍부),
-#       skipped_by_flag(--no-llm 개발용), case 카드 정상(6필드 스키마) → 절대 안 건드림.
-_FALLBACK_STATUSES = {
-    'skip_call_failed',
-    'skip_no_api_key',
-    'skip_verification_failed',
-    'skip_external_keywords_leaked',
-    'skip_llm_returned_skip',
-}
-
-
-def _ensure_renderable_card(card):
-    """LLM 호출 실패로 뷰어에 '빈 카드'로 뜨는 실패 상태에만 조문 원문 기반
-    source_only 폴백을 주입한다.
-
-    → '알림은 갔는데 뷰어에 빈 카드가 뜨는' 문제 방지. LLM이 실패해도
-      최소한 조문 원문·제목·법령보기 링크는 항상 표시되게 만든다.
-    → 판정은 llm_status 기반(필드 스키마 추정 X) — case·simple 등 정상 카드 오탐 방지.
-    → 원래 실패 원인은 fallback_from에 보존(로그·디버깅용).
-    """
-    if card.get('llm_status') not in _FALLBACK_STATUSES:
-        return card  # 정상·별도처리 카드는 그대로 둔다 (case 6필드·simple·안전모드 보존)
-
-    # 방어: 실패 상태 표지여도 learning_content가 이미 렌더 가능하면 유지
-    lc = card.get('learning_content')
-    if isinstance(lc, dict):
-        one, exp = lc.get('oneliner'), lc.get('explanation')
-        if isinstance(one, str) and one.strip() and isinstance(exp, str) and exp.strip():
-            return card
-
-    li = card.get('law_info') or {}
-    법령명 = str(li.get('법령명') or '도로교통법')
-    jo = str(li.get('매핑법률조문') or '').strip()
-    jo_title = str(li.get('매핑법률조문제목') or '').strip()
-    title = (f"{법령명} 제{jo}조" if jo else 법령명)
-    if jo_title:
-        title += f" {jo_title}"
-
-    card['fallback_from'] = card.get('llm_status')
-    card['content_tier'] = 'source_only'
-    card['learning_content'] = {
-        'oneliner': title.strip() or '오늘의 조문',
-        'explanation': 'AI 해설이 일시적으로 생성되지 않았습니다. 아래 조문 원문과 법령 보기를 확인하세요.',
-        'analysis_type': 'source_only',
-    }
-    print(f"    🔎 source_only 폴백 카드 주입 (원인={card['fallback_from']})")
-    return card
+# (2026-10-10) 기존 source_only 폴백 주입(_ensure_renderable_card)은 제거됨 —
+# 사용자 결정 "AI 해설 없으면 발행 금지"에 따라 발행 게이트(PUBLISH_OK_STATUSES)로 대체.
+# 뷰어의 source_only 렌더 분기는 과거 저장 카드 호환을 위해 유지.
 
 
 # 재생성 불필요한 '확정' 카드 상태 — 이중 트리거(GitHub cron + Vercel cron)의 두 번째
 # 실행이 성공 카드를 덮어쓰지 않게 (운영 98일 중 61일 이중 생성 — 2026-10-10 교차검증).
-# source_only·skip_*는 여기 없음 → 다음 실행에서 자동 재시도 (실패 날 복구 경로).
-FINAL_CARD_STATUSES = ('ok', 'ok_re_paired', 'ok_partial', 'simple_other_group')
+# source_only·skip_*·simple_other_group은 여기 없음 → 다음 실행에서 자동 재시도.
+FINAL_CARD_STATUSES = ('ok', 'ok_re_paired', 'ok_partial')
+
+# 발행 허용 상태 — 2026-10-10 사용자 결정: "AI 해설이 없으면 학습카드는 발행 자체를
+# 하지 않는다". 실패 시 저장·알림 모두 생략 → 같은 날 다음 트리거가 재시도.
+# (기존 source_only '조문 원문 폴백 발행' 정책을 대체)
+PUBLISH_OK_STATUSES = FINAL_CARD_STATUSES
 
 
-def _schedule_needs_case_retry(schedule, target_date):
-    """그 날짜 schedule이 '판례 실패 → article 폴백' 표식을 갖는지.
-    True면 daily가 성공 article 카드여도 재생성해 판례를 재시도한다
-    (멱등 스킵이 판례 복구를 영구히 막는 것 방지 — 2026-10-10 Codex 코드리뷰 치명 지적)."""
+def _schedule_needs_retry(schedule, target_date):
+    """그 날짜 schedule이 '원래 슬롯(case/sub_laws) 실패 → article 폴백' 표식을 갖는지.
+    True면 daily가 성공 article 카드여도 재생성해 원래 슬롯을 재시도한다
+    (멱등 스킵이 복구를 영구히 막는 것 방지 — 2026-10-10 Codex 코드리뷰 치명 지적)."""
     entry = schedule.get(target_date.strftime('%Y-%m-%d'))
-    return isinstance(entry, dict) and bool(entry.get('fallback_from_case'))
+    return isinstance(entry, dict) and bool(
+        entry.get('fallback_from_case') or entry.get('fallback_from_sub_laws'))
 
 
 def _is_final_daily(doc):
@@ -2365,7 +2701,6 @@ def build_daily(target_date, indexes, schedule, use_llm=True):
                           use_llm=use_llm)
 
     base['status'] = 'ok'
-    card = _ensure_renderable_card(card)   # 품질 게이트: LLM 실패 카드에 조문원문 폴백 주입
     base['cards'] = [card]
     # Phase 6: 금요일에 학습 원칙 카드 1장 추가 (cards는 1개 유지 — 호환성)
     if target_date.weekday() == 4:
@@ -2411,6 +2746,14 @@ def main():
                 print(_r.stderr.strip())
             print("❌ principles.json 검증 실패 — 빌드 중단")
             sys.exit(1)
+
+    # 화이트리스트-현행 조문 동기화 가드 (2026-10-10 Codex 감사 반영)
+    _wl_errors = _validate_scheduled_whitelists()
+    if _wl_errors:
+        print("❌ 화이트리스트가 현행 조문과 불일치 — 빌드 중단 (법 개정 동기화 필요):")
+        for _e in _wl_errors:
+            print("   " + _e)
+        sys.exit(1)
     if args.no_llm:
         print("⏭️ --no-llm")
     elif GEMINI_API_KEY:
@@ -2447,7 +2790,7 @@ def main():
             # 멱등화 — 성공 카드는 재생성 안 함 (이중 트리거의 두 번째 실행이 덮어쓰기 방지).
             # 실패·source_only 카드, 그리고 '판례 실패→article 폴백' 날은 통과 → 재생성(자동 재시도).
             if (not args.force and _is_final_daily(_existing)
-                    and not _schedule_needs_case_retry(schedule, target)):
+                    and not _schedule_needs_retry(schedule, target)):
                 _st = (_existing.get('cards') or [{}])[0].get('llm_status', _existing.get('status'))
                 print(f"  ⏭️ {out_existing.name} 이미 성공 카드({_st}) — 재생성 건너뜀 (--force로 강제 가능)")
                 results.append((target, _existing))
@@ -2464,6 +2807,17 @@ def main():
             last_was_card = False
             continue
         last_was_card = True
+        # 발행 게이트 (2026-10-10 사용자 결정): AI 해설이 없으면 저장하지 않는다.
+        # 저장 안 된 날은 같은 날 다음 트리거(멱등 스킵에 안 걸림)가 자동 재시도.
+        # --no-llm(개발용)은 예외, --dry-run은 원래 저장 없음.
+        _card0 = (content.get('cards') or [{}])[0]
+        if not args.no_llm and (
+                content.get('status') != 'ok'
+                or _card0.get('llm_status') not in PUBLISH_OK_STATUSES):
+            print(f"  🚫 {target.strftime('%Y-%m-%d')} 발행 보류 — AI 해설 미생성 "
+                  f"(status={content.get('status')}, llm={_card0.get('llm_status')}). "
+                  f"저장 안 함, 다음 실행에서 재시도")
+            continue
         if not args.dry_run:
             out = OUTPUT_DIR / f"daily_{target.strftime('%Y-%m-%d')}.json"
             tmp = out.with_suffix('.json.tmp')

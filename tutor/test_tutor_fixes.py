@@ -64,12 +64,45 @@ def test_is_recent_revision():
 
 def test_thursday_biweekly():
     thu_tlspc = datetime(2026, 10, 15)   # 주차 41 (홀수) — 교특법 주
-    thu_case = datetime(2026, 10, 22)    # 주차 42 (짝수) — 도교법 판례 주
-    assert thu_tlspc.weekday() == 3 and thu_case.weekday() == 3
+    thu_tkga = datetime(2026, 10, 22)    # 주차 42 (짝수) — 특가법 주
+    assert thu_tlspc.weekday() == 3 and thu_tkga.weekday() == 3
     assert btc._resolve_thursday_slot(thu_tlspc) == ('article', 'tlspc')
-    assert btc._resolve_thursday_slot(thu_case) == ('case', 'road')
-    # 그 다음 주 — 다시 교특법
+    assert btc._resolve_thursday_slot(thu_tkga) == ('article', 'tkga')
     assert btc._resolve_thursday_slot(datetime(2026, 10, 29)) == ('article', 'tlspc')
+
+
+def test_weekday_slots_v2():
+    # 2026-10-10 사용자 확정 편성: 월·수 법률 / 화 하위법령 / 목 격주 / 금 판례
+    assert btc.WEEKDAY_SLOTS[0] == ('article', 'road')
+    assert btc.WEEKDAY_SLOTS[1] == ('sub_laws', 'road')
+    assert btc.WEEKDAY_SLOTS[2] == ('article', 'road')
+    assert btc.WEEKDAY_SLOTS[4] == ('case', 'road')
+    assert 'tkga' in btc.ROTATE_CASE_GROUPS, "특가법도 판례 회전"
+
+
+def test_road_exclusions():
+    excl = btc._road_excluded_articles()
+    for jo in ('102', '104', '109', '116', '147의3'):
+        assert jo in excl, f"제{jo}조(학원·행정)는 제외 목록"
+    for jo in ('44', '54', '93', '148'):
+        assert jo not in excl, f"제{jo}조(핵심)는 출제 유지"
+    arts = {'44': {'weight_score': 1.0}, '104': {'weight_score': 99.0}}
+    picked = btc._select_article_stride(arts, datetime(2026, 10, 12), {})
+    assert picked == '44', "제외 조문은 가중치가 높아도 선정 금지"
+
+
+def test_sub_laws_selection():
+    # 전날(월) 제44조 → 위임 하위조문 묶음 선정 (실데이터 three_tier_map 사용)
+    sch = {'2026-10-12': {'type': 'article', 'group': 'road', 'article': '44'}}
+    arts = {'44': {'weight_score': 0.5}}
+    sel = btc._make_sub_laws_selection(datetime(2026, 10, 13), arts, sch)
+    assert sel and sel['card_type'] == 'sub_laws' and sel['jo'] == '44'
+    assert sel['subs'] and all(s['본문'] for s in sel['subs']), "하위조문 본문 로드"
+    assert all(s['법령유형'] in ('시행령', '시행규칙') for s in sel['subs'])
+    # 전날 조문에 위임이 없으면(제1조 목적) 주제 묶음 폴백
+    sch2 = {'2026-10-12': {'type': 'article', 'group': 'road', 'article': '1'}}
+    sel2 = btc._make_sub_laws_selection(datetime(2026, 10, 13), {'1': {}}, sch2)
+    assert sel2 and sel2.get('topic_id'), "주제 묶음 폴백 작동"
 
 
 def test_tlspc_occurrence_biweekly():
@@ -82,16 +115,19 @@ def test_tlspc_occurrence_biweekly():
     assert (occ1 % 2) != (occ2 % 2), "조문 2개가 번갈아 선정되려면 홀짝이 교대해야"
 
 
-def test_schedule_needs_case_retry():
-    # '판례 실패→article 폴백' 날은 daily가 성공 카드여도 재생성해 판례 재시도
+def test_schedule_needs_retry():
+    # '원래 슬롯(case/sub_laws) 실패→article 폴백' 날은 성공 카드여도 재생성해 재시도
     sch = {'2026-10-13': {'type': 'article', 'group': 'road', 'article': '44',
                           'fallback_from_case': {'reason': 'selection_failed'}},
            '2026-10-14': {'type': 'article', 'group': 'road', 'article': '12'},
-           '2026-10-15': {'type': 'case', 'group': 'road', 'article': '54'}}
-    assert btc._schedule_needs_case_retry(sch, datetime(2026, 10, 13)), "폴백 표식은 재시도"
-    assert not btc._schedule_needs_case_retry(sch, datetime(2026, 10, 14)), "정상 article은 스킵"
-    assert not btc._schedule_needs_case_retry(sch, datetime(2026, 10, 15)), "성공 case는 스킵"
-    assert not btc._schedule_needs_case_retry(sch, datetime(2026, 10, 16)), "미배정일은 스킵"
+           '2026-10-15': {'type': 'case', 'group': 'road', 'article': '54'},
+           '2026-10-20': {'type': 'article', 'group': 'road', 'article': '7',
+                          'fallback_from_sub_laws': {'reason': 'no_sub_refs'}}}
+    assert btc._schedule_needs_retry(sch, datetime(2026, 10, 13)), "case 폴백 표식은 재시도"
+    assert btc._schedule_needs_retry(sch, datetime(2026, 10, 20)), "sub_laws 폴백 표식은 재시도"
+    assert not btc._schedule_needs_retry(sch, datetime(2026, 10, 14)), "정상 article은 스킵"
+    assert not btc._schedule_needs_retry(sch, datetime(2026, 10, 15)), "성공 case는 스킵"
+    assert not btc._schedule_needs_retry(sch, datetime(2026, 10, 16)), "미배정일은 스킵"
 
 
 def test_checkpoint_corrupt_quarantine():
@@ -123,10 +159,14 @@ def test_checkpoint_corrupt_quarantine():
             cah.DATA_DIR = old_dd
 
 
-def test_fallback_statuses():
-    assert 'skip_external_keywords_leaked' in btc._FALLBACK_STATUSES, "빈 카드 5장 유형 폴백 포함"
-    assert 'skip_llm_returned_skip' in btc._FALLBACK_STATUSES
-    assert 'skipped_by_flag' not in btc._FALLBACK_STATUSES, "--no-llm 개발용은 폴백 제외"
+def test_publish_gate_statuses():
+    # 2026-10-10 사용자 결정: AI 해설 없으면 발행 금지 — 허용 상태는 LLM 성공군만
+    for s in ('ok', 'ok_re_paired', 'ok_partial'):
+        assert s in btc.PUBLISH_OK_STATUSES, f"{s}는 발행 허용"
+    for s in ('skip_call_failed', 'skip_external_keywords_leaked', 'skip_llm_returned_skip',
+              'skip_verification_failed', 'simple_other_group', 'skipped_by_flag'):
+        assert s not in btc.PUBLISH_OK_STATUSES, f"{s}는 발행 금지(재시도 대상)"
+    assert 'simple_other_group' not in btc.FINAL_CARD_STATUSES, "LLM 없는 카드는 확정 아님"
 
 
 if __name__ == '__main__':

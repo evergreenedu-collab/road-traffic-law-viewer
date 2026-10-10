@@ -491,7 +491,7 @@ t=setTimeout(close,1800);
 </script>
 
 <script>
-const LAW_TYPE_CLASS = { '법률': 'law', '시행령': 'decree', '시행규칙': 'rule' };
+const LAW_TYPE_CLASS = { '법률': 'law', '시행령': 'decree', '시행규칙': 'rule', '하위법령': 'decree' };
 
 function todayStr() {
   // PR-H8-cleanup (Codex#9): KST 고정 — 해외 출장·다른 타임존 기기에서도 같은 날짜 카드 표시
@@ -569,16 +569,21 @@ function renderMainCard(card) {
   const lc = card.learning_content || {};
   const llmOk = isLlmOk(card.llm_status);
   const jo = li.매핑법률조문 || '?';
-  const rev = li.recent_revision;
-  const lawClass = rev ? (LAW_TYPE_CLASS[rev.법령유형] || 'law') : 'law';
+  // 2026-10-10 라벨 버그 수정: 좌측 출처 배지는 '카드가 다루는 법령의 유형'(법률 등).
+  // recent_revision.법령유형은 '최근 개정된 (하위)법령'이라 출처로 쓰면 법률 카드에
+  // '시행규칙'이 떠서 혼란 — 개정 정보는 is_recent_revision(180일 판정)일 때만 보조 배지로.
+  const sourceType = li.법령유형 || '법률';
+  const lawClass = LAW_TYPE_CLASS[sourceType] || 'law';
+  const rev = (li.is_recent_revision === true && li.recent_revision) ? li.recent_revision : null;
   const cat = (li.categories && li.categories[0]) || (card.selection_basis && card.selection_basis.category) || '';
   // Phase 3 S5 — 다른 그룹(교특법·tkga 등) 카드의 법령명을 헤더에 표시
   const lawName = li.법령명 || '도로교통법';
   const isOtherGroup = card.group && card.group !== 'road';
 
+  const srcBadge = '<span class="badge ' + (LAW_TYPE_CLASS[sourceType] || 'law') + '">' + esc(sourceType) + '</span>';
   const badge = rev
-    ? '<span class="badge ' + lawClass + '">' + esc(rev.법령유형) + ' · 최근 개정</span>'
-    : '<span class="badge current">현행 법령</span>';
+    ? srcBadge + '<span class="badge ' + (LAW_TYPE_CLASS[rev.법령유형] || 'law') + '" title="이 조문과 연결된 법령의 최근 개정">관련 ' + esc(rev.법령유형) + ' 최근 개정</span>'
+    : srcBadge + '<span class="badge current">현행 법령</span>';
   const groupBadge = isOtherGroup
     ? '<span class="badge cat" style="background:#7c3aed;color:#fff">' + esc(lawName) + '</span>'
     : '';
@@ -622,6 +627,24 @@ function renderMainCard(card) {
     + '<div class="jo-label">📖 ' + esc(lawName) + ' 제' + esc(jo) + '조</div>'
     + banner
     + '</article>';
+}
+
+// 2026-10-10 편성 v2 — 하위법령 카드: 위임 시행령·시행규칙 조문 섹션 (접힘식)
+function renderSubArticles(card) {
+  const subs = card.sub_articles;
+  if (!Array.isArray(subs) || !subs.length) return '';
+  const items = subs.map(function(s){
+    const cls = LAW_TYPE_CLASS[s.법령유형] || 'decree';
+    const role = s.role ? ' <span style="font-size:11px;color:#6b7280">— ' + esc(s.role) + '</span>' : '';
+    const body = esc(formatTextBlock(s.본문 || '')).replace(/\n/g, '<br>');
+    return '<details class="sub-law-item" style="margin:8px 0;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px">'
+      + '<summary style="cursor:pointer"><span class="badge ' + cls + '">' + esc(s.법령유형) + '</span> '
+      + '<b>제' + esc(s.조키) + '조 ' + esc(s.조문제목 || '') + '</b>' + role + '</summary>'
+      + '<div style="margin-top:8px;font-size:13.5px;line-height:1.7">' + body + '</div>'
+      + '</details>';
+  }).join('');
+  return '<section class="section"><h3>⚖️ 위임 하위법령 — 시행령·시행규칙</h3>'
+    + '<div class="section-body">' + items + '</div></section>';
 }
 
 function renderAnalysis(card) {
@@ -906,6 +929,7 @@ function renderCard(card) {
   return [
     renderMainCard(card),
     renderArticleText(card),
+    card.card_type === 'sub_laws' ? renderSubArticles(card) : '',
     isFull ? renderAnalysis(card) : '',
     (isFull || (isEnhanced && hasStudy)) ? renderStudy(lc) : '',
     isFull ? renderCases(card) : '',
@@ -1017,6 +1041,7 @@ let _navMode = 'day';      // 'day'=날짜 선택, 'month'=화살표로 월만 �
 const SUBJECTS = {
   road_article:        {ch:'도', name:'도로교통법',          lg:'도로교통법',         color:'#1d4ed8', bg:'#dbeafe'},
   road_case:           {ch:'판', name:'도로교통법 판례',      lg:'판례',              color:'#7c3aed', bg:'#ede9fe'},
+  road_sub:            {ch:'령', name:'시행령·시행규칙',      lg:'하위법령',           color:'#047857', bg:'#d1fae5'},
   tlspc:               {ch:'교', name:'교통사고처리 특례법',  lg:'교통사고처리특례법', color:'#0e7490', bg:'#cffafe'},
   tkga:                {ch:'특', name:'특정범죄가중처벌법',   lg:'특정범죄가중처벌법', color:'#b91c1c', bg:'#fee2e2'},
   car_mgmt:            {ch:'자', name:'자동차관리법',          lg:'자동차관리법',       color:'#b45309', bg:'#fef3c7'},
@@ -1034,16 +1059,18 @@ function ymdToUtc(s){
   return Date.UTC(+p[0], +p[1] - 1, +p[2]);
 }
 // 요일 규칙으로 그 날의 주제키 예측. 주말은 null. (카드 있는 날은 _cardMeta 우선)
+// 2026-10-13부터 편성 v2: 화=하위법령, 목=교특법/특가법 격주, 금=판례. (과거 날짜는
+// 카드 메타가 우선이라 옛 편성 표시가 유지됨 — 예측은 미래·미생성 날짜에만 적용)
 function predictSubjectKey(dateStr){
   const wd = new Date(ymdToUtc(dateStr)).getUTCDay();   // 0=일 .. 6=토
   if (wd === 0 || wd === 6) return null;
-  if (wd === 2) return 'road_case';                      // 화 = 판례
-  if (wd === 4) return 'tlspc';                           // 목 = 교통사고처리 특례법
-  if (wd === 5) {                                         // 금 = 회전
+  if (wd === 2) return 'road_sub';                        // 화 = 시행령·시행규칙 묶음
+  if (wd === 4) {                                          // 목 = 교특법/특가법 격주
     const week = Math.floor((ymdToUtc(dateStr) - SUBJ_EPOCH_UTC) / 604800000);
-    return SUBJ_ROTATION[((week % 5) + 5) % 5];
+    return (((week % 2) + 2) % 2) === 1 ? 'tlspc' : 'tkga';
   }
-  return 'road_article';                                  // 월·수 = 도로교통법
+  if (wd === 5) return 'road_case';                        // 금 = 도교법 판례
+  return 'road_article';                                   // 월·수 = 도로교통법
 }
 // 달력 칸에 표시할 주제 — 카드 있으면 실제 메타, 없으면 요일 예측. {subj, predicted}
 // 메타 값이 SUBJECTS에 없으면(미래 새 그룹 등) 예측으로 폴백해 배지가 사라지지 않게.

@@ -7,7 +7,13 @@ on:
     # 2026-06-05: GitHub Actions 예약 cron이 매일 36~122분 늦게 발사돼 도착이 06:36~08:02 KST로 불안정.
     # 의도 시각을 앞당기고 혼잡한 정각(:00)을 피해(:35) 지연을 흡수 → 도착 ~05:11~06:37 KST.
     - cron: '35 19 * * 0-4'    # UTC 일~목 19:35 = KST 월~금 04:35 (지연 감안 ~06:00 전후 도착)
-  workflow_dispatch:           # 수동 트리거 (PR-H3 테스트용)
+  workflow_dispatch:           # 수동 트리거 (PR-H3 테스트용 + 과거 날짜 재생성)
+    inputs:
+      date:
+        description: '복구할 날짜 YYYY-MM-DD (실패·누락 카드만 재생성 — 성공 카드는 멱등 스킵. 알림 발송 안 함)'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write              # 카드 자료 commit·push 위해 필요
@@ -70,11 +76,16 @@ jobs:
         run: |
           # GitHub Actions runner는 UTC. KST = UTC + 9h.
           # 21:00 UTC 실행 시 KST 다음날 06:00 — 다음날을 "오늘" 날짜로
-          KST_TODAY=$(TZ='Asia/Seoul' date +%Y-%m-%d)
-          KST_DOW=$(TZ='Asia/Seoul' date +%u)   # 1=월 ~ 7=일
+          # 2026-10-10: workflow_dispatch date 입력 시 그 날짜로 재생성 (과거 실패 카드 복구용)
+          if [ -n "${{ inputs.date }}" ]; then
+            KST_TODAY="${{ inputs.date }}"
+          else
+            KST_TODAY=$(TZ='Asia/Seoul' date +%Y-%m-%d)
+          fi
+          KST_DOW=$(TZ='Asia/Seoul' date -d "$KST_TODAY" +%u)   # 1=월 ~ 7=일
           echo "today=$KST_TODAY" >> $GITHUB_OUTPUT
           echo "dow=$KST_DOW" >> $GITHUB_OUTPUT
-          echo "KST 오늘=$KST_TODAY (요일=$KST_DOW)"
+          echo "KST 기준일=$KST_TODAY (요일=$KST_DOW)"
 
       - name: 평일만 진행 (주말 스킵)
         if: steps.date.outputs.dow == '6' || steps.date.outputs.dow == '7'
@@ -105,6 +116,8 @@ jobs:
                   return None
               if card.get('card_type') == 'case':
                   return 'road_case'
+              if card.get('card_type') == 'sub_laws':
+                  return 'road_sub'
               g = card.get('group')
               if not g:
                   return None
@@ -165,7 +178,8 @@ jobs:
           echo "✅ deploy_pages workflow_dispatch 트리거 완료"
 
       - name: 푸시 알림 발송 (Phase 5 — 다중 사용자)
-        if: steps.date.outputs.dow != '6' && steps.date.outputs.dow != '7'
+        # 과거 날짜 재생성(inputs.date)은 알림 발송 안 함 — 당일 자동 실행만 발송
+        if: steps.date.outputs.dow != '6' && steps.date.outputs.dow != '7' && inputs.date == ''
         env:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
@@ -196,26 +210,44 @@ jobs:
           let body = '오늘의 카드가 준비됐어요.';
           let url = `/road-traffic-law-viewer/tutor/?date=${today}`;
 
+          // 2026-10-10 발행 게이트(사용자 결정): AI 해설 있는 카드가 없으면 알림을 보내지 않는다.
+          // 발행 보류된 날은 카드 파일 자체가 없음 — 다음 트리거 재시도에 맡김.
+          const PUBLISH_OK = ['ok', 'ok_re_paired', 'ok_partial'];
+          let daily, card;
           try {
-            const daily = JSON.parse(fs.readFileSync(cardPath, 'utf-8'));
-            const card = (daily.cards || [])[0];
-            if (card) {
-              const group = card.group || 'road';
-              const colorMap = {
-                road: '🟦', tlspc: '🟩', tkga: '🟪',
-                car_mgmt: '🟪', passenger_transport: '🟪', cargo_transport: '🟪', crim_proc: '🟪',
-              };
-              const color = colorMap[group] || '🟦';
-              const li = card.law_info || {};
-              const lawName = li['법령명'] || '도로교통법';
-              const jo = li['매핑법률조문'] || '?';
-              const joTitle = li['매핑법률조문제목'] || '';
-              const oneliner = ((card.learning_content || {}).oneliner || '').trim();
-              const onelinerShort = oneliner.length > 90 ? oneliner.slice(0, 90) + '…' : oneliner;
-              body = `${color} ${lawName} 제${jo}조 ${joTitle}` + (onelinerShort ? `\n${onelinerShort}` : '');
-            }
+            daily = JSON.parse(fs.readFileSync(cardPath, 'utf-8'));
+            card = (daily.cards || [])[0];
           } catch (e) {
-            console.error('카드 읽기 실패:', e.message);
+            console.log('오늘 카드 파일 없음/손상 — 알림 발송 안 함 (발행 게이트):', e.message);
+            process.exit(0);
+          }
+          if (!card || !PUBLISH_OK.includes(card.llm_status)) {
+            console.log(`AI 해설 미생성 카드(llm_status=${card && card.llm_status}) — 알림 발송 안 함`);
+            process.exit(0);
+          }
+          // 신선도 가드 — 이번 빌드가 발행 보류돼도 디스크의 '예전 성공본'으로 알림이
+          // 나가는 것 방지 (Codex 코드리뷰). generated_at은 runner(UTC) 로컬 시각이라
+          // Date.parse와 기준 일치. 6시간 이내 생성본만 발송 (전날 카드 재발송 차단,
+          // 당일 1차 실패 → 2차 재생성 복구 발송은 허용).
+          const genAt = Date.parse(daily.generated_at || '');
+          if (!genAt || (Date.now() - genAt) > 6 * 3600 * 1000) {
+            console.log(`카드 생성 시각이 오래됨(generated_at=${daily.generated_at}) — 이번 실행 생성본 아님, 알림 발송 안 함`);
+            process.exit(0);
+          }
+          {
+            const group = card.group || 'road';
+            const colorMap = {
+              road: '🟦', tlspc: '🟩', tkga: '🟪',
+              car_mgmt: '🟪', passenger_transport: '🟪', cargo_transport: '🟪', crim_proc: '🟪',
+            };
+            const color = colorMap[group] || '🟦';
+            const li = card.law_info || {};
+            const lawName = li['법령명'] || '도로교통법';
+            const jo = li['매핑법률조문'] || '?';
+            const joTitle = li['매핑법률조문제목'] || '';
+            const oneliner = ((card.learning_content || {}).oneliner || '').trim();
+            const onelinerShort = oneliner.length > 90 ? oneliner.slice(0, 90) + '…' : oneliner;
+            body = `${color} ${lawName} 제${jo}조 ${joTitle}` + (onelinerShort ? `\n${onelinerShort}` : '');
           }
 
           // fail-open 정책 유지(사용자 결정 2026-10-10: 누락 < 중복) — 단, 새 카드를
