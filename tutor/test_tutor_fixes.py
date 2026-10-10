@@ -169,6 +169,75 @@ def test_publish_gate_statuses():
     assert 'simple_other_group' not in btc.FINAL_CARD_STATUSES, "LLM 없는 카드는 확정 아님"
 
 
+def test_ref_laws_generator_success():
+    # 참고자료 생성기 — 실데이터 성공 경로 + 제외 조문(자관57·화물70) 비노출
+    import build_ref_laws as brl, json as _json
+    errors = brl.build()
+    assert errors == [], f"생성기 검증 오류: {errors}"
+    d = _json.loads((Path(__file__).parent / 'data' / 'ref_laws.json').read_text(encoding='utf-8'))
+    groups = {g['group']: g for g in d['groups']}
+    assert set(groups) == {'car_mgmt', 'passenger_transport', 'cargo_transport', 'crim_proc'}
+    cargo = {a['article']: a for a in groups['cargo_transport']['articles']}
+    car = {a['article']: a for a in groups['car_mgmt']['articles']}
+    assert '70' not in cargo, "제외한 화물 §70(과태료)은 목록에 없음"
+    assert '57' not in car, "제외한 자관법 §57(사업자 금지행위)은 목록에 없음"
+    for g in d['groups']:
+        for a in g['articles']:
+            assert a['situation'] in d['situations'], f"situation 태그 유효: {a}"
+            assert a['viewer_link'].startswith('../viewer_'), "뷰어 링크 형식"
+
+
+def test_ref_laws_generator_failures():
+    # 실패 경로 — 임시 fixture로 격리 (실제 ref_laws.json 비오염)
+    import build_ref_laws as brl, tempfile, json as _json, os
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / 'data').mkdir()
+        (root / 'tutor_data').mkdir()
+        art = {'조문제목': '결격사유', '조문내용': '제9조(결격사유) 다음 각 호…', '항': []}
+        tier = {'법률': {'조문': {'9': art}}}
+        for g in brl.REF_GROUPS:
+            (root / 'data' / f'three_tier_articles_{g}.json').write_text(
+                _json.dumps(tier, ensure_ascii=False), encoding='utf-8')
+            (root / f'viewer_{g}.html').write_text('x', encoding='utf-8')
+        ok_entry = [{'article': '9', 'title': '결격사유', 'topic': 't', 'situation': 'license'}]
+        wl_ok = {g: {'name': g, 'articles': list(ok_entry)} for g in brl.REF_GROUPS}
+        out = root / 'tutor_data' / 'ref_laws.json'
+
+        def run(wl):
+            wlp = root / 'wl.json'
+            wlp.write_text(_json.dumps(wl, ensure_ascii=False), encoding='utf-8')
+            return brl.build(root=root, whitelist_path=wlp, output_path=out,
+                             data_dir=root / 'tutor_data')
+
+        assert run(wl_ok) == [], "정상 fixture는 통과"
+        before = out.read_text(encoding='utf-8')
+
+        wl_bad = {**wl_ok, 'car_mgmt': {'name': 'x', 'articles': [
+            {'article': '9', 'title': '옛 제목', 'topic': 't', 'situation': 'license'}]}}
+        errs = run(wl_bad)
+        assert errs and '≠ 현행' in errs[0], "제목 불일치는 실패"
+        assert out.read_text(encoding='utf-8') == before, "실패 시 기존 파일 보존"
+
+        wl_missing = {k: v for k, v in wl_ok.items() if k != 'crim_proc'}
+        assert any('그룹 자체가 없음' in e for e in run(wl_missing)), "그룹 누락은 실패"
+        wl_empty = {**wl_ok, 'crim_proc': {'name': 'x', 'articles': []}}
+        assert any('비어 있음' in e for e in run(wl_empty)), "빈 목록은 실패"
+
+        # 제목 같고 본문만 개정된 과거 카드는 숨김 (치명 지적 재현)
+        (root / 'tutor_data' / 'daily_2027-01-05.json').write_text(_json.dumps({
+            'status': 'ok', 'cards': [{'group': 'car_mgmt', 'llm_status': 'ok',
+                'law_info': {'매핑법률조문': '9', '매핑법률조문제목': '결격사유',
+                             'article_text': '제9조(결격사유) 옛날 본문'}}]},
+            ensure_ascii=False), encoding='utf-8')
+        assert run(wl_ok) == []
+        d = _json.loads(out.read_text(encoding='utf-8'))
+        car9 = [a for g in d['groups'] if g['group'] == 'car_mgmt'
+                for a in g['articles'] if a['article'] == '9'][0]
+        assert car9['card_dates'] == [] and car9['card_status'] == 'stale', \
+            "본문 개정 카드는 숨김(stale) — 2027년 파일도 스캔됨"
+
+
 if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
     fns = [v for k, v in sorted(globals().items()) if k.startswith('test_')]

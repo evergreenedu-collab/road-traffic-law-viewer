@@ -43,41 +43,47 @@
     ]
   },
 
+  "_참고자료_주석": "2026-10-10 편성 v2 — 아래 4그룹은 매일 카드 슬롯에서 제외, '보조법령 참고자료'(tutor/reference.html)의 소스. 제목은 현행 조문과 일치해야 하며 build_ref_laws.py가 검증(불일치 시 생성 실패). situation: license(면허·자격)/duty(운전자 의무)/vehicle(차량 안전·관리)/procedure(사고 후 절차). Codex 설계 논의 2026-10-10: 13건 불일치 재구성(조문 이동 반영 — 화물 8·9 유지가 수강생에 더 적합, 57 제외, 34의2·12·23·66 추가).",
+
   "car_mgmt": {
     "name": "자동차관리법",
     "law_id": "001747",
     "has_subordinate": true,
     "study_mode": "whitelist",
     "articles": [
-      {"article": "26", "title": "자동차의 강제 처리", "topic": "방치차량"},
-      {"article": "34", "title": "튜닝의 승인", "topic": "튜닝"},
-      {"article": "35", "title": "튜닝 자동차의 안전 검사", "topic": "튜닝"},
-      {"article": "43", "title": "자동차의 검사", "topic": "정기검사"},
-      {"article": "57", "title": "자동차 정비업자의 의무", "topic": "정비"},
-      {"article": "80", "title": "벌칙", "topic": "처벌"}
+      {"article": "26", "title": "자동차의 강제 처리", "topic": "방치차량", "situation": "vehicle"},
+      {"article": "34", "title": "자동차의 튜닝", "topic": "튜닝 승인", "situation": "vehicle"},
+      {"article": "34의2", "title": "튜닝 자동차의 안전성 확보", "topic": "튜닝 안전", "situation": "vehicle"},
+      {"article": "35", "title": "자동차의 무단 해체ㆍ조작 금지 등", "topic": "불법 개조 금지", "situation": "vehicle"},
+      {"article": "43", "title": "자동차검사", "topic": "정기검사", "situation": "vehicle"},
+      {"article": "80", "title": "벌칙", "topic": "처벌", "situation": "vehicle"}
     ]
   },
 
   "passenger_transport": {
     "name": "여객자동차 운수사업법",
+    "law_id": "001749",
     "has_subordinate": true,
     "study_mode": "whitelist",
     "articles": [
-      {"article": "21", "title": "운송사업자의 준수사항", "topic": "사업자 의무"},
-      {"article": "24", "title": "운전업무 종사자격", "topic": "택시·버스 운전자격"},
-      {"article": "26", "title": "운수종사자의 준수사항", "topic": "종사자 의무"},
-      {"article": "87", "title": "사업의 정지·취소", "topic": "행정처분"}
+      {"article": "21", "title": "운송사업자의 준수 사항", "topic": "사업자 의무", "situation": "duty"},
+      {"article": "24", "title": "여객자동차운송사업의 운전업무 종사자격", "topic": "택시·버스 운전자격", "situation": "license"},
+      {"article": "26", "title": "운수종사자의 준수 사항", "topic": "종사자 의무", "situation": "duty"},
+      {"article": "87", "title": "운수종사자의 자격 취소 등", "topic": "자격 취소·정지", "situation": "license"}
     ]
   },
 
   "cargo_transport": {
     "name": "화물자동차 운수사업법",
+    "law_id": "001748",
     "has_subordinate": true,
     "study_mode": "whitelist",
     "articles": [
-      {"article": "8", "title": "운송사업자의 준수사항", "topic": "사업자 의무"},
-      {"article": "9", "title": "운수종사자의 준수사항", "topic": "종사자 의무"},
-      {"article": "70", "title": "벌칙", "topic": "처벌"}
+      {"article": "8", "title": "화물자동차 운수사업의 운전업무 종사자격 등", "topic": "화물 운전자격", "situation": "license"},
+      {"article": "9", "title": "결격사유", "topic": "자격 결격사유", "situation": "license"},
+      {"article": "12", "title": "운수종사자의 준수사항", "topic": "종사자 의무", "situation": "duty"},
+      {"article": "23", "title": "화물운송 종사자격의 취소 등", "topic": "자격 취소·정지", "situation": "license"},
+      {"article": "66", "title": "벌칙", "topic": "처벌", "situation": "duty"}
     ]
   },
 
@@ -87,17 +93,17 @@
     "has_subordinate": false,
     "study_mode": "whitelist",
     "articles": [
-      {"article": "199", "title": "수사와 필요한 조사", "topic": "수사 일반"},
-      {"article": "200", "title": "피의자의 출석요구", "topic": "임의수사"},
-      {"article": "200의2", "title": "영장에 의한 체포", "topic": "체포"},
-      {"article": "200의3", "title": "긴급체포", "topic": "긴급체포 (음주 현장)"},
-      {"article": "200의4", "title": "긴급체포와 영장청구기간", "topic": "긴급체포"},
-      {"article": "212", "title": "현행범인의 체포", "topic": "현행범 (음주 단속)"},
-      {"article": "214의2", "title": "체포·구속의 적부심사", "topic": "구속적부심"},
-      {"article": "244의3", "title": "진술거부권 등의 고지", "topic": "피의자 권리"},
-      {"article": "246", "title": "국가소추주의", "topic": "검사의 공소권"},
-      {"article": "247", "title": "기소편의주의", "topic": "기소 재량"},
-      {"article": "258", "title": "고소인 등에 대한 처분고지", "topic": "처분 통지"}
+      {"article": "199", "title": "수사와 필요한 조사", "topic": "수사 일반", "situation": "procedure"},
+      {"article": "200", "title": "피의자의 출석요구", "topic": "임의수사", "situation": "procedure"},
+      {"article": "200의2", "title": "영장에 의한 체포", "topic": "체포", "situation": "procedure"},
+      {"article": "200의3", "title": "긴급체포", "topic": "긴급체포 (음주 현장)", "situation": "procedure"},
+      {"article": "200의4", "title": "긴급체포와 영장청구기간", "topic": "긴급체포", "situation": "procedure"},
+      {"article": "212", "title": "현행범인의 체포", "topic": "현행범 (음주 단속)", "situation": "procedure"},
+      {"article": "214의2", "title": "체포와 구속의 적부심사", "topic": "구속적부심", "situation": "procedure"},
+      {"article": "244의3", "title": "진술거부권 등의 고지", "topic": "피의자 권리", "situation": "procedure"},
+      {"article": "246", "title": "국가소추주의", "topic": "검사의 공소권", "situation": "procedure"},
+      {"article": "247", "title": "기소편의주의", "topic": "기소 재량", "situation": "procedure"},
+      {"article": "258", "title": "고소인등에의 처분고지", "topic": "처분 통지", "situation": "procedure"}
     ]
   },
 
