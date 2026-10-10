@@ -189,6 +189,14 @@ def fetch_version_articles(mst):
     return info
 
 
+def _atomic_json_dump(path, obj, **kw):
+    """임시 파일에 쓴 뒤 os.replace — 쓰는 도중 중단돼도 기존 파일이 깨지지 않게."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False, **kw)
+    os.replace(tmp, path)
+
+
 def collect_all(suffix: str = ""):
     """현재 LAW_GROUP의 전체 과거 버전에서 조문별 변경 이력을 수집합니다.
 
@@ -204,14 +212,25 @@ def collect_all(suffix: str = ""):
     print("  대상: 도로교통법 / 시행령 / 시행규칙 전체 연혁")
     print("=" * 55)
 
-    # 체크포인트 확인
+    # 체크포인트 확인 — 손상 시 격리 후 처음부터 재수집 (2026-07-27 손상 체크포인트가 3개월 갱신을 막은 사고 재발 방지)
     result = None
     if os.path.exists(checkpoint_path):
-        with open(checkpoint_path, "r", encoding="utf-8") as f:
-            result = json.load(f)
-        done = sum(len(v.get("버전", [])) for v in result.get("법령", {}).values())
-        print(f"\n🔄 체크포인트 발견! (기존 {done}건)")
-    else:
+        try:
+            with open(checkpoint_path, "r", encoding="utf-8") as f:
+                result = json.load(f)
+            if not isinstance(result, dict) or not isinstance(result.get("법령"), dict):
+                raise ValueError("체크포인트 최상위 구조 이상 (dict/법령 누락)")
+            for _lk, _lv in result["법령"].items():
+                if not isinstance(_lv, dict) or not isinstance(_lv.get("버전", []), list):
+                    raise ValueError(f"체크포인트 '{_lk}' 내부 구조 이상 (JSON은 유효하나 손상)")
+            done = sum(len(v.get("버전", [])) for v in result["법령"].values())
+            print(f"\n🔄 체크포인트 발견! (기존 {done}건)")
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError, ValueError) as e:
+            quarantine = f"{checkpoint_path}.corrupt.{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            os.replace(checkpoint_path, quarantine)
+            print(f"\n⚠️ 체크포인트 손상 — {os.path.basename(quarantine)}로 격리, 처음부터 재수집 ({e})")
+            result = None
+    if result is None:
         # 현재 그룹 첫 법령(법률) 기준 설명 문구 — multi-group 호환
         _base_name = (LAW_GROUP[0]["법령명"] if LAW_GROUP else "법령")
         _types_label = " · ".join(li["유형"] for li in LAW_GROUP) or "법령"
@@ -292,22 +311,19 @@ def collect_all(suffix: str = ""):
             if (i + 1) % SAVE_INTERVAL == 0:
                 result["법령"][law_type] = law_data
                 os.makedirs(DATA_DIR, exist_ok=True)
-                with open(checkpoint_path, "w", encoding="utf-8") as f:
-                    json.dump(result, f, ensure_ascii=False)
+                _atomic_json_dump(checkpoint_path, result)
                 print(f"    💾 중간 저장 ({len(law_data['버전'])}/{len(history_list)})")
 
         law_data["수집완료"] = True
         result["법령"][law_type] = law_data
 
         # 법령 완료 시 저장
-        with open(checkpoint_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False)
+        _atomic_json_dump(checkpoint_path, result)
         print(f"\n  ✅ {law_name}: {len(law_data['버전'])}건 수집 완료")
 
     # 최종 저장
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
+    _atomic_json_dump(output_path, result, indent=2)
 
     size_mb = os.path.getsize(output_path) / (1024 * 1024)
     print(f"\n💾 저장: {output_path} ({size_mb:.1f}MB)")
