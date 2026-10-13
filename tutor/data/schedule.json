@@ -521,5 +521,10 @@
     ],
     "topic_id": "dui_measurement",
     "type": "sub_laws"
+  },
+  "2026-10-14": {
+    "article": "89",
+    "group": "road",
+    "type": "article"
   }
 }
