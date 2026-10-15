@@ -531,5 +531,22 @@
     "article": "3",
     "group": "tlspc",
     "type": "article"
+  },
+  "2026-10-16": {
+    "article": "43",
+    "fallback_from_case": {
+      "first_case": {
+        "case_no": "2004도2221",
+        "empty_count": 6,
+        "source": "court"
+      },
+      "reason": "retry_llm_failed",
+      "retry_case": {
+        "case_no": "2012고합360",
+        "empty_count": 6,
+        "source": "court"
+      }
+    },
+    "type": "article"
   }
 }
