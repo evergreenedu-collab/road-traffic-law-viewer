@@ -154,6 +154,9 @@ EMPTY_FIELD_FALLBACK_THRESHOLD = 3
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.8-flash').strip()
+# 2026-10-18: 3.8-flash가 새벽 시간대 429(한도)·503(혼잡)으로 전 재시도 실패하는 사례
+# (10/16 판례 카드) — 주 모델 소진 시 검증된 구 모델로 1회 폴백
+GEMINI_FALLBACK_MODEL = os.getenv('GEMINI_FALLBACK_MODEL', 'gemini-2.5-flash').strip()
 GEMINI_URL = ('https://generativelanguage.googleapis.com/v1beta/'
               'models/{model}:generateContent?key={key}')
 GEMINI_TIMEOUT = 60
@@ -1174,10 +1177,10 @@ def _is_recent_revision(version, art, target_date, days=RECENT_REVISION_DAYS):
 # ─── Gemini API ──────────────────────────────────────────────
 
 def call_gemini_api(prompt, temperature=0.2, timeout=GEMINI_TIMEOUT,
-                    max_retries=3, backoff=(20, 60, 120)):
+                    max_retries=3, backoff=(20, 60, 120), model=None):
     if not GEMINI_API_KEY:
         return None
-    url = GEMINI_URL.format(model=GEMINI_MODEL, key=GEMINI_API_KEY)
+    url = GEMINI_URL.format(model=model or GEMINI_MODEL, key=GEMINI_API_KEY)
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": temperature, "maxOutputTokens": 16384},
@@ -1206,6 +1209,13 @@ def call_gemini_api(prompt, temperature=0.2, timeout=GEMINI_TIMEOUT,
                 time.sleep(wait)
                 continue
             print(f"    ⚠️ Gemini 실패 (status={status})")
+            # 폴백은 일시 장애(429·5xx)와 모델명 소멸(404)에만 — 400/401/403은 폴백 무의미 (Codex)
+            if (model is None and GEMINI_FALLBACK_MODEL and GEMINI_FALLBACK_MODEL != GEMINI_MODEL
+                    and (status in (429, 404) or 500 <= status < 600)):
+                print(f"    🔁 폴백 모델({GEMINI_FALLBACK_MODEL})로 1회 재시도")
+                return call_gemini_api(prompt, temperature, timeout,
+                                       max_retries=1, backoff=(20,),
+                                       model=GEMINI_FALLBACK_MODEL)
             return None
         except requests.RequestException as e:
             # 타임아웃·연결오류 등 네트워크 예외도 재시도 (HTTP 429/5xx와 동일 취급)
@@ -1215,6 +1225,11 @@ def call_gemini_api(prompt, temperature=0.2, timeout=GEMINI_TIMEOUT,
                 time.sleep(wait)
                 continue
             print(f"    ⚠️ 네트워크 오류 (재시도 소진): {type(e).__name__}")
+            if model is None and GEMINI_FALLBACK_MODEL and GEMINI_FALLBACK_MODEL != GEMINI_MODEL:
+                print(f"    🔁 폴백 모델({GEMINI_FALLBACK_MODEL})로 1회 재시도")
+                return call_gemini_api(prompt, temperature, timeout,
+                                       max_retries=1, backoff=(20,),
+                                       model=GEMINI_FALLBACK_MODEL)
             return None
         except (KeyError, IndexError, ValueError) as e:
             print(f"    ⚠️ 응답 파싱 실패: {type(e).__name__}")
@@ -1327,8 +1342,15 @@ def _build_context(jo, jo_title, version, resources):
     return '\n\n'.join(parts)
 
 
-def generate_learning_content(jo, jo_title, version, resources):
+def generate_learning_content(jo, jo_title, version, resources, ban_themes=None):
     context = _build_context(jo, jo_title, version, resources)
+    # 2026-10-18: 키워드 누출로 기각된 뒤 1회 재생성할 때 — 금지 주제를 명시해 재발 차단
+    # (3.8-flash가 벌칙 조문 해설에 다른 조문 소관 처벌 사유를 끌어오는 사례: 10/12 제156조)
+    ban_block = ''
+    if ban_themes:
+        ban_block = ('\n0-2. ★★★ 재생성 지시 — 직전 생성이 다음 주제를 본문 범위 밖에서 언급해 '
+                     f'기각되었다: {", ".join(ban_themes)}. 이 주제들과 그 유의어를 카드의 어떤 '
+                     '필드에도 절대 쓰지 않는다. 이 조문 본문에 명시된 내용만으로 작성한다.\n')
     has_cases = bool(resources['admin_cases'] or resources['court_cases'])
     if has_cases:
         path = ('이 조문에는 직접 관련된 판례가 제공되었다. analysis_type을 "case"로 하고, '
@@ -1352,7 +1374,7 @@ def generate_learning_content(jo, jo_title, version, resources):
 0-1. ★★ 판례 미스매치 처리 — [관련 판례]에 들어온 판례가 옛 조문번호 인용 때문에 잘못
    매칭됐을 수 있다. 판례의 **핵심 쟁점**(죄명·처벌 사유)이 [조문 원문]에 등장하지 않는
    사유라면, 그 판례는 case_analysis·related_cases에서 **제외**한다. 분석하지 말고 빼라.
-   판례가 모두 부적합이면 case_analysis는 commentary 경로(해설집 기반)로 작성.
+   판례가 모두 부적합이면 case_analysis는 commentary 경로(해설집 기반)로 작성.{ban_block}
 1. 아래 원본 자료에 명시된 사실만 사용한다. 자료에 없는 수치·기간·해석·사례는 추가하지 않는다.
 2. 확실하지 않은 부분은 생략한다. 추측·일반론을 적느니 생략하는 것이 낫다.
 3. 법률 용어는 자료의 결정문·판결문·해설집 표현을 그대로 쓴다. 일상어로 의역하지 않는다.
@@ -1622,6 +1644,22 @@ def enrich_card(card, jo, jo_title, version, resources):
                    (resources.get('admin_cases') or []) + (resources.get('court_cases') or [])]
     leaked = detect_external_keywords(generated, resources.get('article_text') or '',
                                       extra_allowed_texts=_case_texts)
+    if leaked:
+        # 2026-10-18: 바로 기각하지 않고 금지 주제를 명시해 1회 재생성
+        # (3.8-flash가 벌칙 조문에 타 조문 처벌 사유를 끌어오던 10/12 제156조 사례)
+        print(f"    ⚠️ 외부 키워드 누출 감지: {leaked} — 금지 주제 명시 후 1회 재생성")
+        retry = generate_learning_content(jo, jo_title, version, resources, ban_themes=leaked)
+        retry_outcome = '재생성 호출 실패'
+        if retry and retry.get('status') == 'ok':
+            retry_outcome = '재생성 검증 실패'
+            if verify_content(retry, jo, resources) == 'PASS':
+                leaked2 = detect_external_keywords(retry, resources.get('article_text') or '',
+                                                   extra_allowed_texts=_case_texts)
+                retry_outcome = f'재생성 재누출: {leaked2}'
+                if not leaked2:
+                    generated = retry
+                    leaked = []
+                    print("    ✅ 재생성 통과 (누출 제거)")
     card['verification'] = {
         'external_keywords_leaked': leaked,
         'status': 'clean' if not leaked else 'external_keywords_detected',
@@ -1629,9 +1667,9 @@ def enrich_card(card, jo, jo_title, version, resources):
     if leaked:
         # 자동 폴백 — LLM 콘텐츠 미적용, llm_draft에 원본 보존(디버깅용)
         card['llm_status'] = 'skip_external_keywords_leaked'
-        card['llm_note'] = f'leaked: {leaked}'
+        card['llm_note'] = f'leaked: {leaked} ({retry_outcome})'   # 재시도 실패 사유 보존 (Codex 상호검증)
         card['llm_draft'] = generated
-        print(f"    ⚠️ 외부 키워드 누출 감지: {leaked} → article 폴백 (LLM 콘텐츠 미적용)")
+        print(f"    ⚠️ 기각 — 최초 누출 {leaked}, {retry_outcome} → article 폴백 (LLM 콘텐츠 미적용)")
         return
     rc = generated.get('related_cases', [])
     # R12-D: case_analysis가 언급한 사건번호가 related_cases에 빠졌으면 보강 —
