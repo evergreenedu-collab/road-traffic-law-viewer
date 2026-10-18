@@ -548,5 +548,10 @@
       }
     },
     "type": "article"
+  },
+  "2026-10-19": {
+    "article": "42",
+    "group": "road",
+    "type": "article"
   }
 }
