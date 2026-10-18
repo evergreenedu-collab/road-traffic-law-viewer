@@ -540,7 +540,7 @@
         "empty_count": 6,
         "source": "court"
       },
-      "reason": "retry_llm_failed",
+      "reason": "retry_also_empty",
       "retry_case": {
         "case_no": "2012고합360",
         "empty_count": 6,
