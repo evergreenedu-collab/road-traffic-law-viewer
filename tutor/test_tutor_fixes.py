@@ -238,6 +238,43 @@ def test_ref_laws_generator_failures():
             "본문 개정 카드는 숨김(stale) — 2027년 파일도 스캔됨"
 
 
+def test_gemini_fallback():
+    # 모델 폴백 분기 (2026-10-18 Codex 상호검증 권장): 429→폴백 / 400→폴백 안 함 / 재귀 1회
+    from unittest import mock
+    import requests as rq
+
+    calls = []
+
+    def fake_post(url, json=None, timeout=None):
+        calls.append(url)
+        resp = mock.Mock()
+        if 'gemini-2.5-flash' in url:   # 폴백 모델은 성공
+            resp.raise_for_status = lambda: None
+            resp.json = lambda: {'candidates': [{'content': {'parts': [{'text': 'OK'}]},
+                                                 'finishReason': 'STOP'}]}
+            return resp
+        err = rq.HTTPError(response=mock.Mock(status_code=fake_post.status))
+        resp.raise_for_status = mock.Mock(side_effect=err)
+        return resp
+
+    with mock.patch.object(btc, 'GEMINI_API_KEY', 'test'), \
+         mock.patch.object(btc, 'GEMINI_MODEL', 'gemini-3.8-flash'), \
+         mock.patch.object(btc, 'GEMINI_FALLBACK_MODEL', 'gemini-2.5-flash'), \
+         mock.patch.object(btc.time, 'sleep', lambda s: None), \
+         mock.patch.object(btc.requests, 'post', fake_post):
+        fake_post.status = 429
+        calls.clear()
+        out = btc.call_gemini_api('p', max_retries=1)
+        assert out == 'OK', "429 소진 후 폴백 모델이 응답해야"
+        assert any('gemini-2.5-flash' in u for u in calls), "폴백 모델 호출됨"
+
+        fake_post.status = 400
+        calls.clear()
+        out = btc.call_gemini_api('p', max_retries=0)
+        assert out is None, "400은 폴백 없이 종료"
+        assert not any('gemini-2.5-flash' in u for u in calls), "400엔 폴백 호출 금지"
+
+
 if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
     fns = [v for k, v in sorted(globals().items()) if k.startswith('test_')]

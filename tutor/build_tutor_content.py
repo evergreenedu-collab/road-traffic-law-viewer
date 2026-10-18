@@ -1649,14 +1649,17 @@ def enrich_card(card, jo, jo_title, version, resources):
         # (3.8-flash가 벌칙 조문에 타 조문 처벌 사유를 끌어오던 10/12 제156조 사례)
         print(f"    ⚠️ 외부 키워드 누출 감지: {leaked} — 금지 주제 명시 후 1회 재생성")
         retry = generate_learning_content(jo, jo_title, version, resources, ban_themes=leaked)
-        if (retry and retry.get('status') == 'ok'
-                and verify_content(retry, jo, resources) == 'PASS'):
-            leaked2 = detect_external_keywords(retry, resources.get('article_text') or '',
-                                               extra_allowed_texts=_case_texts)
-            if not leaked2:
-                generated = retry
-                leaked = []
-                print("    ✅ 재생성 통과 (누출 제거)")
+        retry_outcome = '재생성 호출 실패'
+        if retry and retry.get('status') == 'ok':
+            retry_outcome = '재생성 검증 실패'
+            if verify_content(retry, jo, resources) == 'PASS':
+                leaked2 = detect_external_keywords(retry, resources.get('article_text') or '',
+                                                   extra_allowed_texts=_case_texts)
+                retry_outcome = f'재생성 재누출: {leaked2}'
+                if not leaked2:
+                    generated = retry
+                    leaked = []
+                    print("    ✅ 재생성 통과 (누출 제거)")
     card['verification'] = {
         'external_keywords_leaked': leaked,
         'status': 'clean' if not leaked else 'external_keywords_detected',
@@ -1664,9 +1667,9 @@ def enrich_card(card, jo, jo_title, version, resources):
     if leaked:
         # 자동 폴백 — LLM 콘텐츠 미적용, llm_draft에 원본 보존(디버깅용)
         card['llm_status'] = 'skip_external_keywords_leaked'
-        card['llm_note'] = f'leaked: {leaked}'
+        card['llm_note'] = f'leaked: {leaked} ({retry_outcome})'   # 재시도 실패 사유 보존 (Codex 상호검증)
         card['llm_draft'] = generated
-        print(f"    ⚠️ 재생성도 누출: {leaked} → article 폴백 (LLM 콘텐츠 미적용)")
+        print(f"    ⚠️ 기각 — 최초 누출 {leaked}, {retry_outcome} → article 폴백 (LLM 콘텐츠 미적용)")
         return
     rc = generated.get('related_cases', [])
     # R12-D: case_analysis가 언급한 사건번호가 related_cases에 빠졌으면 보강 —
