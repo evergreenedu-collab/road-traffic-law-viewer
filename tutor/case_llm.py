@@ -25,6 +25,8 @@ import requests
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.8-flash').strip()
+# 2026-10-18: 주 모델 429·503 전 재시도 실패 시 검증된 구 모델로 1회 폴백 (build_tutor_content와 동일)
+GEMINI_FALLBACK_MODEL = os.getenv('GEMINI_FALLBACK_MODEL', 'gemini-2.5-flash').strip()
 GEMINI_URL = ('https://generativelanguage.googleapis.com/v1beta/'
               'models/{model}:generateContent?key={key}')
 GEMINI_TIMEOUT = 60
@@ -59,10 +61,10 @@ def count_empty_required_fields(lc):
 # ────────────────────────────────────────────────────────────────
 
 def call_gemini_api(prompt, temperature=0.2, timeout=GEMINI_TIMEOUT,
-                    max_retries=3, backoff=(20, 60, 120)):
+                    max_retries=3, backoff=(20, 60, 120), model=None):
     if not GEMINI_API_KEY:
         return None
-    url = GEMINI_URL.format(model=GEMINI_MODEL, key=GEMINI_API_KEY)
+    url = GEMINI_URL.format(model=model or GEMINI_MODEL, key=GEMINI_API_KEY)
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": temperature, "maxOutputTokens": 16384},
@@ -91,6 +93,13 @@ def call_gemini_api(prompt, temperature=0.2, timeout=GEMINI_TIMEOUT,
                 time.sleep(wait)
                 continue
             print(f"    ⚠️ Gemini 실패 (status={status})")
+            # 폴백은 일시 장애(429·5xx)와 모델명 소멸(404)에만 — 400/401/403은 폴백 무의미 (Codex)
+            if (model is None and GEMINI_FALLBACK_MODEL and GEMINI_FALLBACK_MODEL != GEMINI_MODEL
+                    and (status in (429, 404) or 500 <= status < 600)):
+                print(f"    🔁 폴백 모델({GEMINI_FALLBACK_MODEL})로 1회 재시도")
+                return call_gemini_api(prompt, temperature, timeout,
+                                       max_retries=1, backoff=(20,),
+                                       model=GEMINI_FALLBACK_MODEL)
             return None
         except requests.RequestException as e:
             # 타임아웃·연결오류 등 네트워크 예외도 재시도 (HTTP 429/5xx와 동일 취급)
@@ -100,6 +109,11 @@ def call_gemini_api(prompt, temperature=0.2, timeout=GEMINI_TIMEOUT,
                 time.sleep(wait)
                 continue
             print(f"    ⚠️ 네트워크 오류 (재시도 소진): {type(e).__name__}")
+            if model is None and GEMINI_FALLBACK_MODEL and GEMINI_FALLBACK_MODEL != GEMINI_MODEL:
+                print(f"    🔁 폴백 모델({GEMINI_FALLBACK_MODEL})로 1회 재시도")
+                return call_gemini_api(prompt, temperature, timeout,
+                                       max_retries=1, backoff=(20,),
+                                       model=GEMINI_FALLBACK_MODEL)
             return None
         except (KeyError, IndexError, ValueError) as e:
             print(f"    ⚠️ 응답 파싱 실패: {type(e).__name__}")
