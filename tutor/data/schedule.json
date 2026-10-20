@@ -577,5 +577,10 @@
     ],
     "topic_id": "license_revocation",
     "type": "sub_laws"
+  },
+  "2026-10-21": {
+    "article": "159",
+    "group": "road",
+    "type": "article"
   }
 }
