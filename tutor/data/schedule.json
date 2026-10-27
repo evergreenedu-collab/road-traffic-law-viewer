@@ -629,5 +629,10 @@
     ],
     "topic_id": "aptitude_renewal",
     "type": "sub_laws"
+  },
+  "2026-10-28": {
+    "article": "148의2",
+    "group": "road",
+    "type": "article"
   }
 }
