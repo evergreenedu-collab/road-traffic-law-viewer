@@ -639,5 +639,12 @@
     "article": "4",
     "group": "tlspc",
     "type": "article"
+  },
+  "2026-10-30": {
+    "article": "152",
+    "case_no": "2010고단2171",
+    "group": "road",
+    "source": "court",
+    "type": "case"
   }
 }
