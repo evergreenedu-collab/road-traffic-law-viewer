@@ -651,5 +651,17 @@
     "article": "85",
     "group": "road",
     "type": "article"
+  },
+  "2026-11-03": {
+    "article": "54",
+    "group": "road",
+    "subs": [
+      {
+        "법령유형": "시행령",
+        "조키": "32"
+      }
+    ],
+    "topic_id": "accident_measures",
+    "type": "sub_laws"
   }
 }
