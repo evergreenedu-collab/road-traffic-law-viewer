@@ -663,5 +663,10 @@
     ],
     "topic_id": "accident_measures",
     "type": "sub_laws"
+  },
+  "2026-11-04": {
+    "article": "83",
+    "group": "road",
+    "type": "article"
   }
 }
