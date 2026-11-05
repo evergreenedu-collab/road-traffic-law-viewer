@@ -673,5 +673,12 @@
     "article": "5의11",
     "group": "tkga",
     "type": "article"
+  },
+  "2026-11-06": {
+    "article": "54",
+    "case_no": "2013노2492",
+    "group": "road",
+    "source": "court",
+    "type": "case"
   }
 }
