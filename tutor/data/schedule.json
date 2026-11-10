@@ -709,5 +709,10 @@
     ],
     "topic_id": "school_bus",
     "type": "sub_laws"
+  },
+  "2026-11-11": {
+    "article": "36",
+    "group": "road",
+    "type": "article"
   }
 }
