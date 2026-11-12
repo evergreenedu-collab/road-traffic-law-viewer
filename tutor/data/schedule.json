@@ -719,5 +719,12 @@
     "article": "3",
     "group": "tlspc",
     "type": "article"
+  },
+  "2026-11-13": {
+    "article": "148",
+    "case_no": "2008도3078",
+    "group": "road",
+    "source": "court",
+    "type": "case"
   }
 }
