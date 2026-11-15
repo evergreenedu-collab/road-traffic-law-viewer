@@ -726,5 +726,10 @@
     "group": "road",
     "source": "court",
     "type": "case"
+  },
+  "2026-11-16": {
+    "article": "45",
+    "group": "road",
+    "type": "article"
   }
 }
