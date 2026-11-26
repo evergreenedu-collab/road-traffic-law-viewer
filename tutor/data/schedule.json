@@ -807,5 +807,12 @@
     "article": "4",
     "group": "tlspc",
     "type": "article"
+  },
+  "2026-11-27": {
+    "article": "148",
+    "case_no": "2013도15885",
+    "group": "road",
+    "source": "court",
+    "type": "case"
   }
 }
